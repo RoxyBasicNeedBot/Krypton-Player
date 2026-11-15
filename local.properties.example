@@ -1,0 +1,14 @@
+# Local configuration file template (ignored by git when named local.properties)
+# sdk.dir=C\:\\Users\\Username\\AppData\\Local\\Android\\Sdk
+
+ARCH_API_URL=https://your-worker.domain.workers.dev/
+ARCH_CLIENT_KEY=your_client_key_here
+TMDB_API_KEY=
+FANART_API_KEY=
+OPENSUBTITLES_API_KEY=
+BOT_TOKEN=
+API_ID=
+API_HASH=
+OWNER_CHAT_ID=
+KEYSTORE_PASSWORD=your_keystore_password_here
+KEY_PASSWORD=your_key_password_here

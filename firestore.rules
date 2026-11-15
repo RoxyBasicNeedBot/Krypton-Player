@@ -1,0 +1,38 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions: strictly block anonymous / guest users
+    function isAuthenticated() {
+      return request.auth != null && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // 1. Read: A user can ONLY read their own document
+      allow read: if isOwner(userId);
+
+      // 2. Create: User can create their initial profile document upon registration.
+      // Must NOT be able to set banned = true on creation.
+      allow create: if isOwner(userId)
+                    && (!('banned' in request.resource.data) || request.resource.data.banned == false);
+
+      // 3. Update: User can update their own profile, but CANNOT modify 'banned' or 'bannedReason'
+      // These fields can only be modified by the Admin SDK (e.g. your Python bot).
+      allow update: if isOwner(userId)
+                    && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['banned', 'bannedReason']);
+
+      // 4. Delete: Prevent client-side deletion
+      allow delete: if false;
+    }
+
+    // Default deny for all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
