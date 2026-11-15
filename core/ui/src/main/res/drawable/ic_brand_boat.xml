@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- boAt Iconic Sail Emblem -->
+    <!-- Main Sail -->
+    <path
+        android:fillColor="#F97316"
+        android:pathData="M12,3L4,16h8V3z" />
+    <!-- Secondary Offset Sail -->
+    <path
+        android:fillColor="#FB923C"
+        android:pathData="M13,6l7,10h-7V6z" />
+    <!-- Boat Hull Base -->
+    <path
+        android:fillColor="#F97316"
+        android:pathData="M3,18l2.5,3h13l2.5,-3H3z" />
+</vector>

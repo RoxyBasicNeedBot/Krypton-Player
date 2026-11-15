@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- JBL Bold Icon Block -->
+    <path
+        android:fillColor="#FF6700"
+        android:pathData="M3,6h18c0.55,0 1,0.45 1,1v10c0,0.55 -0.45,1 -1,1H3c-0.55,0 -1,-0.45 -1,-1V7c0,-0.55 0.45,-1 1,-1zm4,8h2V9H7v5zm4,0h3c1.1,0 2,-0.9 2,-2s-0.9,-2 -2,-2h-3v4zm6,0h2V9h-2v5z" />
+</vector>

@@ -1,0 +1,6 @@
+/build
+/release
+*.keystore
+*.jks
+google-services.json
+google-oauth-client.json

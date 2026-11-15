@@ -1,0 +1,73 @@
+name: Build Native TDLib
+
+on:
+  workflow_dispatch:
+    inputs:
+      tdlib_ref:
+        description: 'TDLib Git Tag or Branch (e.g., master, v1.8.0)'
+        required: false
+        default: 'master'
+
+jobs:
+  build-tdlib:
+    name: Build Official libtdjni.so (arm64-v8a)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Install Linux Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make git zlib1g-dev libssl-dev gperf cmake ninja-build clang php-cli
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+
+      - name: Clone Official TDLib Source
+        run: |
+          git clone --depth 1 https://github.com/tdlib/td.git td-source
+          cd td-source
+          echo "Cloned official TDLib commit: $(git rev-parse HEAD)"
+
+      - name: Build OpenSSL for Android (arm64-v8a)
+        run: |
+          cd td-source/example/android
+          chmod +x *.sh
+          ./build-openssl.sh "$ANDROID_HOME" "$(basename $ANDROID_NDK_HOME)" "third-party/openssl" "arm64-v8a"
+
+      - name: Build TDLib Native JNI (arm64-v8a)
+        run: |
+          cd td-source/example/android
+          ./build-tdlib.sh "$ANDROID_HOME" "$(basename $ANDROID_NDK_HOME)" "third-party/openssl" "c++_static" "Java"
+
+      - name: Copy libtdjni.so to core/data/src/main/jniLibs
+        run: |
+          mkdir -p core/data/src/main/jniLibs/arm64-v8a
+          find td-source -name "libtdjni.so" -exec cp {} core/data/src/main/jniLibs/arm64-v8a/ \;
+          ls -lh core/data/src/main/jniLibs/arm64-v8a/
+
+      - name: Strip Debug Symbols
+        run: |
+          STRIP_TOOL=$(find "$ANDROID_NDK_HOME" -name "llvm-strip" | head -n 1)
+          if [ -n "$STRIP_TOOL" ]; then
+            echo "Stripping with $STRIP_TOOL"
+            "$STRIP_TOOL" --strip-unneeded core/data/src/main/jniLibs/arm64-v8a/libtdjni.so
+          fi
+          ls -lh core/data/src/main/jniLibs/arm64-v8a/libtdjni.so
+
+      - name: Commit libtdjni.so to Repository
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "ci: build and bundle official libtdjni.so (arm64-v8a)"
+          file_pattern: "core/data/src/main/jniLibs/**"

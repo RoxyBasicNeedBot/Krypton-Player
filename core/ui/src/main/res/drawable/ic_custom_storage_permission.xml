@@ -1,0 +1,83 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+
+  <!-- Ambient Outer Energy Glow Ring -->
+  <path
+      android:fillColor="#00000000"
+      android:strokeColor="#2563EB"
+      android:strokeWidth="1.5"
+      android:strokeAlpha="0.25"
+      android:pathData="M 48,6 A 42,42 0 1,0 48,90 A 42,42 0 1,0 48,6 Z"/>
+
+  <!-- Orbital Cyber Ticks / Calibration Accents -->
+  <path
+      android:fillColor="#00000000"
+      android:strokeColor="#38BDF8"
+      android:strokeWidth="2.5"
+      android:strokeLineCap="round"
+      android:pathData="M 48,2 L 48,7 M 48,89 L 48,94 M 2,48 L 7,48 M 89,48 L 94,48"/>
+
+  <!-- 3D Isometric Cyber Vault - Lower Base / Extrusion Shadow -->
+  <path
+      android:fillColor="#1E293B"
+      android:pathData="M 18,52 L 18,62 C 18,74 31,82 48,82 C 65,82 78,74 78,62 L 78,52 C 78,64 65,72 48,72 C 31,72 18,64 18,52 Z"/>
+
+  <!-- 3D Isometric Cyber Vault - Front Chamfer Lip -->
+  <path
+      android:fillColor="#2563EB"
+      android:pathData="M 18,50 L 18,55 C 18,67 31,75 48,75 C 65,75 78,67 78,55 L 78,50 C 78,62 65,70 48,70 C 31,70 18,62 18,50 Z"/>
+
+  <!-- Disc Main Deck (Top Face Ellipse) -->
+  <path
+      android:fillColor="#1D4ED8"
+      android:pathData="M 48,24 C 65,24 78,34 78,46 C 78,58 65,68 48,68 C 31,68 18,58 18,46 C 18,34 31,24 48,24 Z"/>
+
+  <!-- Inner Data Track 1 (Concentric Optical Groove) -->
+  <path
+      android:fillColor="#00000000"
+      android:strokeColor="#60A5FA"
+      android:strokeWidth="1.5"
+      android:strokeAlpha="0.6"
+      android:pathData="M 48,30 C 60,30 70,37 70,46 C 70,55 60,62 48,62 C 36,62 26,55 26,46 C 26,37 36,30 48,30 Z"/>
+
+  <!-- Inner Data Track 2 (Laser Shimmer) -->
+  <path
+      android:fillColor="#00000000"
+      android:strokeColor="#93C5FD"
+      android:strokeWidth="1.2"
+      android:strokeAlpha="0.4"
+      android:strokeLineCap="round"
+      android:pathData="M 32,46 C 32,40 39,35 48,35 C 57,35 64,40 64,46"/>
+
+  <!-- Central Holographic Core (Hyper Violet Jewel) -->
+  <path
+      android:fillColor="#7C3AED"
+      android:pathData="M 48,34 C 55,34 60,39 60,46 C 60,53 55,58 48,58 C 41,58 36,53 36,46 C 36,39 41,34 48,34 Z"/>
+
+  <!-- Core Inner Bevel -->
+  <path
+      android:fillColor="#8B5CF6"
+      android:pathData="M 48,36 C 53,36 57,40 57,46 C 57,51 53,55 48,55 C 43,55 39,51 39,46 C 39,40 43,36 48,36 Z"/>
+
+  <!-- Sleek Media Play Symbol with Specular Sharpness -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:pathData="M 45,40.5 L 54,46 L 45,51.5 Z"/>
+
+  <!-- Top Glass Highlight Reflection (Curved Sheen) -->
+  <path
+      android:fillColor="#FFFFFF"
+      android:fillAlpha="0.22"
+      android:pathData="M 28,38 C 34,31 44,28 54,28 C 64,28 72,32 75,37 C 69,32 59,29 48,29 C 39,29 32,32 28,38 Z"/>
+
+  <!-- Cyber Holographic Data Sparks / Satellite Particles -->
+  <path
+      android:fillColor="#38BDF8"
+      android:pathData="M 22,22 L 24,18 L 26,22 L 30,24 L 26,26 L 24,30 L 22,26 L 18,24 Z"/>
+  <path
+      android:fillColor="#A855F7"
+      android:pathData="M 72,68 L 73.5,65 L 75,68 L 78,69.5 L 75,71 L 73.5,74 L 72,71 L 69,69.5 Z"/>
+</vector>
