@@ -12,7 +12,7 @@
 -renamesourcefileattribute SourceFile
 
 ## Preserve class names and method names in app packages for readable crash traces
--keepnames class dev.anilbeesetti.nextplayer.** { *; }
+-keepnames class dev.roxy.kryptonplayer.** { *; }
 
 ## TDLib JNI Bindings Protection (Strictly Preserve native MTProto methods and classes)
 -keep class org.drinkless.tdlib.** { *; }
@@ -60,33 +60,33 @@
 }
 
 # Preserve all Retrofit API service interfaces, classes, models and DTOs
--keep interface dev.anilbeesetti.nextplayer.core.data.network.** { *; }
--keep class dev.anilbeesetti.nextplayer.core.data.network.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.core.data.network.** { *; }
--keep class dev.anilbeesetti.nextplayer.core.data.network.models.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.core.data.network.models.** { *; }
+-keep interface dev.roxy.kryptonplayer.core.data.network.** { *; }
+-keep class dev.roxy.kryptonplayer.core.data.network.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.core.data.network.** { *; }
+-keep class dev.roxy.kryptonplayer.core.data.network.models.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.core.data.network.models.** { *; }
 
 # Preserve all TDLib data layer classes
--keep class dev.anilbeesetti.nextplayer.core.data.tdlib.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.core.data.tdlib.** { *; }
+-keep class dev.roxy.kryptonplayer.core.data.tdlib.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.core.data.tdlib.** { *; }
 
 # Preserve all API, Media, Lyrics, Shazam and Database Models used in serialization and reflection
--keep class dev.anilbeesetti.nextplayer.core.data.lyrics.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.core.data.lyrics.** { *; }
--keep class dev.anilbeesetti.nextplayer.core.data.shazam.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.core.data.shazam.** { *; }
--keep class dev.anilbeesetti.nextplayer.core.model.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.core.model.** { *; }
+-keep class dev.roxy.kryptonplayer.core.data.lyrics.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.core.data.lyrics.** { *; }
+-keep class dev.roxy.kryptonplayer.core.data.shazam.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.core.data.shazam.** { *; }
+-keep class dev.roxy.kryptonplayer.core.model.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.core.model.** { *; }
 
 # Preserve Telegram repository, models, and download manager
--keep class dev.anilbeesetti.nextplayer.core.data.repository.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.core.data.repository.** { *; }
--keep class dev.anilbeesetti.nextplayer.core.data.download.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.core.data.download.** { *; }
+-keep class dev.roxy.kryptonplayer.core.data.repository.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.core.data.repository.** { *; }
+-keep class dev.roxy.kryptonplayer.core.data.download.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.core.data.download.** { *; }
 
 # Telegram and VideoPicker ViewModels and Screens
--keep class dev.anilbeesetti.nextplayer.feature.videopicker.** { *; }
--keepclassmembers class dev.anilbeesetti.nextplayer.feature.videopicker.** { *; }
+-keep class dev.roxy.kryptonplayer.feature.videopicker.** { *; }
+-keepclassmembers class dev.roxy.kryptonplayer.feature.videopicker.** { *; }
 
 ## Gson Official Reflection Rules (Strictly Preserve field names for JSON mapping)
 -keep class com.google.gson.** { *; }
@@ -253,9 +253,9 @@
 -dontwarn com.google.android.libraries.identity.googleid.**
 
 ## GitHub Release Self-Update Models
--keep class dev.anilbeesetti.nextplayer.core.data.update.GitHubRelease { *; }
--keep class dev.anilbeesetti.nextplayer.core.data.update.GitHubAsset { *; }
--keep class dev.anilbeesetti.nextplayer.core.data.update.AppUpdateInfo { *; }
--keep class dev.anilbeesetti.nextplayer.core.data.update.ApkAsset { *; }
--keep class dev.anilbeesetti.nextplayer.core.data.update.UpdateState** { *; }
+-keep class dev.roxy.kryptonplayer.core.data.update.GitHubRelease { *; }
+-keep class dev.roxy.kryptonplayer.core.data.update.GitHubAsset { *; }
+-keep class dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo { *; }
+-keep class dev.roxy.kryptonplayer.core.data.update.ApkAsset { *; }
+-keep class dev.roxy.kryptonplayer.core.data.update.UpdateState** { *; }
 

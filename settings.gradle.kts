@@ -5,6 +5,9 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -14,7 +17,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "NextPlayer"
+rootProject.name = "KryptonPlayer"
 include(":app")
 include(":core:common")
 include(":core:data")
@@ -27,3 +30,4 @@ include(":core:ui")
 include(":feature:player")
 include(":feature:settings")
 include(":feature:videopicker")
+include(":wear")

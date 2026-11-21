@@ -13,15 +13,16 @@
             android:launchMode="singleTask"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
-            android:theme="@style/NextPlayer"
+            android:theme="@style/KryptonPlayer"
             android:windowSoftInputMode="adjustResize"
             tools:targetApi="o">
 
-            <!-- Deep Link: nextplayer://sync/join/{roomId} -->
+            <!-- Deep Link: kryptonplayer://sync/join/{roomId} -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="kryptonplayer" />
                 <data android:scheme="nextplayer" />
                 <data android:host="sync" />
                 <data android:pathPrefix="/join/" />
@@ -761,15 +762,16 @@
             android:name=".ReelsActivity"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|uiMode|keyboard|keyboardHidden|navigation"
             android:exported="false"
-            android:screenOrientation="portrait"
-            android:theme="@style/NextPlayer" />
+            android:theme="@style/KryptonPlayer" />
 
         <service
             android:name=".service.PlayerService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
+                <action android:name="androidx.media3.session.MediaLibraryService"/>
                 <action android:name="androidx.media3.session.MediaSessionService"/>
+                <action android:name="android.media.browse.MediaBrowserService"/>
             </intent-filter>
         </service>
     </application>

@@ -1,11 +1,11 @@
 [versions]
 android-compileSdk = "37"
-android-targetSdk = "36"
+android-targetSdk = "37"
 android-minSdk = "24"
 android-jvm = "17"
 aboutlibraries = "14.0.0"
 accompanist = "0.37.3"
-androidGradlePlugin = "9.1.0"
+androidGradlePlugin = "9.5.1"
 androidMaterial = "1.13.0"
 androidxActivity = "1.13.0"
 androidxAppCompat = "1.7.1"
@@ -48,6 +48,8 @@ googleServicesPlugin = "4.4.2"
 firebaseCrashlyticsPlugin = "3.0.3"
 credentials = "1.5.0"
 googleid = "1.1.1"
+androidxWearCompose = "1.4.1"
+playServicesWearable = "19.0.0"
 [libraries]
 materialkolor = { group = "com.materialkolor", name = "material-kolor", version.ref = "materialkolor" }
 aboutlibraries-core = { group = "com.mikepenz", name = "aboutlibraries-core", version.ref = "aboutlibraries" }
@@ -132,6 +134,9 @@ firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appc
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
 androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
+androidx-wear-compose-material3 = { group = "androidx.wear.compose", name = "compose-material3", version.ref = "androidxWearCompose" }
+androidx-wear-compose-foundation = { group = "androidx.wear.compose", name = "compose-foundation", version.ref = "androidxWearCompose" }
+play-services-wearable = { group = "com.google.android.gms", name = "play-services-wearable", version.ref = "playServicesWearable" }
 [plugins]
 aboutLibraries = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutlibraries" }
 androidApplication = { id = "com.android.application", version.ref = "androidGradlePlugin" }

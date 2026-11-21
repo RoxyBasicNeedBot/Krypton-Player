@@ -12,7 +12,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.anilbeesetti.nextplayer"
+    namespace = "dev.roxy.kryptonplayer"
 
     val localProperties = Properties()
     val localPropertiesFile = rootProject.file("local.properties")
@@ -44,6 +44,9 @@ android {
         "archplayer.local"
     }
 
+    val isBuildingBundle = gradle.startParameter.taskNames.any { it.lowercase().contains("bundle") }
+    val isReleaseBuild = gradle.startParameter.taskNames.any { it.lowercase().contains("release") }
+
     compileSdk = libs.versions.android.compileSdk.get().toInt()
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
@@ -60,6 +63,10 @@ android {
         ndk {
             abiFilters.add("armeabi-v7a")
             abiFilters.add("arm64-v8a")
+            if (!isReleaseBuild) {
+                abiFilters.add("x86")
+                abiFilters.add("x86_64")
+            }
         }
     }
 
@@ -89,7 +96,9 @@ android {
         }
         getByName("debug") {
             val relKey = file("${project.rootDir}/app/release.keystore")
-            if (relKey.exists()) {
+            val hasReleaseCreds = releaseKeyStorePass != "your_keystore_password_here" &&
+                releaseKeyPass != "your_key_password_here"
+            if (relKey.exists() && hasReleaseCreds) {
                 storeFile = relKey
                 storePassword = releaseKeyStorePass
                 keyAlias = "archplayer"
@@ -138,9 +147,7 @@ android {
     splits {
         abi {
             //noinspection WrongGradleMethod
-            val isBuildingBundle = gradle.startParameter.taskNames.any { it.lowercase().contains("bundle") }
-
-            isEnable = !isBuildingBundle
+            isEnable = !isBuildingBundle && isReleaseBuild
             reset()
             include("armeabi-v7a", "arm64-v8a")
             isUniversalApk = true
@@ -220,6 +227,7 @@ dependencies {
 
     implementation(libs.google.android.material)
     implementation(libs.play.services.auth)
+    implementation(libs.play.services.wearable)
     implementation(libs.androidx.core.splashscreen)
 
     // Firebase

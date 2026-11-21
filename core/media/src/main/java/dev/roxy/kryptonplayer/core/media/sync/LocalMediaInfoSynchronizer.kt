@@ -1,0 +1,156 @@
+package dev.roxy.kryptonplayer.core.media.sync
+
+import android.content.Context
+import android.net.Uri
+import android.util.Log
+import coil3.ImageLoader
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dev.roxy.kryptonplayer.core.common.Dispatcher
+import dev.roxy.kryptonplayer.core.common.NextDispatchers
+import dev.roxy.kryptonplayer.core.common.di.ApplicationScope
+import dev.roxy.kryptonplayer.core.database.dao.MediumDao
+import dev.roxy.kryptonplayer.core.database.entities.AudioStreamInfoEntity
+import dev.roxy.kryptonplayer.core.database.entities.SubtitleStreamInfoEntity
+import dev.roxy.kryptonplayer.core.database.entities.VideoStreamInfoEntity
+import io.github.anilbeesetti.nextlib.mediainfo.AudioStream
+import io.github.anilbeesetti.nextlib.mediainfo.MediaInfoBuilder
+import io.github.anilbeesetti.nextlib.mediainfo.SubtitleStream
+import io.github.anilbeesetti.nextlib.mediainfo.VideoStream
+import java.io.File
+import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+class LocalMediaInfoSynchronizer @Inject constructor(
+    private val mediumDao: MediumDao,
+    private val imageLoader: ImageLoader,
+    @ApplicationScope private val applicationScope: CoroutineScope,
+    @ApplicationContext private val context: Context,
+    @Dispatcher(NextDispatchers.Default) private val dispatcher: CoroutineDispatcher,
+) : MediaInfoSynchronizer {
+
+    private val activeSyncJobs = mutableMapOf<String, Job>()
+    private val mutex = Mutex()
+
+    override fun sync(uri: Uri) {
+        applicationScope.launch(dispatcher) {
+            val uriString = uri.toString()
+
+            mutex.withLock {
+                activeSyncJobs[uriString]
+            }?.join()
+
+            val job = applicationScope.launch(dispatcher) {
+                try {
+                    performSync(uri)
+                } finally {
+                    mutex.withLock {
+                        activeSyncJobs.remove(uriString)
+                    }
+                }
+            }
+
+            mutex.withLock {
+                activeSyncJobs[uriString] = job
+            }
+        }
+    }
+
+    override suspend fun clearThumbnailsCache() {
+        imageLoader.diskCache?.clear()
+        imageLoader.memoryCache?.clear()
+    }
+
+    private suspend fun performSync(uri: Uri) {
+        val medium = mediumDao.getWithInfo(uri.toString()) ?: return
+        if (medium.videoStreamInfo != null) return
+
+        val mediaInfo = runCatching {
+            MediaInfoBuilder().from(context = context, uri = uri).build() ?: throw NullPointerException()
+        }.onFailure { e ->
+            e.printStackTrace()
+            Log.d(TAG, "sync: MediaInfoBuilder exception", e)
+        }.getOrNull() ?: return
+        mediaInfo.release()
+
+        val videoStreamInfo = mediaInfo.videoStream?.toVideoStreamInfoEntity(medium.mediumEntity.uriString)
+        val audioStreamsInfo = mediaInfo.audioStreams.map {
+            it.toAudioStreamInfoEntity(medium.mediumEntity.uriString)
+        }
+        val subtitleStreamsInfo = mediaInfo.subtitleStreams.map {
+            it.toSubtitleStreamInfoEntity(medium.mediumEntity.uriString)
+        }
+
+        val resolvedDuration = if (medium.mediumEntity.duration <= 0L && mediaInfo.duration > 0L) {
+            mediaInfo.duration
+        } else {
+            medium.mediumEntity.duration
+        }
+
+        val resolvedSize = if (medium.mediumEntity.size <= 0L) {
+            try {
+                val f = File(medium.mediumEntity.path)
+                if (f.exists()) f.length() else medium.mediumEntity.size
+            } catch (e: Exception) {
+                medium.mediumEntity.size
+            }
+        } else {
+            medium.mediumEntity.size
+        }
+
+        mediumDao.upsert(
+            medium.mediumEntity.copy(
+                format = mediaInfo.format,
+                duration = resolvedDuration,
+                size = resolvedSize,
+            )
+        )
+        videoStreamInfo?.let { mediumDao.upsertVideoStreamInfo(it) }
+        audioStreamsInfo.onEach { mediumDao.upsertAudioStreamInfo(it) }
+        subtitleStreamsInfo.onEach { mediumDao.upsertSubtitleStreamInfo(it) }
+    }
+
+    companion object {
+        private const val TAG = "MediaInfoSynchronizer"
+    }
+}
+
+private fun VideoStream.toVideoStreamInfoEntity(mediumUri: String) = VideoStreamInfoEntity(
+    index = index,
+    title = title,
+    codecName = codecName,
+    language = language,
+    disposition = disposition,
+    bitRate = bitRate,
+    frameRate = frameRate,
+    frameWidth = frameWidth,
+    frameHeight = frameHeight,
+    mediumUri = mediumUri,
+)
+
+private fun AudioStream.toAudioStreamInfoEntity(mediumUri: String) = AudioStreamInfoEntity(
+    index = index,
+    title = title,
+    codecName = codecName,
+    language = language,
+    disposition = disposition,
+    bitRate = bitRate,
+    sampleFormat = sampleFormat,
+    sampleRate = sampleRate,
+    channels = channels,
+    channelLayout = channelLayout,
+    mediumUri = mediumUri,
+)
+
+private fun SubtitleStream.toSubtitleStreamInfoEntity(mediumUri: String) = SubtitleStreamInfoEntity(
+    index = index,
+    title = title,
+    codecName = codecName,
+    language = language,
+    disposition = disposition,
+    mediumUri = mediumUri,
+)

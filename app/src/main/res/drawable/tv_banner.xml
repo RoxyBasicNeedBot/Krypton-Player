@@ -1,0 +1,211 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Dark Cyber Canvas Base #0D1117 -->
+    <path
+        android:fillColor="#0D1117"
+        android:pathData="M0,0 L320,0 L320,180 L0,180 Z" />
+
+    <!-- Cyber Hex Tech Facets & Angled Polygons -->
+    <path
+        android:fillAlpha="0.45"
+        android:fillColor="#111722"
+        android:pathData="M0,0 L180,0 L130,180 L0,180 Z" />
+    <path
+        android:fillAlpha="0.30"
+        android:fillColor="#162032"
+        android:pathData="M180,0 L320,0 L320,110 L230,180 L130,180 Z" />
+    <path
+        android:fillAlpha="0.25"
+        android:fillColor="#1E2A42"
+        android:pathData="M230,0 L320,0 L320,70 Z" />
+
+    <!-- Futuristic Top & Bottom Neon Energy Laser Lines -->
+    <path
+        android:fillAlpha="0.85"
+        android:fillColor="#00E5FF"
+        android:pathData="M0,0 L320,0 L320,3 L0,3 Z" />
+    <path
+        android:fillAlpha="0.85"
+        android:fillColor="#7C4DFF"
+        android:pathData="M0,177 L320,177 L320,180 L0,180 Z" />
+
+    <!-- Subtle Tech Circuit Accent Lines -->
+    <path
+        android:pathData="M12,20 L12,12 L20,12"
+        android:strokeAlpha="0.65"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.5" />
+    <path
+        android:pathData="M308,160 L308,168 L300,168"
+        android:strokeAlpha="0.65"
+        android:strokeColor="#7C4DFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.5" />
+    <path
+        android:pathData="M20,168 L28,168"
+        android:strokeAlpha="0.4"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.5" />
+    <path
+        android:pathData="M300,12 L308,12"
+        android:strokeAlpha="0.4"
+        android:strokeColor="#7C4DFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.5" />
+
+    <!-- Ambient Halo Glow behind Emblem -->
+    <path
+        android:fillAlpha="0.14"
+        android:fillColor="#7C4DFF"
+        android:pathData="M68,44 A46,46 0 1,0 68,136 A46,46 0 1,0 68,44 Z" />
+    <path
+        android:fillAlpha="0.20"
+        android:fillColor="#00E5FF"
+        android:pathData="M68,54 A36,36 0 1,0 68,126 A36,36 0 1,0 68,54 Z" />
+
+    <!-- Cyber Shield Outer Hexagon -->
+    <path
+        android:fillColor="#121824"
+        android:pathData="M68,52 L99,70 L99,110 L68,128 L37,110 L37,70 Z"
+        android:strokeColor="#00E5FF"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.2" />
+
+    <!-- Shield Inner Hexagon Ring -->
+    <path
+        android:pathData="M68,57 L94,72 L94,107 L68,122 L42,107 L42,72 Z"
+        android:strokeAlpha="0.5"
+        android:strokeColor="#7C4DFF"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.2" />
+
+    <!-- Krypton Player Emblem Glyph Inside Shield -->
+    <group
+        android:scaleX="0.52"
+        android:scaleY="0.52"
+        android:translateX="42"
+        android:translateY="64">
+        <!-- Left Cyan Wing -->
+        <path
+            android:fillColor="#00E5FF"
+            android:pathData="M39.30,49.57 L35.22,47.71 L30.03,42.89 L28.54,42.27 L26.69,42.27 L24.83,43.26 L21.62,46.72 L18.65,48.70 L14.81,49.81 L9.00,50.19 L14.32,50.43 L18.15,51.42 L21.49,53.40 L25.70,57.36 L26.81,57.73 L28.67,57.73 L30.40,56.99 L35.34,52.16 L37.32,51.05 L39.18,50.56 Z" />
+        <!-- Center Play Polygon -->
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M38.56,29.53 L34.73,31.26 L32.25,35.59 L32.62,40.41 L35.71,44.74 L39.18,46.72 L39.55,39.80 L41.16,37.94 L43.63,37.57 L59.83,46.72 L61.69,48.95 L60.33,52.41 L43.38,62.18 L41.16,61.81 L39.43,59.71 L39.30,53.28 L35.34,55.50 L32.50,59.96 L32.50,65.15 L35.34,69.11 L40.04,70.47 L43.01,69.60 L66.02,55.87 L68.24,53.52 L69.23,49.44 L68.12,45.86 L65.27,43.26 L43.14,30.40 Z" />
+        <!-- Right Purple Neon Chevron -->
+        <path
+            android:fillColor="#7C4DFF"
+            android:pathData="M64.41,33.37 L61.44,34.60 L59.21,36.70 L67.01,41.16 L69.60,43.38 L71.58,47.22 L71.83,51.42 L70.47,55.13 L68.24,57.61 L59.09,63.17 L62.43,66.02 L66.76,66.63 L68.86,65.89 L70.72,64.29 L76.03,56.25 L79.37,52.91 L84.57,50.68 L91.00,50.19 L84.32,49.57 L80.49,47.96 L76.53,44.37 L69.97,34.85 L67.38,33.49 Z" />
+    </group>
+
+    <!-- Stylized Branding Typography: KRYPTON -->
+    <path
+        android:pathData="M126,64 L126,90 M140,64 L126,77 L140,90"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.2" />
+    <path
+        android:pathData="M148,90 L148,64 L158,64 C164,64 164,76 158,76 L148,76 M156,76 L164,90"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.2" />
+    <path
+        android:pathData="M170,64 L178,77 L178,90 M186,64 L178,77"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.2" />
+    <path
+        android:pathData="M193,90 L193,64 L203,64 C209,64 209,77 203,77 L193,77"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.2" />
+    <path
+        android:pathData="M213,64 L229,64 M221,64 L221,90"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.2" />
+    <path
+        android:pathData="M240,64 L248,64 C254,64 254,90 248,90 L240,90 C234,90 234,64 240,64 Z"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.2" />
+    <path
+        android:pathData="M259,90 L259,64 L274,90 L274,64"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="3.2" />
+
+    <!-- Subtitle Typography: PLAYER (Neon Cyan) -->
+    <path
+        android:pathData="M127,120 L127,105 L134,105 C138,105 138,112 134,112 L127,112"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.2" />
+    <path
+        android:pathData="M154,105 L154,120 L163,120"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.2" />
+    <path
+        android:pathData="M178,120 L184,105 L190,120 M180,115 L188,115"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.2" />
+    <path
+        android:pathData="M205,105 L210,112 L210,120 M215,105 L210,112"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.2" />
+    <path
+        android:pathData="M240,105 L231,105 L231,120 L240,120 M231,112.5 L238,112.5"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.2" />
+    <path
+        android:pathData="M256,120 L256,105 L263,105 C267,105 267,112 263,112 L256,112 M262,112 L267,120"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="2.2" />
+
+    <!-- Neon Accent Rule with Cyan Glow Bar -->
+    <path
+        android:pathData="M126,128 L274,128"
+        android:strokeAlpha="0.4"
+        android:strokeColor="#7C4DFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.5" />
+    <path
+        android:pathData="M126,128 L166,128"
+        android:strokeColor="#00E5FF"
+        android:strokeLineCap="round"
+        android:strokeWidth="2.0" />
+
+    <!-- Subtitle Spec Badge: 4K • HDR • CINEMA -->
+    <path
+        android:pathData="M126,138 L220,138"
+        android:strokeAlpha="0.5"
+        android:strokeColor="#828A9E"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.5" />
+
+</vector>

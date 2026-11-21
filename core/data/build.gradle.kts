@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "dev.anilbeesetti.nextplayer.core.data"
+    namespace = "dev.roxy.kryptonplayer.core.data"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     buildFeatures {

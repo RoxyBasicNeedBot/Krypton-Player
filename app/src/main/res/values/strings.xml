@@ -2,4 +2,61 @@
 <resources>
     <string name="default_web_client_id" translatable="false">YOUR_GOOGLE_WEB_CLIENT_ID_HERE.apps.googleusercontent.com</string>
     <string name="google_web_client_id" translatable="false">YOUR_GOOGLE_WEB_CLIENT_ID_HERE.apps.googleusercontent.com</string>
+
+    <!-- Krypton Onboarding -->
+    <string name="onb_welcome_to">Welcome to</string>
+    <string name="onb_brand_name">Krypton</string>
+    <string name="onb_lets_watch">Let\'s start watching!</string>
+    <string name="onb_tap_anywhere">Tap anywhere to continue</string>
+    <string name="onb_mascot_desc">Krypton Player anime mascot holding a cinema clapperboard</string>
+
+    <string name="onb_setup_title">Tailor your cinema</string>
+    <string name="onb_setup_subtitle">Disable anything you don\'t like. You can always change these later in Settings.</string>
+    <string name="onb_pref_gestures_title">Swipe Gestures &amp; 2x Hold</string>
+    <string name="onb_pref_gestures_desc">Adjust volume and brightness with swipes, and hold anywhere to play at 2x speed.</string>
+    <string name="onb_pref_lyrics_title">Synced Lyrics Glow</string>
+    <string name="onb_pref_lyrics_desc">Soft atmospheric blur behind live synced lyrics during media playback.</string>
+    <string name="onb_pref_pip_title">Auto Picture-in-Picture</string>
+    <string name="onb_pref_pip_desc">Keep watching in a floating mini window automatically when switching apps.</string>
+
+    <string name="onb_perm_title">Unlock your library</string>
+    <string name="onb_perm_subtitle">Grant permissions so Krypton can index your local videos and show playback controls.</string>
+    <string name="onb_perm_storage_title">Media &amp; Storage Access</string>
+    <string name="onb_perm_storage_desc">Discover and play local videos, folders, and subtitles stored on your device.</string>
+    <string name="onb_perm_notif_title">Playback Notifications</string>
+    <string name="onb_perm_notif_desc">Control playback from your lock screen and see background download progress.</string>
+    <string name="onb_perm_privacy_title">100% Local &amp; Private</string>
+    <string name="onb_perm_privacy_desc">Your videos and media folders stay strictly on your phone. Nothing is ever uploaded.</string>
+    <string name="onb_perm_required">Required</string>
+    <string name="onb_perm_optional">Optional</string>
+    <string name="onb_perm_granted">Granted</string>
+    <string name="onb_perm_open_settings">Open Settings</string>
+    <string name="onb_perm_allow_storage">Allow Storage Access</string>
+    <string name="onb_perm_skip">Skip for now</string>
+
+    <string name="onb_done_title">You\'re good to go</string>
+    <string name="onb_done_subtitle">Welcome to Krypton Player</string>
+    <string name="onb_done_enter">Enter Krypton Player</string>
+    <string name="onb_next">Next</string>
+    <string name="onb_back">Back</string>
+    <string name="onb_continue">Continue</string>
+
+    <string-array name="onb_welcome_words" translatable="false">
+        <item>WELCOME</item>
+        <item>स्वागत है</item>
+        <item>ようこそ</item>
+        <item>BIENVENIDO</item>
+        <item>환영합니다</item>
+        <item>BIENVENUE</item>
+        <item>WILLKOMMEN</item>
+        <item>KRYPTON</item>
+        <item>BENVENUTO</item>
+        <item>BEM-VINDO</item>
+        <item>ПРИВЕТ</item>
+        <item>CINEMA</item>
+        <item>欢迎光临</item>
+        <item>HOŞ GELDİNİZ</item>
+        <item>أهلاً بك</item>
+        <item>WITAMY</item>
+    </string-array>
 </resources>
