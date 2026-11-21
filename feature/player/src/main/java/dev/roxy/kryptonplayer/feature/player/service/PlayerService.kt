@@ -769,7 +769,10 @@ class PlayerService : MediaLibraryService() {
                 },
             )
 
-        val trackSelector = DefaultTrackSelector(applicationContext).apply {
+        val trackSelector = DefaultTrackSelector(
+            applicationContext,
+            BoundsSafeTrackSelectionFactory(),
+        ).apply {
             setParameters(
                 buildUponParameters()
                     .setPreferredAudioLanguage(playerPreferences.preferredAudioLanguage)

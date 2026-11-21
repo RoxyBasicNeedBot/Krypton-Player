@@ -1266,6 +1266,27 @@ class AppUpdateManager @Inject constructor(
                         currentVersionName = activeName,
                     )
                     val best = selectBestAsset(rel.assets)
+                    val parsedAssets = rel.assets.mapNotNull { asset ->
+                        val name = asset.name
+                        if (!name.endsWith(".apk", ignoreCase = true)) return@mapNotNull null
+                        val lowerName = name.lowercase()
+                        val abi = when {
+                            lowerName.contains("arm64-v8a") || lowerName.contains("arm64") || lowerName.contains("aarch64") -> "arm64-v8a"
+                            (lowerName.contains("armeabi-v7a") || lowerName.contains("armv7") || lowerName.contains("armeabi")) &&
+                                !lowerName.contains("arm64") && !lowerName.contains("aarch64") -> "armeabi-v7a"
+                            lowerName.contains("x86_64") -> "x86_64"
+                            lowerName.contains("x86") -> "x86"
+                            else -> "universal"
+                        }
+                        ApkAsset(
+                            name = name,
+                            downloadUrl = asset.browserDownloadUrl.ifBlank { asset.url ?: "" },
+                            size = asset.size,
+                            abi = abi,
+                            isRecommended = (best?.name == name),
+                            sha256Digest = asset.digest,
+                        )
+                    }.sortedWith(compareByDescending<ApkAsset> { it.isRecommended }.thenBy { it.abi })
                     val defaultApkName = if (ver.isNotBlank()) "Krypton-Player-v$ver.apk" else "Krypton-Player.apk"
                     list.add(
                         AppUpdateInfo(
@@ -1280,6 +1301,8 @@ class AppUpdateManager @Inject constructor(
                             releaseUrl = rel.htmlUrl ?: "https://github.com/$GITHUB_REPO/releases",
                             source = "GitHub ($GITHUB_REPO)",
                             tagName = rel.tagName,
+                            sha256Expected = best?.digest?.removePrefix("sha256:")?.trim(),
+                            apkAssets = parsedAssets,
                         )
                     )
                 }

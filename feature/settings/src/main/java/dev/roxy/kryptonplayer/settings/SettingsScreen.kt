@@ -97,12 +97,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.Brush
 import dev.roxy.kryptonplayer.core.data.update.UpdateState
 import dev.roxy.kryptonplayer.core.ui.R
-import dev.roxy.kryptonplayer.core.ui.components.AppUpdateDialog
+import dev.roxy.kryptonplayer.core.ui.components.AppUpdateSheet
 import dev.roxy.kryptonplayer.core.ui.components.CancelButton
 import dev.roxy.kryptonplayer.core.ui.components.DoneButton
 import dev.roxy.kryptonplayer.core.ui.components.EndOfPageFooter
 import dev.roxy.kryptonplayer.core.ui.components.NextDialog
-import dev.roxy.kryptonplayer.core.ui.components.UpdateDialog
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
 import dev.roxy.kryptonplayer.core.ui.components.MochyNavigationDock
 import androidx.compose.material.icons.Icons
@@ -155,7 +154,6 @@ fun SettingsScreen(
     val backdrop = rememberBackdrop()
 
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
-    val gitHubCommits by viewModel.gitHubCommits.collectAsStateWithLifecycle()
     var isUpdateBannerDismissed by remember { mutableStateOf(false) }
     var showUpdateDialog by remember { mutableStateOf(false) }
     var pendingUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
@@ -193,6 +191,11 @@ fun SettingsScreen(
                 pendingUpdateInfo = state.info
                 showUpdateDialog = true
             }
+            is UpdateState.Downloading -> {
+                if (state.info != null) {
+                    pendingUpdateInfo = state.info
+                }
+            }
             is UpdateState.ReadyToInstall -> {
                 if (state.info != null) {
                     pendingUpdateInfo = state.info
@@ -207,11 +210,16 @@ fun SettingsScreen(
                 ).show()
             }
             is UpdateState.Error -> {
-                android.widget.Toast.makeText(
-                    context,
-                    state.message,
-                    android.widget.Toast.LENGTH_SHORT,
-                ).show()
+                if (state.info != null) {
+                    pendingUpdateInfo = state.info
+                    showUpdateDialog = true
+                } else {
+                    android.widget.Toast.makeText(
+                        context,
+                        state.message,
+                        android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
             }
             else -> Unit
         }
@@ -246,35 +254,30 @@ fun SettingsScreen(
         )
     }
 
-    // Update Dialog display when triggered from banner or row
+    // Expressive Update Bottom Sheet when triggered from banner or check row
     if (showUpdateDialog && pendingUpdateInfo != null) {
         val info = pendingUpdateInfo!!
-        val isDownloading = updateState is UpdateState.Downloading
-        val downloadProgress = (updateState as? UpdateState.Downloading)?.progress ?: -1
-        val bytesDownloaded = (updateState as? UpdateState.Downloading)?.bytesDownloaded ?: 0L
-        val totalBytes = (updateState as? UpdateState.Downloading)?.totalBytes ?: info.fileSize
-        val isReady = updateState is UpdateState.ReadyToInstall
         val apkUri = (updateState as? UpdateState.ReadyToInstall)?.apkUri
 
-        AppUpdateDialog(
-            versionName = info.versionName,
-            changelog = info.changelog,
+        AppUpdateSheet(
+            info = info,
+            updateState = updateState,
             currentVersionName = appVersion,
-            fileSize = info.fileSize,
-            releaseDate = info.releaseDate,
-            downloadProgress = downloadProgress,
-            bytesDownloaded = bytesDownloaded,
-            totalBytes = totalBytes,
-            isReadyToInstall = isReady,
-            apkAssets = info.apkAssets,
-            commits = gitHubCommits,
-            isUpToDate = !info.isUpdateAvailable,
             onDownload = { viewModel.downloadAndInstall(info) },
             onDownloadAsset = { asset -> viewModel.downloadAndInstall(info, asset) },
             onInstall = { viewModel.installApk(apkUri) },
+            onCancelDownload = { viewModel.cancelDownload() },
+            onRemindLater = {
+                viewModel.snoozeUpdatePrompt()
+                showUpdateDialog = false
+            },
+            onSkipVersion = {
+                viewModel.skipVersion(info.tagName.ifBlank { info.versionName })
+                showUpdateDialog = false
+            },
             onDismiss = {
                 showUpdateDialog = false
-                if (!isDownloading) {
+                if (updateState is UpdateState.Error || updateState is UpdateState.UpToDate) {
                     viewModel.resetUpdateState()
                 }
             },

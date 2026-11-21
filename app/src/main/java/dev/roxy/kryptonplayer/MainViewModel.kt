@@ -131,8 +131,19 @@ class MainViewModel @Inject constructor(
 
     fun checkForUpdates(manual: Boolean = true) {
         viewModelScope.launch {
+            if (manual) {
+                appUpdateManager.clearUpdatePromptSnooze()
+            }
             appUpdateManager.checkForUpdates(manual = manual)
         }
+    }
+
+    fun snoozeUpdatePrompt() {
+        appUpdateManager.snoozeUpdatePrompt()
+    }
+
+    fun isUpdatePromptSnoozed(): Boolean {
+        return appUpdateManager.isUpdatePromptSnoozed()
     }
 
     fun skipVersion(tag: String) {

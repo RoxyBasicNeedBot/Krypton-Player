@@ -15,6 +15,8 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import dev.roxy.kryptonplayer.feature.player.service.BoundsSafeTrackSelectionFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.android.asCoroutineDispatcher
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -58,6 +60,7 @@ class Media3FrameExtractor(private val context: Context) {
                     .build()
 
                 player = ExoPlayer.Builder(context)
+                    .setTrackSelector(DefaultTrackSelector(context, BoundsSafeTrackSelectionFactory()))
                     .setLoadControl(loadControl)
                     .build().apply {
                         setVideoSurface(surface)
@@ -185,6 +188,7 @@ class Media3SessionExtractor(
                 .build()
 
             player = ExoPlayer.Builder(context)
+                .setTrackSelector(DefaultTrackSelector(context, BoundsSafeTrackSelectionFactory()))
                 .setLoadControl(loadControl)
                 .build().apply {
                     setVideoSurface(surface)

@@ -102,6 +102,8 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
+import dev.roxy.kryptonplayer.feature.player.service.BoundsSafeTrackSelectionFactory
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalFoundationApi::class, UnstableApi::class, ExperimentalMaterial3Api::class)
@@ -186,7 +188,10 @@ fun ReelsScreen(
 
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
 
+        val trackSelector = DefaultTrackSelector(context, BoundsSafeTrackSelectionFactory())
+
         ExoPlayer.Builder(context)
+            .setTrackSelector(trackSelector)
             .setMediaSourceFactory(mediaSourceFactory)
             .build().apply {
                 repeatMode = Player.REPEAT_MODE_ONE

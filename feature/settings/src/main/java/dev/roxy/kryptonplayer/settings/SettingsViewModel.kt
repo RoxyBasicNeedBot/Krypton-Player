@@ -26,6 +26,9 @@ class SettingsViewModel @Inject constructor(
 
     fun checkForUpdates(currentVersionCode: Int = 0, currentVersionName: String = "", manual: Boolean = false) {
         viewModelScope.launch {
+            if (manual) {
+                appUpdateManager.clearUpdatePromptSnooze()
+            }
             appUpdateManager.checkForUpdates(currentVersionCode, currentVersionName, manual)
         }
     }
@@ -40,6 +43,18 @@ class SettingsViewModel @Inject constructor(
 
     fun resumePendingInstall(): Boolean {
         return appUpdateManager.resumePendingInstall()
+    }
+
+    fun cancelDownload() {
+        appUpdateManager.cancelDownload()
+    }
+
+    fun skipVersion(tag: String) {
+        appUpdateManager.skipVersion(tag)
+    }
+
+    fun snoozeUpdatePrompt() {
+        appUpdateManager.snoozeUpdatePrompt()
     }
 
     fun resetUpdateState() {

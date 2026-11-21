@@ -84,7 +84,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo
 import dev.roxy.kryptonplayer.core.data.update.AppUpdateManager
 import dev.roxy.kryptonplayer.core.data.update.UpdateState
-import dev.roxy.kryptonplayer.core.ui.components.UpdateBottomSheet
+import dev.roxy.kryptonplayer.core.ui.components.AppUpdateSheet
 import dev.roxy.kryptonplayer.onboarding.KryptonOnboardingFlow
 import dev.roxy.kryptonplayer.onboarding.KryptonOnboardingSheetShell
 
@@ -154,11 +154,16 @@ class MainActivity : ComponentActivity() {
             var pendingStartupUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
             var dismissedVersion by remember { mutableStateOf<String?>(null) }
 
-            LaunchedEffect(updateState) {
+            LaunchedEffect(updateState, isOnboardingCompleted) {
                 when (val state = updateState) {
                     is UpdateState.Available -> {
-                        // Non-intrusive auto-update discoverability is handled on MediaPickerScreen
-                        // via the floating update pill banner rather than an intrusive startup modal.
+                        pendingStartupUpdateInfo = state.info
+                        if (isOnboardingCompleted &&
+                            !viewModel.isUpdatePromptSnoozed() &&
+                            dismissedVersion != state.info.versionName
+                        ) {
+                            showStartupUpdateDialog = true
+                        }
                     }
                     is UpdateState.Downloading -> {
                         if (state.info != null) {
@@ -182,7 +187,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                     is UpdateState.Idle, is UpdateState.UpToDate, is UpdateState.Checking -> {
-                        // Keep dialog closed
+                        // Keep sheet closed
                     }
                 }
             }
@@ -242,10 +247,9 @@ class MainActivity : ComponentActivity() {
                 useSystemFont = shouldUseSystemFont(uiState = appUiState),
                 enableMeshBackground = shouldEnableMeshBackground(uiState = appUiState),
             ) {
-                // Custom liquid-glass update sheet (shown only when update is available or active)
+                // Expressive Material 3 update bottom sheet
                 if (showStartupUpdateDialog && pendingStartupUpdateInfo != null) {
                     val info = pendingStartupUpdateInfo!!
-                    val isDownloading = updateState is UpdateState.Downloading
                     val apkUri = (updateState as? UpdateState.ReadyToInstall)?.apkUri
 
                     val currentVersionName = remember {
@@ -257,17 +261,25 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    UpdateBottomSheet(
+                    AppUpdateSheet(
                         info = info,
                         updateState = updateState,
                         currentVersionName = currentVersionName,
                         onDownload = {
                             viewModel.downloadAndInstall(info)
                         },
+                        onDownloadAsset = { asset ->
+                            viewModel.downloadAndInstall(info, asset)
+                        },
                         onInstall = {
-                            apkUri?.let { viewModel.installApk(it) }
+                            viewModel.installApk(apkUri)
                         },
                         onDismiss = {
+                            dismissedVersion = info.versionName
+                            showStartupUpdateDialog = false
+                        },
+                        onRemindLater = {
+                            viewModel.snoozeUpdatePrompt()
                             dismissedVersion = info.versionName
                             showStartupUpdateDialog = false
                         },

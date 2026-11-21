@@ -70,3 +70,10 @@ scratch/
 scripts/upload_secrets_to_roxy.py
 *.secrets.json
 
+# Ignore extra/generated markdown files (keep essential repo docs)
+*.md
+!README.md
+!.github/**/*.md
+!.agents/**/*.md
+!fastlane/README.md
+

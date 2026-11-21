@@ -63,6 +63,9 @@ open class AboutViewModel @Inject constructor(
         currentVersionName: String = "",
         manual: Boolean = false,
     ): AppUpdateInfo? {
+        if (manual) {
+            appUpdateManager.clearUpdatePromptSnooze()
+        }
         val result = appUpdateManager.checkForUpdates(currentVersionCode, currentVersionName, manual)
         // Ensure commits are loaded
         if (gitHubCommits.value.isEmpty()) {
@@ -85,6 +88,10 @@ open class AboutViewModel @Inject constructor(
 
     fun skipVersion(tag: String) {
         appUpdateManager.skipVersion(tag)
+    }
+
+    fun snoozeUpdatePrompt() {
+        appUpdateManager.snoozeUpdatePrompt()
     }
 
     fun cancelDownload() {

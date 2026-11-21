@@ -107,7 +107,7 @@ import dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo
 import dev.roxy.kryptonplayer.core.data.update.GitHubCommitInfo
 import dev.roxy.kryptonplayer.core.data.update.UpdateState
 import dev.roxy.kryptonplayer.core.ui.R
-import dev.roxy.kryptonplayer.core.ui.components.AppUpdateDialog
+import dev.roxy.kryptonplayer.core.ui.components.AppUpdateSheet
 import dev.roxy.kryptonplayer.core.ui.components.AppUpdateFormattedChangelog
 import dev.roxy.kryptonplayer.core.ui.components.NextTopAppBar
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
@@ -173,6 +173,11 @@ fun AboutScreen(
                 pendingUpdateInfo = state.info
                 showUpdateDialog = true
             }
+            is UpdateState.Downloading -> {
+                if (state.info != null) {
+                    pendingUpdateInfo = state.info
+                }
+            }
             is UpdateState.ReadyToInstall -> {
                 if (state.info != null) {
                     pendingUpdateInfo = state.info
@@ -182,36 +187,27 @@ fun AboutScreen(
                 showUpToDateDialog = true
             }
             is UpdateState.Error -> {
-                updateErrorMessage = state.message
-                showUpdateErrorDialog = true
+                if (state.info != null) {
+                    pendingUpdateInfo = state.info
+                    showUpdateDialog = true
+                } else {
+                    updateErrorMessage = state.message
+                    showUpdateErrorDialog = true
+                }
             }
             else -> Unit
         }
     }
 
-    // App Update Dialog popup (ArchiveTune-style)
+    // Expressive Material 3 Update Bottom Sheet
     if (showUpdateDialog && pendingUpdateInfo != null) {
         val info = pendingUpdateInfo!!
-        val isDownloading = updateState is UpdateState.Downloading
-        val downloadProgress = (updateState as? UpdateState.Downloading)?.progress ?: -1
-        val bytesDownloaded = (updateState as? UpdateState.Downloading)?.bytesDownloaded ?: 0L
-        val totalBytes = (updateState as? UpdateState.Downloading)?.totalBytes ?: info.fileSize
-        val isReady = updateState is UpdateState.ReadyToInstall
         val apkUri = (updateState as? UpdateState.ReadyToInstall)?.apkUri
 
-        AppUpdateDialog(
-            versionName = info.versionName,
-            changelog = info.changelog,
+        AppUpdateSheet(
+            info = info,
+            updateState = updateState,
             currentVersionName = currentVersionName,
-            fileSize = info.fileSize,
-            releaseDate = info.releaseDate,
-            downloadProgress = downloadProgress,
-            bytesDownloaded = bytesDownloaded,
-            totalBytes = totalBytes,
-            isReadyToInstall = isReady,
-            apkAssets = info.apkAssets,
-            commits = gitHubCommits,
-            isUpToDate = !info.isUpdateAvailable,
             onDownload = {
                 viewModel.downloadAndInstall(info)
             },
@@ -220,6 +216,17 @@ fun AboutScreen(
             },
             onInstall = {
                 viewModel.installApk(apkUri)
+            },
+            onCancelDownload = {
+                viewModel.cancelDownload()
+            },
+            onRemindLater = {
+                viewModel.snoozeUpdatePrompt()
+                showUpdateDialog = false
+            },
+            onSkipVersion = {
+                viewModel.skipVersion(info.tagName.ifBlank { info.versionName })
+                showUpdateDialog = false
             },
             onOpenReleaseUrl = if (info.releaseUrl.isNotBlank()) {
                 { uriHandler.openUriOrToast(info.releaseUrl, context) }
