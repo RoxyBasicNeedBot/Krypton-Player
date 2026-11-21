@@ -16,12 +16,12 @@ def get_git_commit_info():
 
 def main():
     bot_token = os.environ.get('BOT_TOKEN')
-    chat_ids_raw = os.environ.get('CHAT_ID')
+    chat_ids_raw = os.environ.get('OWNER_CHAT_ID') or os.environ.get('CHAT_ID')
     if not bot_token or not chat_ids_raw:
-        print("Notice: BOT_TOKEN or CHAT_ID environment variables are not set. Skipping Telegram notification.")
+        print("Notice: BOT_TOKEN or OWNER_CHAT_ID/CHAT_ID environment variables are not set. Skipping Telegram notification.")
         return
     topic_id = os.environ.get('TOPIC_ID')
-    repo = os.environ.get('GITHUB_REPOSITORY', 'unzipv2r-design/arch-player-new-')
+    repo = os.environ.get('GITHUB_REPOSITORY', 'RoxyBasicNeedBot/Krypton-Player')
 
     commit_author, commit_message, commit_hash, commit_hash_short = get_git_commit_info()
 

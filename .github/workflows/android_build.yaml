@@ -3,13 +3,14 @@ name: Build APKs
 on:
   workflow_dispatch:
     inputs:
-      create_github_release:
-        description: 'Create/Update GitHub Release manually (keep off for Telegram-only artifacts)'
+      release:
+        description: 'Publish official GitHub release (notifies users)'
         required: false
-        default: false
         type: boolean
+        default: false
   push:
     branches: [ 'main', 'dev' ]
+    tags: [ 'v*' ]
     paths-ignore:
       - 'README.md'
       - 'fastlane/**'
@@ -61,7 +62,8 @@ jobs:
       - name: Send a message to Telegram
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-          CHAT_ID: ${{ secrets.OWNER_CHAT_ID || secrets.CHAT_ID }}
+          OWNER_CHAT_ID: ${{ secrets.OWNER_CHAT_ID }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
           TOPIC_ID: ${{ secrets.TOPIC_ID }}
         run: |
           python ./.github/workflows/notify_telegram.py
@@ -190,14 +192,21 @@ jobs:
         run: |
           BASE_VERSION="0.16"
           RUN_NUM="${{ github.run_number }}"
-          VERSION_NAME="${BASE_VERSION}.${RUN_NUM}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG_VER="${GITHUB_REF#refs/tags/v}"
+            VERSION_NAME="${TAG_VER}"
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION_NAME="${BASE_VERSION}.${RUN_NUM}"
+            TAG_NAME="v${VERSION_NAME}"
+          fi
           VERSION_CODE=$((100 + RUN_NUM))
           echo "APP_VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
           echo "APP_VERSION_CODE=${VERSION_CODE}" >> $GITHUB_ENV
           echo "version=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
           echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
-          echo "tag_name=v${VERSION_NAME}" >> "$GITHUB_OUTPUT"
-          echo "Dynamic Version Assigned: ${VERSION_NAME} (Code: ${VERSION_CODE}, Tag: v${VERSION_NAME})"
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "Dynamic Version Assigned: ${VERSION_NAME} (Code: ${VERSION_CODE}, Tag: ${TAG_NAME})"
 
       - name: Build Project with gradle (Release with R8 Minify & ShrinkResources)
         run: ./gradlew :app:assembleRelease -Dandroid.enableR8.fullMode=false -x test -x lint
@@ -249,26 +258,28 @@ jobs:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
-          OWNER_CHAT_ID: ${{ secrets.OWNER_CHAT_ID }}
+          OWNER_CHAT_ID: ${{ secrets.OWNER_CHAT_ID || secrets.CHAT_ID }}
           ARCH_API_URL: ${{ secrets.ARCH_API_URL }}
+          IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release == true) }}
 
-      # Manual-only GitHub Release (disabled on automatic pushes; APKs are delivered via Telegram above)
-      - name: Create or Update Versioned Release (Manual Only)
-        if: github.event_name == 'workflow_dispatch' && inputs.create_github_release == true && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+      # Official GitHub Release: Only runs when a tag is pushed (e.g. git push origin v0.16.5)
+      # or when manually dispatched with release=true. Standard push commits do NOT release or spam users.
+      - name: Create or Update Versioned Release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release == true)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.app_version.outputs.tag_name }}
-          name: "KryptonPlayer v${{ steps.app_version.outputs.version }} (Official Native TDLib MTProto 2.0)"
+          name: "KryptonPlayer ${{ steps.app_version.outputs.tag_name }} (Official Native TDLib MTProto 2.0)"
           body: |
-            ### ⚡ KryptonPlayer v${{ steps.app_version.outputs.version }} Release
+            ### ⚡ KryptonPlayer ${{ steps.app_version.outputs.tag_name }} Release
             - **Optimized Minified Binary**: Full R8 code & resource shrinking applied.
             - **Native MTProto 2.0 Engine**: `libtdjni.so` strictly verified and packaged in APK.
             - **Zero Server Bandwidth**: High-speed direct streaming and downloads via official Telegram MTProto TCP sockets.
             - **Krypton Material 3 Expressive UI**: Sleek modern UI, custom icons, update manager, and advanced player controls.
             - **Persistent Library Thumbnails**: Fast, zero-flicker offline thumbnails with `.thumb.jpg` caching.
-          draft: true
+          draft: false
           prerelease: false
-          make_latest: false
+          make_latest: true
           files: |
             ./app/build/outputs/apk/release/*.apk
         env:
