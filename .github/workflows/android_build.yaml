@@ -65,6 +65,7 @@ jobs:
           OWNER_CHAT_ID: ${{ secrets.OWNER_CHAT_ID }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           TOPIC_ID: ${{ secrets.TOPIC_ID }}
+          IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release == true) }}
         run: |
           python ./.github/workflows/notify_telegram.py
         continue-on-error: true
@@ -262,9 +263,30 @@ jobs:
           ARCH_API_URL: ${{ secrets.ARCH_API_URL }}
           IS_RELEASE: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release == true) }}
 
-      # Official GitHub Release: Only runs when a tag is pushed (e.g. git push origin v0.16.5)
-      # or when manually dispatched with release=true. Standard push commits do NOT release or spam users.
-      - name: Create or Update Versioned Release
+      # Silent GitHub Release (Draft) on normal push / dev builds:
+      # Uploads APKs to GitHub Releases without notifying watchers, without updating /releases/latest,
+      # and without triggering in-app update popups for users. You can publish it manually anytime.
+      - name: Upload Silent Draft Release (No User Notification)
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && !(startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release == true)) && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.app_version.outputs.tag_name }}
+          name: "KryptonPlayer ${{ steps.app_version.outputs.tag_name }} (Draft Build)"
+          body: |
+            ### ⚡ KryptonPlayer ${{ steps.app_version.outputs.tag_name }} (Silent Draft Build)
+            - Uploaded silently as a **Draft** so users & GitHub watchers are **not** notified.
+            - Click **Edit → Publish release** on GitHub whenever you are ready to release this build to users.
+          draft: true
+          prerelease: false
+          make_latest: false
+          files: |
+            ./app/build/outputs/apk/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Official Public GitHub Release: Only runs when a v* tag is pushed (e.g. git push origin v0.16.5)
+      # or when manually dispatched with release=true.
+      - name: Create or Update Official Public Release
         if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release == true)
         uses: softprops/action-gh-release@v2
         with:
