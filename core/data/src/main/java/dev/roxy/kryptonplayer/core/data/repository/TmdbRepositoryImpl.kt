@@ -45,7 +45,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.getPopularMovies(page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getPopularMovies(page = page).results }
+        return runCatching { tmdbApi.getPopularMovies(page = page).safeResults(TmdbMovie::sanitized) }
     }
 
     override suspend fun getPopularTvShows(page: Int): Result<List<TmdbTvShow>> {
@@ -53,7 +53,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.getPopularTvShows(page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getPopularTvShows(page = page).results }
+        return runCatching { tmdbApi.getPopularTvShows(page = page).safeResults(TmdbTvShow::sanitized) }
     }
 
     override suspend fun getTrendingMovies(page: Int): Result<List<TmdbMovie>> {
@@ -61,7 +61,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.getTrendingMovies(page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getTrendingMovies(page = page).results }
+        return runCatching { tmdbApi.getTrendingMovies(page = page).safeResults(TmdbMovie::sanitized) }
     }
 
     override suspend fun getTrendingTvShows(page: Int): Result<List<TmdbTvShow>> {
@@ -69,7 +69,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.getTrendingTvShows(page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getTrendingTvShows(page = page).results }
+        return runCatching { tmdbApi.getTrendingTvShows(page = page).safeResults(TmdbTvShow::sanitized) }
     }
 
     override suspend fun getPopularPeople(page: Int): Result<List<TmdbPerson>> {
@@ -77,7 +77,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.getPopularPeople(page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getPopularPeople(page = page).results }
+        return runCatching { tmdbApi.getPopularPeople(page = page).safeResults(TmdbPerson::sanitized) }
     }
 
     override suspend fun discoverMovies(genreId: String, page: Int): Result<List<TmdbMovie>> {
@@ -85,7 +85,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.discoverMovies(genreId, page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.discoverMovies(genreId = genreId, page = page).results }
+        return runCatching { tmdbApi.discoverMovies(genreId = genreId, page = page).safeResults(TmdbMovie::sanitized) }
     }
 
     override suspend fun searchMulti(query: String, page: Int): Result<List<TmdbSearchResult>> {
@@ -93,44 +93,62 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.searchMulti(query, page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.searchMulti(query = query, page = page).results }
+        return runCatching { tmdbApi.searchMulti(query = query, page = page).safeResults(TmdbSearchResult::sanitized) }
     }
 
     override suspend fun getMovieDetails(id: Int): Result<TmdbMovieDetails> {
         if (useImdb()) {
-            val result = imdbRepository.getMovieDetails(id)
+            val result = imdbRepository.getMovieDetails(id).map { it.sanitized() }
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getMovieDetails(id) }
+        return runCatching {
+            val details = tmdbApi.getMovieDetails(id).sanitized()
+            if (details.id == 0 && details.title.isBlank()) {
+                throw IllegalStateException("Movie details unavailable for id=$id")
+            }
+            details
+        }
     }
 
     override suspend fun getTvShowDetails(id: Int): Result<TmdbTvShowDetails> {
         if (useImdb()) {
-            val result = imdbRepository.getTvShowDetails(id)
+            val result = imdbRepository.getTvShowDetails(id).map { it.sanitized() }
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getTvShowDetails(id) }
+        return runCatching {
+            val details = tmdbApi.getTvShowDetails(id).sanitized()
+            if (details.id == 0 && details.name.isBlank()) {
+                throw IllegalStateException("TV show details unavailable for id=$id")
+            }
+            details
+        }
     }
 
     override suspend fun getPersonDetails(id: Int): Result<TmdbPersonDetails> {
         if (useImdb()) {
-            val result = imdbRepository.getPersonDetails(id)
+            val result = imdbRepository.getPersonDetails(id).map { it.sanitized() }
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getPersonDetails(id) }
+        return runCatching {
+            val details = tmdbApi.getPersonDetails(id).sanitized()
+            if (details.id == 0 && details.name.isBlank()) {
+                throw IllegalStateException("Person details unavailable for id=$id")
+            }
+            details
+        }
     }
 
     override suspend fun getTvSeasonDetails(tvId: Int, seasonNumber: Int): Result<TmdbTvSeasonDetails> {
         if (useImdb()) {
-            val result = imdbRepository.getTvSeasonDetails(tvId, seasonNumber)
+            val result = imdbRepository.getTvSeasonDetails(tvId, seasonNumber).map { it.sanitized() }
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getTvSeasonDetails(tvId, seasonNumber) }
+        return runCatching { tmdbApi.getTvSeasonDetails(tvId, seasonNumber).sanitized() }
     }
 
     override suspend fun getCollectionDetails(collectionId: Int): Result<TmdbCollectionDetails> {
         // IMDb doesn't have a direct equivalent of TMDB collections, so we always fall back or return empty
-        return runCatching { tmdbApi.getCollectionDetails(collectionId) }
+        return runCatching { tmdbApi.getCollectionDetails(collectionId).sanitized() }
     }
 
     override suspend fun getUpcomingMovies(page: Int): Result<List<TmdbMovie>> {
@@ -138,7 +156,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.getUpcomingMovies(page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getUpcomingMovies(page = page).results }
+        return runCatching { tmdbApi.getUpcomingMovies(page = page).safeResults(TmdbMovie::sanitized) }
     }
 
     override suspend fun getTopRatedMovies(page: Int): Result<List<TmdbMovie>> {
@@ -146,7 +164,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.getTopRatedMovies(page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getTopRatedMovies(page = page).results }
+        return runCatching { tmdbApi.getTopRatedMovies(page = page).safeResults(TmdbMovie::sanitized) }
     }
 
     override suspend fun getTopRatedTvShows(page: Int): Result<List<TmdbTvShow>> {
@@ -154,7 +172,7 @@ class TmdbRepositoryImpl @Inject constructor(
             val result = imdbRepository.getTopRatedTvShows(page)
             if (result.isSuccess) return result
         }
-        return runCatching { tmdbApi.getTopRatedTvShows(page = page).results }
+        return runCatching { tmdbApi.getTopRatedTvShows(page = page).safeResults(TmdbTvShow::sanitized) }
     }
 
     override suspend fun findMatchingLocalVideo(title: String, alternativeTitles: List<String>): Video? {
@@ -194,21 +212,63 @@ class TmdbRepositoryImpl @Inject constructor(
     override suspend fun getParentsGuide(id: Int): Result<ImdbParentsGuideResponse> {
         return runCatching {
             val titleId = resolveImdbId(id) ?: intToTitleId(id)
-            imdbApi.getParentsGuide(titleId)
+            val raw = imdbApi.getParentsGuide(titleId)
+            val safeItems = gsonSafeList<ImdbParentsGuideItem>(raw.parentsGuide).map { item ->
+                item.copy(
+                    category = gsonSafeString(item.category),
+                    severityBreakdowns = item.severityBreakdowns?.let { list ->
+                        gsonSafeList<ImdbParentsGuideSeverity>(list).map { sev ->
+                            sev.copy(severityLevel = gsonSafeString(sev.severityLevel))
+                        }
+                    },
+                    reviews = item.reviews?.let { list ->
+                        gsonSafeList<ImdbParentsGuideReview>(list).map { rev ->
+                            rev.copy(text = gsonSafeString(rev.text))
+                        }
+                    }
+                )
+            }
+            ImdbParentsGuideResponse(parentsGuide = safeItems)
         }
     }
 
     override suspend fun getBoxOffice(id: Int): Result<ImdbBoxOffice> {
         return runCatching {
             val titleId = resolveImdbId(id) ?: intToTitleId(id)
-            imdbApi.getBoxOffice(titleId)
+            val raw = imdbApi.getBoxOffice(titleId)
+            fun ImdbMoney?.safeMoney(): ImdbMoney? = this?.copy(
+                amount = gsonSafeString(amount),
+                currency = gsonSafeString(currency, "USD")
+            )
+            ImdbBoxOffice(
+                domesticGross = raw.domesticGross.safeMoney(),
+                worldwideGross = raw.worldwideGross.safeMoney(),
+                openingWeekendGross = raw.openingWeekendGross?.let { ow ->
+                    val safeGross = ((ow.gross as Any?) as? ImdbMoney)?.safeMoney()
+                    val safeDate = (ow.weekendEndDate as Any?) as? ImdbPrecisionDate
+                    if (safeGross != null && safeDate != null) {
+                        ImdbOpeningWeekendGross(gross = safeGross, weekendEndDate = safeDate)
+                    } else null
+                },
+                productionBudget = raw.productionBudget.safeMoney()
+            )
         }
     }
 
     override suspend fun getCertificates(id: Int): Result<List<ImdbCertificate>> {
         return runCatching {
             val titleId = resolveImdbId(id) ?: intToTitleId(id)
-            imdbApi.getCertificates(titleId).certificates ?: emptyList()
+            gsonSafeList<ImdbCertificate>(imdbApi.getCertificates(titleId).certificates).mapNotNull { cert ->
+                val rawCountry = (cert.country as Any?) as? ImdbCountry
+                ImdbCertificate(
+                    rating = gsonSafeString(cert.rating),
+                    country = ImdbCountry(
+                        code = gsonSafeString(rawCountry?.code),
+                        name = gsonSafeString(rawCountry?.name)
+                    ),
+                    attributes = cert.attributes?.let { gsonSafeList<String>(it) }
+                ).takeIf { it.rating.isNotBlank() }
+            }
         }
     }
 
@@ -466,9 +526,9 @@ class TmdbRepositoryImpl @Inject constructor(
     override suspend fun getReviews(id: Int, isTvShow: Boolean): Result<List<TmdbReview>> {
         return runCatching {
             if (isTvShow) {
-                tmdbApi.getTvReviews(id).results
+                tmdbApi.getTvReviews(id).safeResults(TmdbReview::sanitized)
             } else {
-                tmdbApi.getMovieReviews(id).results
+                tmdbApi.getMovieReviews(id).safeResults(TmdbReview::sanitized)
             }
         }
     }

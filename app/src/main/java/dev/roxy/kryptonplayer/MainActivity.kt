@@ -9,8 +9,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContentTransitionScope
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import dev.roxy.kryptonplayer.core.ui.components.MochyMotion
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
@@ -465,8 +469,20 @@ class MainActivity : ComponentActivity() {
                                     slideIntoContainer(
                                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
                                         animationSpec = tween(
-                                            durationMillis = 200,
-                                            easing = LinearEasing,
+                                            durationMillis = 280,
+                                            easing = MochyMotion.EaseOut,
+                                        ),
+                                        initialOffset = { fullOffset -> (fullOffset * 0.22f).toInt() },
+                                    ) + fadeIn(
+                                        animationSpec = tween(
+                                            durationMillis = 220,
+                                            easing = MochyMotion.EaseOut,
+                                        ),
+                                    ) + scaleIn(
+                                        initialScale = 0.985f,
+                                        animationSpec = tween(
+                                            durationMillis = 280,
+                                            easing = MochyMotion.EaseOut,
                                         ),
                                     )
                                 },
@@ -474,28 +490,58 @@ class MainActivity : ComponentActivity() {
                                     slideOutOfContainer(
                                         towards = AnimatedContentTransitionScope.SlideDirection.Start,
                                         animationSpec = tween(
-                                            durationMillis = 200,
-                                            easing = LinearEasing,
+                                            durationMillis = 260,
+                                            easing = MochyMotion.EaseOut,
                                         ),
-                                        targetOffset = { fullOffset -> (fullOffset * 0.3f).toInt() },
+                                        targetOffset = { fullOffset -> (fullOffset * 0.14f).toInt() },
+                                    ) + fadeOut(
+                                        animationSpec = tween(
+                                            durationMillis = 200,
+                                            easing = MochyMotion.EaseInOut,
+                                        ),
+                                        targetAlpha = 0.82f,
+                                    ) + scaleOut(
+                                        targetScale = 0.975f,
+                                        animationSpec = tween(
+                                            durationMillis = 260,
+                                            easing = MochyMotion.EaseOut,
+                                        ),
                                     )
                                 },
                                 popEnterTransition = {
                                     slideIntoContainer(
                                         towards = AnimatedContentTransitionScope.SlideDirection.End,
                                         animationSpec = tween(
-                                            durationMillis = 200,
-                                            easing = LinearEasing,
+                                            durationMillis = 260,
+                                            easing = MochyMotion.EaseOut,
                                         ),
-                                        initialOffset = { fullOffset -> (fullOffset * 0.3f).toInt() },
+                                        initialOffset = { fullOffset -> (fullOffset * 0.16f).toInt() },
+                                    ) + fadeIn(
+                                        animationSpec = tween(
+                                            durationMillis = 220,
+                                            easing = MochyMotion.EaseOut,
+                                        ),
+                                        initialAlpha = 0.85f,
+                                    ) + scaleIn(
+                                        initialScale = 0.98f,
+                                        animationSpec = tween(
+                                            durationMillis = 260,
+                                            easing = MochyMotion.EaseOut,
+                                        ),
                                     )
                                 },
                                 popExitTransition = {
                                     slideOutOfContainer(
                                         towards = AnimatedContentTransitionScope.SlideDirection.End,
                                         animationSpec = tween(
-                                            durationMillis = 200,
-                                            easing = LinearEasing,
+                                            durationMillis = 260,
+                                            easing = MochyMotion.EaseOut,
+                                        ),
+                                        targetOffset = { fullOffset -> (fullOffset * 0.24f).toInt() },
+                                    ) + fadeOut(
+                                        animationSpec = tween(
+                                            durationMillis = 190,
+                                            easing = MochyMotion.EaseInOut,
                                         ),
                                     )
                                 },

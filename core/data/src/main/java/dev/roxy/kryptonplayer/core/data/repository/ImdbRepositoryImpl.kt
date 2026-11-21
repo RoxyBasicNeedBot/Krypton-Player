@@ -11,8 +11,8 @@ class ImdbRepositoryImpl @Inject constructor(
     private val imdbApi: ImdbApi
 ) : ImdbRepository {
 
-    private fun stringToId(id: String): Int {
-        return id.filter { it.isDigit() }.toIntOrNull() ?: 0
+    private fun stringToId(id: Any?): Int {
+        return gsonSafeString(id).filter { it.isDigit() }.toIntOrNull() ?: 0
     }
 
     private fun intToTitleId(id: Int): String {
@@ -66,7 +66,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 pageSize = 20,
                 minVotes = 100
             )
-            response.titles.map { it.toTmdbMovie() }
+            gsonSafeList<ImdbTitle>(response.titles).map { it.toTmdbMovie() }
         }
     }
 
@@ -79,7 +79,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 pageSize = 20,
                 minVotes = 100
             )
-            response.titles.map { it.toTmdbTvShow() }
+            gsonSafeList<ImdbTitle>(response.titles).map { it.toTmdbTvShow() }
         }
     }
 
@@ -91,7 +91,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 sortOrder = "DESC",
                 pageSize = 20
             )
-            response.titles.map { it.toTmdbMovie() }
+            gsonSafeList<ImdbTitle>(response.titles).map { it.toTmdbMovie() }
         }
     }
 
@@ -103,7 +103,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 sortOrder = "DESC",
                 pageSize = 20
             )
-            response.titles.map { it.toTmdbTvShow() }
+            gsonSafeList<ImdbTitle>(response.titles).map { it.toTmdbTvShow() }
         }
     }
 
@@ -117,14 +117,17 @@ class ImdbRepositoryImpl @Inject constructor(
                 pageSize = 10
             )
             // Extract unique stars from popular movies as a proxy for popular people
-            response.titles.flatMap { it.stars ?: emptyList() }.distinctBy { it.id }.map { name ->
-                TmdbPerson(
-                    id = stringToId(name.id),
-                    name = name.displayName ?: "",
-                    profile_path = name.primaryImage?.url?.let { getProxyImageUrl(it) },
-                    known_for_department = "Actor"
-                )
-            }
+            gsonSafeList<ImdbTitle>(response.titles)
+                .flatMap { gsonSafeList<ImdbName>(it.stars) }
+                .distinctBy { gsonSafeString(it.id) }
+                .map { name ->
+                    TmdbPerson(
+                        id = stringToId(name.id),
+                        name = name.displayName ?: "",
+                        profile_path = name.primaryImage?.url?.let { getProxyImageUrl(it) },
+                        known_for_department = "Actor"
+                    )
+                }
         }
     }
 
@@ -138,18 +141,18 @@ class ImdbRepositoryImpl @Inject constructor(
                 pageSize = 20,
                 minVotes = 100
             )
-            response.titles.map { it.toTmdbMovie() }
+            gsonSafeList<ImdbTitle>(response.titles).map { it.toTmdbMovie() }
         }
     }
 
     override suspend fun searchMulti(query: String, page: Int): Result<List<TmdbSearchResult>> {
         return runCatching {
             val response = imdbApi.searchTitles(query = query, limit = 20)
-            response.titles.map { title ->
+            gsonSafeList<ImdbTitle>(response.titles).map { title ->
                 if (title.type == "TV_SERIES" || title.type == "TV_MINI_SERIES") {
                     TmdbSearchResult.TvShow(
                         id = stringToId(title.id),
-                        name = title.primaryTitle ?: "",
+                        name = title.primaryTitle ?: title.originalTitle ?: "",
                         poster_path = title.primaryImage?.url?.let { getProxyImageUrl(it) },
                         vote_average = title.rating?.aggregateRating ?: 0.0,
                         first_air_date = title.startYear?.toString(),
@@ -158,7 +161,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 } else {
                     TmdbSearchResult.Movie(
                         id = stringToId(title.id),
-                        title = title.primaryTitle ?: "",
+                        title = title.primaryTitle ?: title.originalTitle ?: "",
                         poster_path = title.primaryImage?.url?.let { getProxyImageUrl(it) },
                         vote_average = title.rating?.aggregateRating ?: 0.0,
                         release_date = title.startYear?.toString(),
@@ -176,31 +179,32 @@ class ImdbRepositoryImpl @Inject constructor(
             
             // Get credits
             val creditsResult = runCatching { imdbApi.getCredits(titleId) }.getOrNull()
-            val cast = creditsResult?.credits?.filter { it.category == "actor" || it.category == "actress" }?.map { credit ->
+            val safeCredits = gsonSafeList<ImdbCredit>(creditsResult?.credits)
+            val cast = safeCredits.filter { it.category == "actor" || it.category == "actress" }.map { credit ->
                 TmdbCastMember(
-                    id = stringToId(credit.name?.id ?: ""),
+                    id = stringToId(credit.name?.id),
                     name = credit.name?.displayName ?: "",
                     character = credit.characters?.firstOrNull() ?: "",
                     profile_path = credit.name?.primaryImage?.url?.let { getProxyImageUrl(it) }
                 )
-            } ?: emptyList()
+            }
             
-            val crew = creditsResult?.credits?.filter { it.category == "director" || it.category == "writer" }?.map { credit ->
+            val crew = safeCredits.filter { it.category == "director" || it.category == "writer" }.map { credit ->
                 TmdbCrewMember(
-                    id = stringToId(credit.name?.id ?: ""),
+                    id = stringToId(credit.name?.id),
                     name = credit.name?.displayName ?: "",
                     job = credit.category,
                     department = credit.category,
                     profile_path = credit.name?.primaryImage?.url?.let { getProxyImageUrl(it) }
                 )
-            } ?: emptyList()
+            }
 
             // Get AKAs
             val akasResult = runCatching { imdbApi.getAKAs(titleId) }.getOrNull()
-            val altTitles = akasResult?.akas?.map { aka ->
+            val altTitles = gsonSafeList<ImdbAKA>(akasResult?.akas).map { aka ->
                 TmdbAlternativeTitleItem(
-                    iso_3166_1 = aka.country?.code ?: "US",
-                    title = aka.text,
+                    iso_3166_1 = gsonSafeString(aka.country?.code, "US"),
+                    title = gsonSafeString(aka.text),
                     type = aka.attributes?.firstOrNull()
                 )
             }
@@ -214,7 +218,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 vote_average = title.rating?.aggregateRating ?: 0.0,
                 release_date = title.startYear?.toString(),
                 runtime = title.runtimeSeconds?.let { it / 60 },
-                genres = title.genres?.mapIndexed { index, genre -> TmdbGenre(index, genre) },
+                genres = title.genres?.mapIndexed { index, genre -> TmdbGenre(index, gsonSafeString(genre)) },
                 credits = TmdbCredits(cast, crew),
                 videos = null,
                 images = TmdbImageResponse(
@@ -227,7 +231,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 similar = null,
                 recommendations = null,
                 alternative_titles = TmdbAlternativeTitlesResponse(titles = altTitles)
-            )
+            ).sanitized()
         }
     }
 
@@ -238,42 +242,44 @@ class ImdbRepositoryImpl @Inject constructor(
             
             // Get credits
             val creditsResult = runCatching { imdbApi.getCredits(titleId) }.getOrNull()
-            val cast = creditsResult?.credits?.filter { it.category == "actor" || it.category == "actress" }?.map { credit ->
+            val safeCredits = gsonSafeList<ImdbCredit>(creditsResult?.credits)
+            val cast = safeCredits.filter { it.category == "actor" || it.category == "actress" }.map { credit ->
                 TmdbCastMember(
-                    id = stringToId(credit.name?.id ?: ""),
+                    id = stringToId(credit.name?.id),
                     name = credit.name?.displayName ?: "",
                     character = credit.characters?.firstOrNull() ?: "",
                     profile_path = credit.name?.primaryImage?.url?.let { getProxyImageUrl(it) }
                 )
-            } ?: emptyList()
+            }
             
-            val crew = creditsResult?.credits?.filter { it.category == "director" || it.category == "writer" }?.map { credit ->
+            val crew = safeCredits.filter { it.category == "director" || it.category == "writer" }.map { credit ->
                 TmdbCrewMember(
-                    id = stringToId(credit.name?.id ?: ""),
+                    id = stringToId(credit.name?.id),
                     name = credit.name?.displayName ?: "",
                     job = credit.category,
                     department = credit.category,
                     profile_path = credit.name?.primaryImage?.url?.let { getProxyImageUrl(it) }
                 )
-            } ?: emptyList()
+            }
 
             // Get AKAs
             val akasResult = runCatching { imdbApi.getAKAs(titleId) }.getOrNull()
-            val altTitles = akasResult?.akas?.map { aka ->
+            val altTitles = gsonSafeList<ImdbAKA>(akasResult?.akas).map { aka ->
                 TmdbAlternativeTitleItem(
-                    iso_3166_1 = aka.country?.code ?: "US",
-                    title = aka.text,
+                    iso_3166_1 = gsonSafeString(aka.country?.code, "US"),
+                    title = gsonSafeString(aka.text),
                     type = aka.attributes?.firstOrNull()
                 )
             }
 
             // Get Seasons
             val seasonsResult = runCatching { imdbApi.getSeasons(titleId) }.getOrNull()
-            val seasonsBrief = seasonsResult?.seasons?.mapIndexed { index, season ->
+            val seasonsBrief = gsonSafeList<ImdbSeason>(seasonsResult?.seasons).mapIndexed { index, season ->
+                val seasonStr = gsonSafeString(season.season, (index + 1).toString())
                 TmdbTvSeasonBrief(
                     id = index + 1,
-                    name = "Season ${season.season}",
-                    season_number = season.season.toIntOrNull() ?: (index + 1),
+                    name = "Season $seasonStr",
+                    season_number = seasonStr.toIntOrNull() ?: (index + 1),
                     episode_count = season.episodeCount,
                     poster_path = title.primaryImage?.url?.let { getProxyImageUrl(it) },
                     air_date = null
@@ -289,7 +295,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 vote_average = title.rating?.aggregateRating ?: 0.0,
                 first_air_date = title.startYear?.toString(),
                 episode_run_time = title.runtimeSeconds?.let { listOf(it / 60) },
-                genres = title.genres?.mapIndexed { index, genre -> TmdbGenre(index, genre) },
+                genres = title.genres?.mapIndexed { index, genre -> TmdbGenre(index, gsonSafeString(genre)) },
                 credits = TmdbCredits(cast, crew),
                 videos = null,
                 images = TmdbImageResponse(
@@ -303,7 +309,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 recommendations = null,
                 seasons = seasonsBrief,
                 alternative_titles = TmdbAlternativeTitlesResponse(titles = altTitles)
-            )
+            ).sanitized()
         }
     }
 
@@ -314,29 +320,30 @@ class ImdbRepositoryImpl @Inject constructor(
             
             // Get filmography
             val filmographyResult = runCatching { imdbApi.getFilmography(nameId) }.getOrNull()
-            val movieCredits = filmographyResult?.credits?.filter { it.title?.type == "MOVIE" }?.map { credit ->
+            val safeFilmography = gsonSafeList<ImdbCredit>(filmographyResult?.credits)
+            val movieCredits = safeFilmography.filter { it.title?.type == "MOVIE" }.map { credit ->
                 TmdbMovie(
-                    id = stringToId(credit.title?.id ?: ""),
-                    title = credit.title?.primaryTitle ?: "",
+                    id = stringToId(credit.title?.id),
+                    title = credit.title?.primaryTitle ?: credit.title?.originalTitle ?: "",
                     poster_path = credit.title?.primaryImage?.url?.let { getProxyImageUrl(it) },
                     backdrop_path = null,
                     vote_average = credit.title?.rating?.aggregateRating ?: 0.0,
                     release_date = credit.title?.startYear?.toString(),
                     overview = credit.title?.plot
                 )
-            } ?: emptyList()
+            }
 
-            val tvCredits = filmographyResult?.credits?.filter { it.title?.type == "TV_SERIES" || it.title?.type == "TV_MINI_SERIES" }?.map { credit ->
+            val tvCredits = safeFilmography.filter { it.title?.type == "TV_SERIES" || it.title?.type == "TV_MINI_SERIES" }.map { credit ->
                 TmdbTvShow(
-                    id = stringToId(credit.title?.id ?: ""),
-                    name = credit.title?.primaryTitle ?: "",
+                    id = stringToId(credit.title?.id),
+                    name = credit.title?.primaryTitle ?: credit.title?.originalTitle ?: "",
                     poster_path = credit.title?.primaryImage?.url?.let { getProxyImageUrl(it) },
                     backdrop_path = null,
                     vote_average = credit.title?.rating?.aggregateRating ?: 0.0,
                     first_air_date = credit.title?.startYear?.toString(),
                     overview = credit.title?.plot
                 )
-            } ?: emptyList()
+            }
 
             TmdbPersonDetails(
                 id = stringToId(name.id),
@@ -347,7 +354,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 place_of_birth = name.birthLocation,
                 movie_credits = TmdbPersonMovieCredits(movieCredits),
                 tv_credits = TmdbPersonTvCredits(tvCredits)
-            )
+            ).sanitized()
         }
     }
 
@@ -356,7 +363,7 @@ class ImdbRepositoryImpl @Inject constructor(
             val titleId = intToTitleId(tvId)
             val response = imdbApi.getEpisodes(titleId, season = seasonNumber.toString())
             
-            val mappedEpisodes = response.episodes.map { episode ->
+            val mappedEpisodes = gsonSafeList<ImdbEpisode>(response.episodes).map { episode ->
                 TmdbEpisode(
                     id = stringToId(episode.id),
                     name = episode.title ?: "",
@@ -375,7 +382,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 season_number = seasonNumber,
                 poster_path = null,
                 episodes = mappedEpisodes
-            )
+            ).sanitized()
         }
     }
 
@@ -387,7 +394,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 sortOrder = "DESC",
                 pageSize = 20
             )
-            response.titles.map { it.toTmdbMovie() }
+            gsonSafeList<ImdbTitle>(response.titles).map { it.toTmdbMovie() }
         }
     }
 
@@ -400,7 +407,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 minVotes = 1000,
                 pageSize = 20
             )
-            response.titles.map { it.toTmdbMovie() }
+            gsonSafeList<ImdbTitle>(response.titles).map { it.toTmdbMovie() }
         }
     }
 
@@ -413,7 +420,7 @@ class ImdbRepositoryImpl @Inject constructor(
                 minVotes = 500,
                 pageSize = 20
             )
-            response.titles.map { it.toTmdbTvShow() }
+            gsonSafeList<ImdbTitle>(response.titles).map { it.toTmdbTvShow() }
         }
     }
 
