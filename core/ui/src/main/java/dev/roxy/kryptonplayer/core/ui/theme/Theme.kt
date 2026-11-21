@@ -307,46 +307,86 @@ fun KryptonPlayerTheme(
     enableMeshBackground: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    // Krypton Player runs strictly in pure Dark Mode
-    val baseColorScheme = darkScheme
+    val context = LocalContext.current
+
+    val baseColorScheme = remember(
+        dynamicColor,
+        customThemeValue,
+        dynamicThemeColor,
+        pureBlack,
+        highContrastDarkTheme,
+        context,
+    ) {
+        when {
+            dynamicThemeColor != null -> {
+                dynamicColorScheme(
+                    seedColor = dynamicThemeColor,
+                    isDark = true,
+                    isAmoled = pureBlack,
+                    style = paletteStyleFor(dynamicThemeColor),
+                )
+            }
+            customThemeValue.isNotBlank() && customThemeValue != ThemePalettes.Default.id -> {
+                val decodedSeed = ThemeSeedPaletteCodec.decodeFromPreference(customThemeValue)
+                val namedPalette = ThemePalettes.findById(customThemeValue)
+                when {
+                    decodedSeed != null -> exactPaletteColorScheme(
+                        palette = decodedSeed,
+                        isDark = true,
+                        isAmoled = pureBlack,
+                    )
+                    namedPalette != null -> exactPaletteColorScheme(
+                        palette = namedPalette.toSeedPalette(),
+                        isDark = true,
+                        isAmoled = pureBlack,
+                    )
+                    else -> darkScheme
+                }
+            }
+            dynamicColor && supportsDynamicTheming() -> {
+                dynamicDarkColorScheme(context)
+            }
+            else -> darkScheme
+        }
+    }
 
     val appliedColorScheme = remember(baseColorScheme, highContrastDarkTheme, pureBlack) {
         if (pureBlack || highContrastDarkTheme) {
-            // Pure OLED / AMOLED Pitch Black (#000000)
+            // Pure OLED / AMOLED Pitch Black with Mochi-inspired elevated obsidian cards
             baseColorScheme.copy(
                 background = Color(0xFF000000),
                 surface = Color(0xFF000000),
                 surfaceDim = Color(0xFF000000),
-                surfaceBright = Color(0xFF141414),
+                surfaceBright = Color(0xFF1A1B20),
                 surfaceContainerLowest = Color(0xFF000000),
-                surfaceContainerLow = Color(0xFF050505),
-                surfaceContainer = Color(0xFF0A0A0A),
-                surfaceContainerHigh = Color(0xFF121212),
-                surfaceContainerHighest = Color(0xFF181818),
-                surfaceVariant = Color(0xFF0D0D0D),
-                onBackground = Color.White,
-                onSurface = Color.White,
-                onSurfaceVariant = Color(0xFFD7C1C1),
-                outline = Color.White.copy(alpha = 0.15f),
+                surfaceContainerLow = Color(0xFF0B0B0D),
+                surfaceContainer = Color(0xFF121215),
+                surfaceContainerHigh = Color(0xFF1A1B20),
+                surfaceContainerHighest = Color(0xFF23242B),
+                surfaceVariant = Color(0xFF15161B),
+                onBackground = Color(0xFFF5F5F7),
+                onSurface = Color(0xFFF5F5F7),
+                onSurfaceVariant = Color(0xFFA1A4AE),
+                outline = Color.White.copy(alpha = 0.16f),
                 outlineVariant = Color.White.copy(alpha = 0.08f),
             )
         } else {
-            // Matte Charcoal Monochrome Dark
+            // Mochi-inspired Deep Obsidian Charcoal Surfaces
             baseColorScheme.copy(
-                background = Color(0xFF141414),
-                surface = Color(0xFF181818),
-                surfaceDim = Color(0xFF141414),
-                surfaceBright = Color(0xFF222222),
-                surfaceContainerLowest = Color(0xFF101010),
-                surfaceContainerLow = Color(0xFF161616),
-                surfaceContainer = Color(0xFF1C1C1C),
-                surfaceContainerHigh = Color(0xFF242424),
-                surfaceContainerHighest = Color(0xFF2C2C2C),
-                surfaceVariant = Color(0xFF262626),
-                onBackground = Color(0xFFEEEEEE),
-                onSurface = Color(0xFFEEEEEE),
-                onSurfaceVariant = Color(0xFFBDBDBD),
-                outline = Color(0xFF3A3A3A),
+                background = Color(0xFF0B0B0E),
+                surface = Color(0xFF0E0E12),
+                surfaceDim = Color(0xFF08080B),
+                surfaceBright = Color(0xFF22232B),
+                surfaceContainerLowest = Color(0xFF08080A),
+                surfaceContainerLow = Color(0xFF121318),
+                surfaceContainer = Color(0xFF17181E),
+                surfaceContainerHigh = Color(0xFF1F2028),
+                surfaceContainerHighest = Color(0xFF282A33),
+                surfaceVariant = Color(0xFF1E1F26),
+                onBackground = Color(0xFFF4F4F6),
+                onSurface = Color(0xFFF4F4F6),
+                onSurfaceVariant = Color(0xFFA6A9B3),
+                outline = Color(0xFF3A3D47),
                 outlineVariant = Color.White.copy(alpha = 0.08f),
             )
         }
@@ -557,7 +597,8 @@ data class ThemePalette(
 }
 
 object ThemePalettes {
-    val Default = ThemePalette("default", "Default (Coral Red)", Color(0xFFED5564), Color(0xFFED5564), Color(0xFFED5564), Color(0xFFED5564))
+    val Default = ThemePalette("default", "Obsidian Monochrome", Color(0xFFE8EAED), Color(0xFFC7C9D1), Color(0xFFA8C7FA), Color(0xFF16161B))
+    val CoralRed = ThemePalette("coral_red", "Coral Red", Color(0xFFED5564), Color(0xFFED5564), Color(0xFFED5564), Color(0xFFED5564))
     val OceanBlue = ThemePalette("ocean_blue", "Ocean Blue", Color(0xFF4A90D9), Color(0xFF4A90D9), Color(0xFF4A90D9), Color(0xFF4A90D9))
     val ArcticBlue = ThemePalette("arctic_blue", "Arctic Blue", Color(0xFF00BFFF), Color(0xFF00BFFF), Color(0xFF00BFFF), Color(0xFF00BFFF))
     val MidnightNavy = ThemePalette("midnight_navy", "Midnight Navy", Color(0xFF2C3E50), Color(0xFF2C3E50), Color(0xFF2C3E50), Color(0xFF2C3E50))
@@ -584,7 +625,7 @@ object ThemePalettes {
     val Charcoal = ThemePalette("charcoal", "Charcoal", Color(0xFF36454F), Color(0xFF36454F), Color(0xFF36454F), Color(0xFF36454F))
 
     val allPalettes = listOf(
-        Default, OceanBlue, ArcticBlue, MidnightNavy, SkyBlue, CobaltBlue, ElectricBlue,
+        Default, CoralRed, OceanBlue, ArcticBlue, MidnightNavy, SkyBlue, CobaltBlue, ElectricBlue,
         EmeraldGreen, TealWave, ForestGreen, SpotifyGreen, MintFresh, SageGreen,
         SunsetOrange, GoldenHour, WarmAmber, TangerineBlast, Peach, Mango,
         RoyalPurple, LavenderDream, YouTubeRed, Cyberpunk, Synthwave, Charcoal

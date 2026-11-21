@@ -60,12 +60,14 @@ android {
 
         manifestPlaceholders["syncHost"] = syncHost
 
-        ndk {
-            abiFilters.add("armeabi-v7a")
-            abiFilters.add("arm64-v8a")
-            if (!isReleaseBuild) {
-                abiFilters.add("x86")
-                abiFilters.add("x86_64")
+        if (isBuildingBundle || !isReleaseBuild) {
+            ndk {
+                abiFilters.add("armeabi-v7a")
+                abiFilters.add("arm64-v8a")
+                if (!isReleaseBuild) {
+                    abiFilters.add("x86")
+                    abiFilters.add("x86_64")
+                }
             }
         }
     }

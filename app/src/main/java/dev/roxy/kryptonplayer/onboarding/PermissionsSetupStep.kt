@@ -62,7 +62,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import dev.roxy.kryptonplayer.core.ui.preview.DayNightPreview
 import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
 import dev.roxy.kryptonplayer.R
-import dev.roxy.kryptonplayer.core.common.storagePermission
+import dev.roxy.kryptonplayer.core.common.hasMediaAccessPermission
+import dev.roxy.kryptonplayer.core.common.storagePermissions
 import dev.roxy.kryptonplayer.core.ui.theme.JioHotstarFontFamily
 
 /**
@@ -78,10 +79,7 @@ internal fun PermissionsSetupStep(
     val activity = context as? Activity
     val permPrefs = remember { context.getSharedPreferences("krypton_permission_prefs", Context.MODE_PRIVATE) }
 
-    fun checkStorage(): Boolean = ContextCompat.checkSelfPermission(
-        context,
-        storagePermission,
-    ) == PackageManager.PERMISSION_GRANTED
+    fun checkStorage(): Boolean = context.hasMediaAccessPermission()
 
     fun checkNotification(): Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         ContextCompat.checkSelfPermission(
@@ -108,7 +106,9 @@ internal fun PermissionsSetupStep(
         if (!hasStorage && activity != null) {
             val askedBefore = permPrefs.getBoolean("has_requested_storage", false)
             storagePermanentlyDenied = askedBefore &&
-                !ActivityCompat.shouldShowRequestPermissionRationale(activity, storagePermission)
+                storagePermissions.none { perm ->
+                    ActivityCompat.shouldShowRequestPermissionRationale(activity, perm)
+                }
         } else {
             storagePermanentlyDenied = false
         }
@@ -127,14 +127,17 @@ internal fun PermissionsSetupStep(
     }
 
     val storageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-    ) { granted ->
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+    ) { _ ->
+        val granted = checkStorage()
         hasStorage = granted
         if (granted) {
             storagePermanentlyDenied = false
             onStorageGranted()
         } else if (activity != null) {
-            storagePermanentlyDenied = !ActivityCompat.shouldShowRequestPermissionRationale(activity, storagePermission)
+            storagePermanentlyDenied = storagePermissions.none { perm ->
+                ActivityCompat.shouldShowRequestPermissionRationale(activity, perm)
+            }
         }
     }
 
@@ -167,7 +170,7 @@ internal fun PermissionsSetupStep(
             openAppSettings()
         } else {
             permPrefs.edit().putBoolean("has_requested_storage", true).apply()
-            storageLauncher.launch(storagePermission)
+            storageLauncher.launch(storagePermissions)
         }
     }
 

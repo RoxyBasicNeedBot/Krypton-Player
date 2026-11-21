@@ -105,7 +105,13 @@ class PlayerActivity : ComponentActivity() {
 
             val appPreferences = uiState.applicationPreferences ?: dev.roxy.kryptonplayer.core.model.ApplicationPreferences()
             CompositionLocalProvider(LocalUseMaterialYouControls provides (uiState.playerPreferences?.useMaterialYouControls == true)) {
-                KryptonPlayerTheme(darkTheme = true) {
+                KryptonPlayerTheme(
+                    darkTheme = true,
+                    highContrastDarkTheme = appPreferences.useHighContrastDarkTheme,
+                    dynamicColor = appPreferences.useDynamicColors,
+                    customThemeValue = appPreferences.customThemeValue,
+                    pureBlack = appPreferences.pureBlack,
+                ) {
                     MediaPlayerScreen(
                         player = player,
                         viewModel = viewModel,

@@ -14,8 +14,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ColorLens
 import androidx.compose.material.icons.rounded.LinearScale
 import androidx.compose.material.icons.rounded.Navigation
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
@@ -68,6 +70,8 @@ fun AppearancePreferencesScreen(
         uiState = uiState,
         onEvent = viewModel::onEvent,
         onNavigateUp = onNavigateUp,
+        onThemeCreatorClick = onThemeCreatorClick,
+        onPalettePickerClick = onPalettePickerClick,
     )
 }
 
@@ -77,6 +81,8 @@ private fun AppearancePreferencesContent(
     uiState: AppearancePreferencesUiState,
     onEvent: (AppearancePreferencesEvent) -> Unit,
     onNavigateUp: () -> Unit = {},
+    onThemeCreatorClick: () -> Unit = {},
+    onPalettePickerClick: () -> Unit = {},
 ) {
     var showRestartDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -127,6 +133,22 @@ private fun AppearancePreferencesContent(
                             isChecked = uiState.preferences.pureBlack,
                             onClick = { onEvent(AppearancePreferencesEvent.TogglePureBlack) },
                             isFirstItem = true,
+                            isLastItem = false,
+                        )
+                        ClickablePreferenceItem(
+                            title = "Color Palette",
+                            description = "Choose obsidian monochrome or custom accent palette",
+                            icon = Icons.Rounded.Palette,
+                            onClick = onPalettePickerClick,
+                            isFirstItem = false,
+                            isLastItem = false,
+                        )
+                        ClickablePreferenceItem(
+                            title = "Theme Creator",
+                            description = "Craft and export your own custom color theme",
+                            icon = Icons.Rounded.ColorLens,
+                            onClick = onThemeCreatorClick,
+                            isFirstItem = false,
                             isLastItem = true,
                         )
                     }

@@ -1,142 +1,110 @@
 package dev.roxy.kryptonplayer.settings
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.Badge
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.material3.BadgedBox
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.BugReport
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SystemUpdate
+import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MediumTopAppBar
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.material3.contentColorFor
 import dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo
-import android.content.Intent
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.ui.graphics.Brush
 import dev.roxy.kryptonplayer.core.data.update.UpdateState
 import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.components.AppUpdateSheet
 import dev.roxy.kryptonplayer.core.ui.components.CancelButton
 import dev.roxy.kryptonplayer.core.ui.components.DoneButton
-import dev.roxy.kryptonplayer.core.ui.components.EndOfPageFooter
+import dev.roxy.kryptonplayer.core.ui.components.MochyNavigationDock
 import dev.roxy.kryptonplayer.core.ui.components.NextDialog
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
-import dev.roxy.kryptonplayer.core.ui.components.MochyNavigationDock
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Folder
-import androidx.compose.material.icons.rounded.HelpOutline
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.KeyboardArrowUp
-import androidx.compose.material.icons.rounded.Lock
-import androidx.compose.material.icons.rounded.MusicNote
-import androidx.compose.material.icons.rounded.Palette
-import androidx.compose.material.icons.rounded.PlayCircle
-import androidx.compose.material.icons.rounded.Subtitles
-import androidx.compose.material.icons.rounded.Translate
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
-import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.navigationBarsPadding
-import dev.roxy.kryptonplayer.core.ui.components.SimpFloatingNavigationBar
-import dev.roxy.kryptonplayer.core.ui.components.MainNavTab
-import dev.roxy.kryptonplayer.core.ui.components.LiquidGlassIconButton
-import dev.roxy.kryptonplayer.core.ui.components.bouncyPress
-import dev.roxy.kryptonplayer.core.ui.theme.PremiumMeshBackground
-import dev.roxy.kryptonplayer.core.ui.liquidglass.rememberBackdrop
-import dev.roxy.kryptonplayer.core.ui.liquidglass.layerBackdrop
-import dev.roxy.kryptonplayer.core.ui.liquidglass.liquidGlassBorderLaser
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.unit.sp
-import dev.roxy.kryptonplayer.settings.composables.AnimatedSettingsIcon
-import dev.roxy.kryptonplayer.settings.composables.SettingsIconAnimation
-import kotlinx.coroutines.delay
+
+private const val GITHUB_REPO_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player"
+private const val GITHUB_PROFILE_URL = "https://github.com/RoxyBasicNeedBot"
+private const val GITHUB_ISSUES_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player/issues"
+private const val GITHUB_CONTRIBUTORS_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player/graphs/contributors"
+private const val UPSTREAM_NEXTPLAYER_URL = "https://github.com/anilbeesetti/nextplayer"
+private const val MEDIA3_URL = "https://github.com/androidx/media"
+private const val TELEGRAM_COMMUNITY_URL = "https://t.me/KryptonPlayer"
+private const val TELEGRAM_BOOST_URL = "https://t.me/boost/KryptonPlayer"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -148,17 +116,24 @@ fun SettingsScreen(
     onSearchClick: () -> Unit = {},
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
-    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val context = LocalContext.current
-    val appVersion = remember { context.appVersion() }
-    val backdrop = rememberBackdrop()
+    val uriHandler = LocalUriHandler.current
+    val appVersion = remember { context.appVersion().ifBlank { "0.16" } }
+    val primaryAbi = remember { (Build.SUPPORTED_ABIS?.firstOrNull() ?: "universal").uppercase() }
 
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
-    var isUpdateBannerDismissed by remember { mutableStateOf(false) }
-    var showUpdateDialog by remember { mutableStateOf(false) }
+    var showUpdateSheet by remember { mutableStateOf(false) }
     var pendingUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
     var isMoreMenuExpanded by rememberSaveable { mutableStateOf(false) }
     var showNetworkStreamDialog by rememberSaveable { mutableStateOf(false) }
+
+    fun openExternalUrl(url: String) {
+        runCatching {
+            uriHandler.openUri(url)
+        }.onFailure {
+            Toast.makeText(context, "Unable to open link", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val selectVideoFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
@@ -172,16 +147,16 @@ fun SettingsScreen(
                 }
                 context.startActivity(intent)
             } catch (_: Exception) {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
+                val fallback = Intent(Intent.ACTION_VIEW).apply {
                     setDataAndType(uri, "video/*")
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                context.startActivity(intent)
+                runCatching { context.startActivity(fallback) }
             }
         }
     }
 
-    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.resumePendingInstall()
     }
 
@@ -189,73 +164,32 @@ fun SettingsScreen(
         when (val state = updateState) {
             is UpdateState.Available -> {
                 pendingUpdateInfo = state.info
-                showUpdateDialog = true
+                showUpdateSheet = true
             }
             is UpdateState.Downloading -> {
-                if (state.info != null) {
-                    pendingUpdateInfo = state.info
-                }
+                if (state.info != null) pendingUpdateInfo = state.info
             }
             is UpdateState.ReadyToInstall -> {
-                if (state.info != null) {
-                    pendingUpdateInfo = state.info
-                    showUpdateDialog = true
-                }
+                if (state.info != null) pendingUpdateInfo = state.info
             }
             is UpdateState.UpToDate -> {
-                android.widget.Toast.makeText(
-                    context,
-                    "App is up to date (${state.currentVersion.ifBlank { appVersion }})",
-                    android.widget.Toast.LENGTH_SHORT,
-                ).show()
+                Toast.makeText(context, "You're on the latest version (v$appVersion)", Toast.LENGTH_SHORT).show()
+                viewModel.resetUpdateState()
             }
             is UpdateState.Error -> {
                 if (state.info != null) {
                     pendingUpdateInfo = state.info
-                    showUpdateDialog = true
+                    showUpdateSheet = true
                 } else {
-                    android.widget.Toast.makeText(
-                        context,
-                        state.message,
-                        android.widget.Toast.LENGTH_SHORT,
-                    ).show()
+                    Toast.makeText(context, state.message, Toast.LENGTH_SHORT).show()
+                    viewModel.resetUpdateState()
                 }
             }
             else -> Unit
         }
     }
 
-    val playbackGroup = remember {
-        listOf(
-            SettingRow.APPEARANCE,
-            SettingRow.MEDIA_LIBRARY,
-            SettingRow.PLAYER,
-            SettingRow.WATCH_PARTY,
-            SettingRow.LYRICS,
-            SettingRow.GESTURES,
-            SettingRow.SUBTITLE,
-        )
-    }
-
-    val engineGroup = remember {
-        listOf(
-            SettingRow.DECODER,
-            SettingRow.AUDIO,
-        )
-    }
-
-    val systemGroup = remember {
-        listOf(
-            SettingRow.GENERAL,
-            SettingRow.STATS,
-            SettingRow.BACKUP_RESTORE,
-            SettingRow.STORAGE,
-            SettingRow.ABOUT,
-        )
-    }
-
-    // Expressive Update Bottom Sheet when triggered from banner or check row
-    if (showUpdateDialog && pendingUpdateInfo != null) {
+    if (showUpdateSheet && pendingUpdateInfo != null) {
         val info = pendingUpdateInfo!!
         val apkUri = (updateState as? UpdateState.ReadyToInstall)?.apkUri
 
@@ -269,29 +203,18 @@ fun SettingsScreen(
             onCancelDownload = { viewModel.cancelDownload() },
             onRemindLater = {
                 viewModel.snoozeUpdatePrompt()
-                showUpdateDialog = false
+                showUpdateSheet = false
             },
             onSkipVersion = {
                 viewModel.skipVersion(info.tagName.ifBlank { info.versionName })
-                showUpdateDialog = false
-            },
-            onDismiss = {
-                showUpdateDialog = false
-                if (updateState is UpdateState.Error || updateState is UpdateState.UpToDate) {
-                    viewModel.resetUpdateState()
-                }
+                showUpdateSheet = false
             },
             onOpenReleaseUrl = if (info.releaseUrl.isNotBlank()) {
-                {
-                    try {
-                        val intent = android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse(info.releaseUrl),
-                        ).apply { flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK }
-                        context.startActivity(intent)
-                    } catch (_: Exception) {}
-                }
-            } else null,
+                { openExternalUrl(info.releaseUrl) }
+            } else {
+                null
+            },
+            onDismiss = { showUpdateSheet = false },
         )
     }
 
@@ -300,359 +223,398 @@ fun SettingsScreen(
             onDismiss = { showNetworkStreamDialog = false },
             onDone = { url ->
                 showNetworkStreamDialog = false
-                val trimmed = url.trim()
-                if (trimmed.isNotEmpty()) {
-                    val streamUri = Uri.parse(trimmed)
-                    try {
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(streamUri, "video/*")
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            setPackage(context.packageName)
-                        }
-                        context.startActivity(intent)
-                    } catch (_: Exception) {
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
-                            setDataAndType(streamUri, "video/*")
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                        context.startActivity(intent)
+                runCatching {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                        setPackage(context.packageName)
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
+                    context.startActivity(intent)
+                }.onFailure {
+                    Toast.makeText(context, "Unable to open stream URL", Toast.LENGTH_SHORT).show()
                 }
             },
         )
     }
 
-    var isDownloadsExpanded by remember { mutableStateOf(false) }
-    var downloadOnlyWifi by remember { mutableStateOf(false) }
-    var showAccountSettingsSheet by rememberSaveable { mutableStateOf(false) }
-
-    if (showAccountSettingsSheet) {
-        AccountSettingsBottomSheet(
-            appVersion = appVersion,
-            onDismiss = { showAccountSettingsSheet = false }
-        )
-    }
+    val colorScheme = MaterialTheme.colorScheme
 
     Scaffold(
-        containerColor = Color(0xFF07090E),
-        modifier = Modifier.fillMaxSize(),
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 4.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onNavigateUp) {
-                    Icon(
-                        imageVector = NextIcons.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Help & Settings",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        },
+        containerColor = colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             MochyNavigationDock(
                 selectedTabIndex = 3,
                 onTabSelected = { index ->
                     when (index) {
                         0 -> onNavigateToHome()
-                        1 -> onNavigateToExplore()
-                        2 -> onNavigateUp()
-                        else -> Unit
+                        1 -> onSearchClick()
+                        2 -> onNavigateToExplore()
+                        3 -> Unit
                     }
-                }
+                },
+                onSearchDoubleTap = onSearchClick,
             )
-        }
-    ) { innerPadding ->
-        LazyColumn(
-            contentPadding = PaddingValues(
-                start = 0.dp,
-                top = innerPadding.calculateTopPadding() + 4.dp,
-                end = 0.dp,
-                bottom = innerPadding.calculateBottomPadding() + 16.dp,
-            ),
-            modifier = Modifier.fillMaxSize()
+        },
+    ) { _ ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(colorScheme.background),
+            contentAlignment = Alignment.TopCenter,
         ) {
-            // Update Banner
-            val bannerInfo = when (val state = updateState) {
-                is UpdateState.Available -> state.info
-                is UpdateState.ReadyToInstall -> state.info ?: pendingUpdateInfo
-                is UpdateState.Downloading -> pendingUpdateInfo
-                else -> null
-            }
-            if (bannerInfo != null && !isUpdateBannerDismissed) {
-                item(key = "update_banner") {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                        val isReady = updateState is UpdateState.ReadyToInstall
-                        val isDownloading = updateState is UpdateState.Downloading
-                        val downloadProgress = (updateState as? UpdateState.Downloading)?.progress ?: -1
-                        val apkUri = (updateState as? UpdateState.ReadyToInstall)?.apkUri
-                        SettingsUpdateBanner(
-                            info = bannerInfo,
-                            isReadyToInstall = isReady,
-                            isDownloading = isDownloading,
-                            downloadProgress = downloadProgress,
-                            onUpdateClick = {
-                                if (isReady && apkUri != null) {
-                                    viewModel.installApk(apkUri)
-                                } else {
-                                    pendingUpdateInfo = bannerInfo
-                                    showUpdateDialog = true
-                                }
-                            },
-                            onDismissClick = { isUpdateBannerDismissed = true },
-                        )
-                    }
-                }
-            }
-
-            // 1. Account Settings
-            item(key = "account_settings") {
-                HotstarSettingRow(
-                    title = "Account Settings",
-                    subtitle = "Subscription Details & Device Manager",
-                    icon = Icons.Rounded.AccountCircle,
-                    onClick = { showAccountSettingsSheet = true }
-                )
-                HotstarDivider()
-            }
-
-            // 2. Downloads (Expandable like in screenshot!)
-            item(key = "downloads_section") {
-                Column {
-                    HotstarSettingRow(
-                        title = "Downloads",
-                        subtitle = "Download quality, storage & more",
-                        icon = Icons.Rounded.Download,
-                        trailingContent = {
-                            Icon(
-                                imageVector = if (isDownloadsExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = null,
-                                tint = Color(0xFF828A9E),
-                                modifier = Modifier.size(20.dp)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 640.dp),
+                contentPadding = PaddingValues(
+                    start = 18.dp,
+                    end = 18.dp,
+                    top = 8.dp,
+                    bottom = 124.dp,
+                ),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                // 1. Minimalist Obsidian Top Bar
+                item(key = "settings_header") {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(top = 8.dp, bottom = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text(
+                                text = "Krypton",
+                                style = MaterialTheme.typography.headlineMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.onSurface,
+                                letterSpacing = (-0.5).sp,
                             )
-                        },
-                        onClick = { isDownloadsExpanded = !isDownloadsExpanded }
-                    )
+                            Text(
+                                text = "Settings, Engine & Credits",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                            )
+                        }
 
-                    AnimatedVisibility(visible = isDownloadsExpanded) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(Color(0xFF0C0F17))
-                                .padding(vertical = 4.dp)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            // Sub-row 1: Download only on Wi-Fi switch
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 54.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            Surface(
+                                shape = CircleShape,
+                                color = colorScheme.surfaceContainer,
+                                border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
                             ) {
-                                Text(
-                                    text = "Download only on Wi-Fi for this device",
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.White,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                Switch(
-                                    checked = downloadOnlyWifi,
-                                    onCheckedChange = { downloadOnlyWifi = it },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = Color(0xFF0075FF),
-                                        uncheckedThumbColor = Color(0xFF828A9E),
-                                        uncheckedTrackColor = Color(0xFF1E2433)
+                                IconButton(
+                                    onClick = onSearchClick,
+                                    modifier = Modifier.testTag("settings_search_button"),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Search,
+                                        contentDescription = "Search",
+                                        tint = colorScheme.onSurface,
+                                        modifier = Modifier.size(20.dp),
                                     )
-                                )
+                                }
                             }
 
-                            // Sub-row 2: Default Download Video Quality
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onItemClick(Setting.STORAGE) }
-                                    .padding(start = 54.dp, end = 16.dp, top = 10.dp, bottom = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "Default Download Video Quality",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color.White
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "HD",
-                                        fontSize = 12.sp,
-                                        color = Color(0xFF828A9E)
-                                    )
+                            Box {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = colorScheme.surfaceContainer,
+                                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                                ) {
+                                    IconButton(
+                                        onClick = { isMoreMenuExpanded = true },
+                                        modifier = Modifier.testTag("settings_more_button"),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.MoreVert,
+                                            contentDescription = "More actions",
+                                            tint = colorScheme.onSurface,
+                                            modifier = Modifier.size(20.dp),
+                                        )
+                                    }
                                 }
-                                Icon(
-                                    imageVector = NextIcons.ArrowForward,
-                                    contentDescription = null,
-                                    tint = Color(0xFF5C667A),
-                                    modifier = Modifier.size(18.dp)
+
+                                SettingsQuickMenu(
+                                    expanded = isMoreMenuExpanded,
+                                    onDismissRequest = { isMoreMenuExpanded = false },
+                                    onOpenLocalVideo = {
+                                        isMoreMenuExpanded = false
+                                        selectVideoFileLauncher.launch("video/*")
+                                    },
+                                    onOpenNetworkStream = {
+                                        isMoreMenuExpanded = false
+                                        showNetworkStreamDialog = true
+                                    },
+                                    onCheckForUpdates = {
+                                        isMoreMenuExpanded = false
+                                        viewModel.checkForUpdates(manual = true)
+                                    },
                                 )
                             }
                         }
                     }
-                    HotstarDivider()
                 }
-            }
 
-            // 3. Media Library
-            item(key = "media_library") {
-                HotstarSettingRow(
-                    title = "Media Library & Folders",
-                    subtitle = "Included folders, scan media, hidden files",
-                    icon = Icons.Rounded.Folder,
-                    onClick = { onItemClick(Setting.MEDIA_LIBRARY) }
-                )
-                HotstarDivider()
-            }
-
-            // 4. Player Controls
-            item(key = "player_controls") {
-                HotstarSettingRow(
-                    title = "Player Controls",
-                    subtitle = "Seek gestures, double tap, zoom & brightness",
-                    icon = Icons.Rounded.PlayCircle,
-                    onClick = { onItemClick(Setting.PLAYER) }
-                )
-                HotstarDivider()
-            }
-
-            // 5. Audio & Decoders
-            item(key = "audio_decoder") {
-                HotstarSettingRow(
-                    title = "Audio & Decoders",
-                    subtitle = "Hardware acceleration (HW/SW), audio boost & track",
-                    icon = NextIcons.GraphicEq,
-                    onClick = { onItemClick(Setting.DECODER) }
-                )
-                HotstarDivider()
-            }
-
-            // 6. Subtitles
-            item(key = "subtitles") {
-                HotstarSettingRow(
-                    title = "Subtitles",
-                    subtitle = "Font size, styling, encoding & subtitles download",
-                    icon = Icons.Rounded.Subtitles,
-                    onClick = { onItemClick(Setting.SUBTITLE) }
-                )
-                HotstarDivider()
-            }
-
-            // 7. Lyrics
-            item(key = "lyrics") {
-                HotstarSettingRow(
-                    title = "Lyrics",
-                    subtitle = "Live synced lyrics, Romanization & styling",
-                    icon = Icons.Rounded.MusicNote,
-                    onClick = { onItemClick(Setting.LYRICS) }
-                )
-                HotstarDivider()
-            }
-
-            // 8. App Language
-            item(key = "app_language") {
-                HotstarSettingRow(
-                    title = "App Language",
-                    subtitle = "English",
-                    icon = Icons.Rounded.Translate,
-                    onClick = { onItemClick(Setting.GENERAL) }
-                )
-                HotstarDivider()
-            }
-
-            // 9. Parental Controls & Security
-            item(key = "parental_controls") {
-                HotstarSettingRow(
-                    title = "Parental Controls",
-                    subtitle = "Parental Lock & Watch Party",
-                    icon = Icons.Rounded.Lock,
-                    onClick = { onItemClick(Setting.WATCH_PARTY) }
-                )
-                HotstarDivider()
-            }
-
-            // 10. Backup & Restore
-            item(key = "backup_restore") {
-                HotstarSettingRow(
-                    title = "Backup & Restore",
-                    subtitle = "Export and import app settings & library data",
-                    icon = NextIcons.Sync,
-                    onClick = { onItemClick(Setting.BACKUP_RESTORE) }
-                )
-                HotstarDivider()
-            }
-
-            // 11. Help & Support
-            item(key = "help_support") {
-                HotstarSettingRow(
-                    title = "Help & Support",
-                    subtitle = "Help Centre, version info & developer",
-                    icon = Icons.Rounded.HelpOutline,
-                    onClick = { onItemClick(Setting.ABOUT) }
-                )
-                HotstarDivider()
-            }
-
-            // 12. Bottom Footer (matching screenshot)
-            item(key = "hotstar_footer") {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 36.dp, bottom = 24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "Check for Updates",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0075FF),
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                viewModel.checkForUpdates(currentVersionName = appVersion, manual = true)
-                                android.widget.Toast.makeText(context, "Checking for updates...", android.widget.Toast.LENGTH_SHORT).show()
+                // 2. Krypton Identity & Update Hero Card
+                item(key = "krypton_hero_card") {
+                    KryptonHeroCard(
+                        appVersion = appVersion,
+                        primaryAbi = primaryAbi,
+                        updateState = updateState,
+                        onCheckUpdateClick = {
+                            when (val state = updateState) {
+                                is UpdateState.Available -> {
+                                    pendingUpdateInfo = state.info
+                                    showUpdateSheet = true
+                                }
+                                is UpdateState.Downloading -> showUpdateSheet = true
+                                is UpdateState.ReadyToInstall -> viewModel.installApk(state.apkUri)
+                                is UpdateState.Checking -> Unit
+                                else -> viewModel.checkForUpdates(manual = true)
                             }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                        },
+                        onAboutClick = { onItemClick(Setting.ABOUT) },
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                // 3. Active Update Banner (shown when update is available / downloading / ready)
+                item(key = "update_status_banner") {
+                    val activeUpdateInfo = when (val state = updateState) {
+                        is UpdateState.Available -> state.info
+                        is UpdateState.Downloading -> state.info
+                        is UpdateState.ReadyToInstall -> state.info
+                        else -> null
+                    }
+                    AnimatedVisibility(
+                        visible = activeUpdateInfo != null,
+                        enter = fadeIn(),
+                        exit = fadeOut(),
+                    ) {
+                        activeUpdateInfo?.let { info ->
+                            ActiveUpdateStrip(
+                                info = info,
+                                updateState = updateState,
+                                onClick = {
+                                    pendingUpdateInfo = info
+                                    showUpdateSheet = true
+                                },
+                            )
+                        }
+                    }
+                }
 
-                    Text(
-                        text = "Privacy Policy   •   Subscriber Agreement",
-                        fontSize = 12.sp,
-                        color = Color(0xFF5A6275),
-                        modifier = Modifier.clickable { onItemClick(Setting.ABOUT) }
+                // 4. Personalization & Library
+                item(key = "group_personalization") {
+                    MochiSettingsSection(
+                        title = "Personalization & Library",
+                        items = listOf(
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.appearance_name),
+                                subtitle = "Obsidian theme, palettes, nav bar & sliders",
+                                iconRes = R.drawable.palette,
+                                testTag = "setting_appearance",
+                                onClick = { onItemClick(Setting.APPEARANCE) },
+                            ),
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.media_library),
+                                subtitle = stringResource(id = R.string.media_library_description),
+                                iconRes = R.drawable.history,
+                                testTag = "setting_media_library",
+                                onClick = { onItemClick(Setting.MEDIA_LIBRARY) },
+                            ),
+                            MochiSettingEntry(
+                                title = "Storage & Cache",
+                                subtitle = "Manage downloads, thumbnail cache & local files",
+                                iconRes = R.drawable.storage,
+                                testTag = "setting_storage",
+                                onClick = { onItemClick(Setting.STORAGE) },
+                            ),
+                        ),
                     )
+                }
 
-                    Spacer(modifier = Modifier.height(5.dp))
-
-                    Text(
-                        text = "App Version $appVersion",
-                        fontSize = 12.sp,
-                        color = Color(0xFF5A6275)
+                // 5. Playback & Media Engine
+                item(key = "group_playback") {
+                    MochiSettingsSection(
+                        title = "Playback & Media Engine",
+                        items = listOf(
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.player_name),
+                                subtitle = stringResource(id = R.string.player_description),
+                                iconRes = R.drawable.tune,
+                                testTag = "setting_player",
+                                onClick = { onItemClick(Setting.PLAYER) },
+                            ),
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.gestures_name),
+                                subtitle = stringResource(id = R.string.gestures_description),
+                                iconRes = R.drawable.swipe,
+                                testTag = "setting_gestures",
+                                onClick = { onItemClick(Setting.GESTURES) },
+                            ),
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.audio),
+                                subtitle = stringResource(id = R.string.audio_desc),
+                                iconRes = R.drawable.equalizer,
+                                testTag = "setting_audio",
+                                onClick = { onItemClick(Setting.AUDIO) },
+                            ),
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.decoder),
+                                subtitle = stringResource(id = R.string.decoder_desc),
+                                iconRes = R.drawable.sliders,
+                                testTag = "setting_decoder",
+                                onClick = { onItemClick(Setting.DECODER) },
+                            ),
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.subtitle),
+                                subtitle = stringResource(id = R.string.subtitle_desc),
+                                iconRes = R.drawable.language,
+                                testTag = "setting_subtitle",
+                                onClick = { onItemClick(Setting.SUBTITLE) },
+                            ),
+                            MochiSettingEntry(
+                                title = "Synced Lyrics",
+                                subtitle = "Live time-synced lyrics, styling & providers",
+                                iconRes = R.drawable.lyrics,
+                                testTag = "setting_lyrics",
+                                onClick = { onItemClick(Setting.LYRICS) },
+                            ),
+                            MochiSettingEntry(
+                                title = "Watch Party & Cloud",
+                                subtitle = "Telegram MTProto streaming & synchronized playback",
+                                iconRes = R.drawable.sync,
+                                testTag = "setting_watch_party",
+                                onClick = { onItemClick(Setting.WATCH_PARTY) },
+                            ),
+                        ),
                     )
+                }
+
+                // 6. System & Data
+                item(key = "group_system") {
+                    MochiSettingsSection(
+                        title = "System & Data",
+                        items = listOf(
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.general_name),
+                                subtitle = stringResource(id = R.string.general_description),
+                                iconRes = R.drawable.contrast,
+                                testTag = "setting_general",
+                                onClick = { onItemClick(Setting.GENERAL) },
+                            ),
+                            MochiSettingEntry(
+                                title = "Watch Statistics",
+                                subtitle = "Playback history insights & folder breakdown",
+                                iconRes = R.drawable.stats,
+                                testTag = "setting_stats",
+                                onClick = { onItemClick(Setting.STATS) },
+                            ),
+                            MochiSettingEntry(
+                                title = "Backup & Restore",
+                                subtitle = "Export or import app preferences & library state",
+                                iconRes = R.drawable.backup,
+                                testTag = "setting_backup_restore",
+                                onClick = { onItemClick(Setting.BACKUP_RESTORE) },
+                            ),
+                        ),
+                    )
+                }
+
+                // 7. Lead Developer Spotlight
+                item(key = "lead_developer_card") {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        MochiSectionTitle("Lead Developer")
+                        LeadDeveloperCard(
+                            developerName = stringResource(id = R.string.app_developer),
+                            onGitHubClick = { openExternalUrl(GITHUB_PROFILE_URL) },
+                            onTelegramClick = { openExternalUrl(TELEGRAM_COMMUNITY_URL) },
+                        )
+                    }
+                }
+
+                // 8. Developers & Contributors
+                item(key = "contributors_card") {
+                    MochiContributorsSection(
+                        onOpenUrl = ::openExternalUrl,
+                    )
+                }
+
+                // 9. Community, Support & About
+                item(key = "support_card") {
+                    MochiSettingsSection(
+                        title = "Support & Community",
+                        items = listOf(
+                            MochiSettingEntry(
+                                title = "Telegram Support Community",
+                                subtitle = "Join @KryptonPlayer for support, builds & feedback",
+                                iconRes = R.drawable.ic_telegram,
+                                trailingExternal = true,
+                                testTag = "support_telegram",
+                                onClick = { openExternalUrl(TELEGRAM_COMMUNITY_URL) },
+                            ),
+                            MochiSettingEntry(
+                                title = "Boost Channel",
+                                subtitle = "Support Krypton Player on Telegram (/boost)",
+                                iconRes = R.drawable.bolt,
+                                trailingExternal = true,
+                                testTag = "support_boost",
+                                onClick = { openExternalUrl(TELEGRAM_BOOST_URL) },
+                            ),
+                            MochiSettingEntry(
+                                title = "Report a Bug or Issue",
+                                subtitle = "Track bugs, crashes & feature requests on GitHub",
+                                iconVector = Icons.Rounded.BugReport,
+                                trailingExternal = true,
+                                testTag = "support_github_issues",
+                                onClick = { openExternalUrl(GITHUB_ISSUES_URL) },
+                            ),
+                            MochiSettingEntry(
+                                title = "Source Code (GPL-3.0)",
+                                subtitle = "RoxyBasicNeedBot/Krypton-Player on GitHub",
+                                iconRes = R.drawable.ic_github,
+                                trailingExternal = true,
+                                testTag = "support_github_repo",
+                                onClick = { openExternalUrl(GITHUB_REPO_URL) },
+                            ),
+                            MochiSettingEntry(
+                                title = stringResource(id = R.string.about_name),
+                                subtitle = "Changelog, commit history & open-source licenses",
+                                iconRes = R.drawable.info,
+                                testTag = "setting_about",
+                                onClick = { onItemClick(Setting.ABOUT) },
+                            ),
+                        ),
+                    )
+                }
+
+                // 10. Clean Footer
+                item(key = "krypton_footer") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp, bottom = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = "Krypton Player v$appVersion",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Text(
+                            text = "Crafted by ${stringResource(id = R.string.app_developer)} • Android ${Build.VERSION.RELEASE} • $primaryAbi",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                        )
+                    }
                 }
             }
         }
@@ -660,672 +622,239 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun HotstarSettingRow(
-    title: String,
-    subtitle: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    trailingContent: (@Composable () -> Unit)? = null,
+private fun KryptonHeroCard(
+    appVersion: String,
+    primaryAbi: String,
+    updateState: UpdateState,
+    onCheckUpdateClick: () -> Unit,
+    onAboutClick: () -> Unit,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 15.dp),
-        verticalAlignment = Alignment.CenterVertically
+    val colorScheme = MaterialTheme.colorScheme
+    val isChecking = updateState is UpdateState.Checking
+    val updateLabel = when (updateState) {
+        is UpdateState.Checking -> "Checking..."
+        is UpdateState.Available -> "Update v${updateState.info.versionName}"
+        is UpdateState.Downloading -> {
+            if (updateState.progress in 0..100) "Downloading ${updateState.progress}%" else "Downloading..."
+        }
+        is UpdateState.ReadyToInstall -> "Install Update"
+        else -> "Check Updates"
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = colorScheme.surfaceContainerLow,
+        border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = Color(0xFFBAC5D6),
-            modifier = Modifier.size(22.dp)
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White
-            )
-            if (subtitle.isNotBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = subtitle,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = Color(0xFF828A9E)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            colorScheme.surfaceContainerHigh.copy(alpha = 0.55f),
+                            colorScheme.surfaceContainerLow,
+                        ),
+                    ),
                 )
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colorScheme.surfaceContainerHighest)
+                        .border(1.dp, colorScheme.outlineVariant, RoundedCornerShape(16.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_arch_player),
+                        contentDescription = stringResource(id = R.string.app_name),
+                        tint = colorScheme.primary,
+                        modifier = Modifier.size(30.dp),
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.app_name),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = colorScheme.primaryContainer,
+                        ) {
+                            Text(
+                                text = "v$appVersion",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Android ${Build.VERSION.RELEASE} • $primaryAbi • Native TDLib",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    onClick = onCheckUpdateClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("settings_check_updates_button"),
+                    shape = RoundedCornerShape(14.dp),
+                    color = colorScheme.primary,
+                    contentColor = colorScheme.onPrimary,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (isChecking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = colorScheme.onPrimary,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Rounded.SystemUpdate,
+                                contentDescription = null,
+                                modifier = Modifier.size(17.dp),
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = updateLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = onAboutClick,
+                    modifier = Modifier
+                        .heightIn(min = 48.dp)
+                        .testTag("settings_changelog_button"),
+                    shape = RoundedCornerShape(14.dp),
+                    color = colorScheme.surfaceContainerHigh,
+                    contentColor = colorScheme.onSurface,
+                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.info),
+                            contentDescription = null,
+                            modifier = Modifier.size(17.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "About",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
             }
         }
-
-        if (trailingContent != null) {
-            trailingContent()
-        } else {
-            Icon(
-                imageVector = NextIcons.ArrowForward,
-                contentDescription = null,
-                tint = Color(0xFF5C667A),
-                modifier = Modifier.size(18.dp)
-            )
-        }
     }
 }
 
 @Composable
-private fun HotstarDivider() {
-    HorizontalDivider(
-        color = Color(0xFF131724),
-        thickness = 1.dp,
-        modifier = Modifier.padding(horizontal = 18.dp)
-    )
-}
-
-@Composable
-private fun SettingsUpdateBanner(
+private fun ActiveUpdateStrip(
     info: AppUpdateInfo,
-    isReadyToInstall: Boolean = false,
-    isDownloading: Boolean = false,
-    downloadProgress: Int = -1,
-    onUpdateClick: () -> Unit,
-    onDismissClick: () -> Unit,
-    modifier: Modifier = Modifier,
+    updateState: UpdateState,
+    onClick: () -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1.0f,
-        animationSpec = spring(stiffness = Spring.StiffnessHigh),
-        label = "updateBannerScale",
-    )
-
-    val bannerTitle = when {
-        isReadyToInstall -> "Update Ready to Install"
-        isDownloading -> "Downloading Update"
-        else -> "New Version Available"
+    val colorScheme = MaterialTheme.colorScheme
+    val subtitle = when (updateState) {
+        is UpdateState.Downloading -> {
+            if (updateState.progress in 0..100) "Downloading update (${updateState.progress}%)" else "Downloading update..."
+        }
+        is UpdateState.ReadyToInstall -> "Verified & ready to install"
+        else -> "Tap to view changelog and install"
     }
 
-    val bannerSubtitle = when {
-        isReadyToInstall -> "Update downloaded — Tap to install"
-        isDownloading -> if (downloadProgress in 0..100) "Downloading package: $downloadProgress%" else "Downloading update package..."
-        info.changelog.isNotBlank() -> info.changelog.take(65) + "…"
-        else -> "Tap to view changelog & update"
-    }
-
-    val buttonText = when {
-        isReadyToInstall -> "Install"
-        isDownloading -> "Details"
-        else -> "Update"
-    }
-
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val bannerShape = RoundedCornerShape(22.dp)
-
-    Box(
-        modifier = modifier
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = 12.dp,
-                shape = bannerShape,
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-            )
-            .clip(bannerShape)
-            .background(
-                color = if (isDark) Color(0xA61B1E2E) else Color(0xEEF0F4FF),
-                shape = bannerShape,
-            )
-            .border(
-                width = 1.2.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.60f),
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                    ),
-                ),
-                shape = bannerShape,
-            )
-            .liquidGlassBorderLaser(
-                laserColor = MaterialTheme.colorScheme.primary,
-                cornerRadius = 22.dp,
-                strokeWidth = 1.2.dp,
-                glowWidth = 3.6.dp,
-            )
-            .bouncyPress(),
+            .testTag("settings_update_banner"),
+        shape = RoundedCornerShape(18.dp),
+        color = colorScheme.tertiaryContainer.copy(alpha = 0.45f),
+        border = BorderStroke(0.9.dp, colorScheme.tertiary.copy(alpha = 0.35f)),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f))
-                    .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                        CircleShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.update),
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(
-                        interactionSource = interactionSource,
-                        indication = null,
-                        onClick = onUpdateClick,
-                    ),
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = bannerTitle,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = MaterialTheme.colorScheme.primary,
-                    ) {
-                        Text(
-                            text = "v${info.versionName}",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = bannerSubtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(
-                onClick = onUpdateClick,
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                ),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-            ) {
-                Text(
-                    text = buttonText,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-            }
-
-            IconButton(
-                onClick = onDismissClick,
-                modifier = Modifier.size(32.dp),
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_close),
-                    contentDescription = "Dismiss",
-                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.65f),
-                    modifier = Modifier.size(16.dp),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsSectionLabel(
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier.padding(horizontal = 4.dp, vertical = 6.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(6.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary),
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = text.uppercase(),
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.1.sp,
-                color = MaterialTheme.colorScheme.primary,
-            ),
-        )
-    }
-}
-
-@Composable
-private fun SettingsGroup(
-    title: String,
-    items: List<SettingRow>,
-    onItemClick: (Setting) -> Unit,
-    appVersion: String,
-    isUpdateAvailable: Boolean,
-    onUpdateClick: () -> Unit,
-    groupIndex: Int,
-    modifier: Modifier = Modifier,
-) {
-    val entranceAlpha = remember { Animatable(0f) }
-    val entranceTranslateY = remember { Animatable(24f) }
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val groupShape = RoundedCornerShape(22.dp)
-
-    LaunchedEffect(Unit) {
-        delay(groupIndex * 70L)
-        entranceAlpha.animateTo(
-            1f,
-            animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
-        )
-    }
-    LaunchedEffect(Unit) {
-        delay(groupIndex * 70L)
-        entranceTranslateY.animateTo(
-            0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessMediumLow,
-            ),
-        )
-    }
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                alpha = entranceAlpha.value
-                translationY = entranceTranslateY.value
-            },
-    ) {
-        SettingsSectionLabel(text = title)
-        Spacer(modifier = Modifier.height(4.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(
-                    elevation = 10.dp,
-                    shape = groupShape,
-                    spotColor = Color.Black.copy(alpha = 0.35f),
-                )
-                .clip(groupShape)
-                .background(
-                    color = if (isDark) Color(0x99161824) else MaterialTheme.colorScheme.surfaceContainer,
-                    shape = groupShape,
-                )
-                .border(
-                    width = 1.dp,
-                    brush = Brush.verticalGradient(
-                        colors = if (isDark) {
-                            listOf(
-                                Color.White.copy(alpha = 0.22f),
-                                Color.White.copy(alpha = 0.05f),
-                            )
-                        } else {
-                            listOf(
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
-                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                            )
-                        },
-                    ),
-                    shape = groupShape,
-                ),
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(groupShape),
-            ) {
-                items.forEachIndexed { index, item ->
-                    if (index > 0) {
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 74.dp),
-                            color = if (isDark) Color.White.copy(alpha = 0.07f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                        )
-                    }
-                    SettingsSegmentedItem(
-                        row = item,
-                        index = index,
-                        count = items.size,
-                        appVersion = appVersion,
-                        isUpdateAvailable = isUpdateAvailable && item.setting == Setting.ABOUT,
-                        onClick = {
-                            onItemClick(item.setting)
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SettingsSegmentedItem(
-    row: SettingRow,
-    index: Int,
-    count: Int,
-    appVersion: String,
-    isUpdateAvailable: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1f,
-        animationSpec = spring(stiffness = Spring.StiffnessHigh),
-        label = "settingsRowScale",
-    )
-    val (iconBgColor, iconContentColor) = when (row.accentType) {
-        AccentType.PRIMARY -> MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.primary
-        AccentType.SECONDARY -> MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.secondary
-        AccentType.TERTIARY -> MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.tertiary
-    }
-
-    var tapCount by remember { mutableIntStateOf(0) }
-
-    val title = if (row.titleResId != 0) {
-        stringResource(id = row.titleResId)
-    } else {
-        row.title ?: ""
-    }
-    val description = if (row.descriptionResId != 0) {
-        stringResource(id = row.descriptionResId)
-    } else {
-        row.description ?: ""
-    }
-
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .bouncyPress()
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {
-                    tapCount++
-                    onClick()
-                },
-            )
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(13.dp))
-                .background(iconContentColor.copy(alpha = 0.14f))
-                .border(
-                    width = 1.dp,
-                    color = iconContentColor.copy(alpha = 0.30f),
-                    shape = RoundedCornerShape(13.dp),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (isUpdateAvailable) {
-                BadgedBox(
-                    badge = {
-                        Badge(
-                            containerColor = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(8.dp),
-                        )
-                    },
-                ) {
-                    RenderRowIcon(row, tapCount, iconContentColor)
-                }
-            } else {
-                RenderRowIcon(row, tapCount, iconContentColor)
-            }
-        }
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-
-        if (row.setting == Setting.ABOUT && appVersion.isNotBlank()) {
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = if (isUpdateAvailable) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
-            ) {
-                Text(
-                    text = if (isUpdateAvailable) "UPDATE" else "v$appVersion",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isUpdateAvailable) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                )
-            }
-        }
-
-        Icon(
-            imageVector = NextIcons.ArrowForward,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-            modifier = Modifier.size(18.dp),
-        )
-    }
-}
-
-@Composable
-private fun RenderRowIcon(
-    row: SettingRow,
-    tapCount: Int,
-    iconTint: Color,
-) {
-    if (row.drawableResId != 0) {
-        Icon(
-            painter = painterResource(id = row.drawableResId),
-            contentDescription = null,
-            tint = iconTint,
-            modifier = Modifier.size(20.dp),
-        )
-    } else {
-        AnimatedSettingsIcon(
-            icon = row.icon,
-            animationType = row.animationType,
-            tint = iconTint,
-            triggerKey = tapCount,
-            modifier = Modifier.size(20.dp),
-        )
-    }
-}
-
-@Composable
-private fun FeaturedWatchPartyCard(
-    row: SettingRow,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1.0f,
-        animationSpec = spring(stiffness = Spring.StiffnessHigh),
-        label = "featuredScale",
-    )
-
-    val entranceAlpha = remember { Animatable(0f) }
-    val entranceTranslateY = remember { Animatable(24f) }
-    LaunchedEffect(Unit) {
-        entranceAlpha.animateTo(
-            1f,
-            animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-        )
-    }
-    LaunchedEffect(Unit) {
-        entranceTranslateY.animateTo(
-            0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioLowBouncy,
-                stiffness = Spring.StiffnessMediumLow,
-            ),
-        )
-    }
-
-    val title = if (row.titleResId != 0) {
-        stringResource(id = row.titleResId)
-    } else {
-        row.title ?: ""
-    }
-    val description = if (row.descriptionResId != 0) {
-        stringResource(id = row.descriptionResId)
-    } else {
-        row.description ?: ""
-    }
-
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val featuredShape = RoundedCornerShape(24.dp)
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                alpha = entranceAlpha.value
-                translationY = entranceTranslateY.value
-            }
-            .shadow(
-                elevation = 14.dp,
-                shape = featuredShape,
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-            )
-            .clip(featuredShape)
-            .background(
-                color = if (isDark) Color(0x99181B2A) else MaterialTheme.colorScheme.surfaceContainer,
-                shape = featuredShape,
-            )
-            .border(
-                width = 1.2.dp,
-                brush = Brush.verticalGradient(
-                    colors = if (isDark) {
-                        listOf(
-                            Color.White.copy(alpha = 0.35f),
-                            Color.White.copy(alpha = 0.08f),
-                        )
-                    } else {
-                        listOf(
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f),
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
-                        )
-                    },
-                ),
-                shape = featuredShape,
-            )
-            .liquidGlassBorderLaser(
-                laserColor = MaterialTheme.colorScheme.primary,
-                cornerRadius = 24.dp,
-                strokeWidth = 1.2.dp,
-                glowWidth = 3.6.dp,
-            )
-            .bouncyPress()
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            ),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f))
-                    .border(
-                        1.dp,
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-                        RoundedCornerShape(16.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (row.drawableResId != 0) {
-                    Icon(
-                        painter = painterResource(id = row.drawableResId),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp),
-                    )
+            Icon(
+                imageVector = if (updateState is UpdateState.ReadyToInstall) {
+                    Icons.Rounded.CheckCircle
                 } else {
-                    Icon(
-                        imageVector = row.icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp),
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
+                    Icons.Rounded.SystemUpdate
+                },
+                contentDescription = null,
+                tint = colorScheme.tertiary,
+                modifier = Modifier.size(22.dp),
+            )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    text = "Krypton v${info.versionName} Available",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colorScheme.onSurface,
                 )
-                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
                 )
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
             Icon(
-                imageVector = NextIcons.ArrowForward,
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                tint = colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -1333,350 +862,445 @@ private fun FeaturedWatchPartyCard(
 }
 
 @Composable
-private fun SettingsAppIdentityCard(
-    versionName: String,
-    isUpdateAvailable: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
+private fun LeadDeveloperCard(
+    developerName: String,
+    onGitHubClick: () -> Unit,
+    onTelegramClick: () -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val cardShape = RoundedCornerShape(24.dp)
+    val colorScheme = MaterialTheme.colorScheme
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 14.dp,
-                shape = cardShape,
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
-            )
-            .clip(cardShape)
-            .background(
-                color = if (isDark) Color(0xA6181B28) else MaterialTheme.colorScheme.surfaceContainer,
-                shape = cardShape,
-            )
-            .border(
-                width = 1.2.dp,
-                brush = Brush.verticalGradient(
-                    colors = if (isDark) {
-                        listOf(
-                            Color.White.copy(alpha = 0.35f),
-                            Color.White.copy(alpha = 0.08f),
-                        )
-                    } else {
-                        listOf(
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f),
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
-                        )
-                    },
-                ),
-                shape = cardShape,
-            )
-            .liquidGlassBorderLaser(
-                laserColor = MaterialTheme.colorScheme.primary,
-                coreColor = Color.White,
-                haloColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.45f),
-                cornerRadius = 24.dp,
-                strokeWidth = 1.2.dp,
-                glowWidth = 3.6.dp,
-            )
-            .bouncyPress()
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick,
-            ),
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = colorScheme.surfaceContainerLow,
+        border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Gradient app logo circle with monochrome mark
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(
-                        androidx.compose.ui.graphics.Brush.linearGradient(
-                            colors = listOf(
-                                MaterialTheme.colorScheme.primary,
-                                MaterialTheme.colorScheme.secondary,
-                            ),
-                        ),
-                    )
-                    .border(
-                        width = 1.dp,
-                        color = Color.White.copy(alpha = 0.35f),
-                        shape = CircleShape,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                dev.roxy.kryptonplayer.core.ui.components.AnimatedAppLogo(
-                    modifier = Modifier.size(32.dp),
-                    useGradient = false,
-                    singleColor = MaterialTheme.colorScheme.onPrimary,
-                    animateOnEntry = true,
-                )
-            }
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(id = R.string.app_name),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 0.25.sp,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "v$versionName • Liquid Glass Edition",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = if (isUpdateAvailable) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.primaryContainer,
+                Image(
+                    painter = painterResource(id = R.drawable.dev_profile),
+                    contentDescription = "$developerName avatar",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(62.dp)
+                        .clip(CircleShape)
+                        .border(1.5.dp, colorScheme.primary.copy(alpha = 0.65f), CircleShape),
+                )
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = developerName,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.onSurface,
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.Verified,
+                            contentDescription = "Verified lead developer",
+                            tint = colorScheme.tertiary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = colorScheme.surfaceContainerHigh,
+                    ) {
+                        Text(
+                            text = "Lead Developer & Creator",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurface,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        )
+                    }
                     Text(
-                        text = if (isUpdateAvailable) "UPDATE" else "STABLE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (isUpdateAvailable) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        text = "@RoxyBasicNeedBot",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
                     )
                 }
+            }
 
-                Icon(
-                    imageVector = NextIcons.ArrowForward,
-                    contentDescription = "View Profile",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
+            Text(
+                text = "Lead architect and maintainer behind Krypton Player — building the native TDLib MTProto 2.0 streaming engine, Media3 HDR playback pipeline, and obsidian interface.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
+                lineHeight = 18.sp,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    onClick = onGitHubClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("lead_dev_github_button"),
+                    shape = RoundedCornerShape(14.dp),
+                    color = colorScheme.surfaceContainerHigh,
+                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_github),
+                            contentDescription = null,
+                            tint = colorScheme.onSurface,
+                            modifier = Modifier.size(17.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "GitHub",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = onTelegramClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .testTag("lead_dev_telegram_button"),
+                    shape = RoundedCornerShape(14.dp),
+                    color = colorScheme.surfaceContainerHigh,
+                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_telegram),
+                            contentDescription = null,
+                            tint = colorScheme.onSurface,
+                            modifier = Modifier.size(17.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Telegram",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = colorScheme.onSurface,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-private fun Context.appVersion(): String {
-    return try {
-        val packageInfo = packageManager.getPackageInfo(packageName, 0)
-        packageInfo.versionName ?: ""
-    } catch (_: Exception) {
-        ""
+private data class ContributorEntry(
+    val name: String,
+    val role: String,
+    val badge: String,
+    val url: String,
+    val icon: ImageVector,
+)
+
+@Composable
+private fun MochiContributorsSection(
+    onOpenUrl: (String) -> Unit,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val contributors = remember {
+        listOf(
+            ContributorEntry(
+                name = "ROXY (@RoxyBasicNeedBot)",
+                role = "Lead Developer, UI Architecture & TDLib Core",
+                badge = "Lead",
+                url = GITHUB_PROFILE_URL,
+                icon = Icons.Rounded.Verified,
+            ),
+            ContributorEntry(
+                name = "Anil Beesetti",
+                role = "Upstream Next Player & nextlib FFmpeg Decoders",
+                badge = "Core Base",
+                url = UPSTREAM_NEXTPLAYER_URL,
+                icon = Icons.Rounded.Code,
+            ),
+            ContributorEntry(
+                name = "AndroidX Media3 Team",
+                role = "ExoPlayer Adaptive Playback & HDR Engine",
+                badge = "Engine",
+                url = MEDIA3_URL,
+                icon = Icons.Rounded.Code,
+            ),
+            ContributorEntry(
+                name = "Open-Source Community",
+                role = "Translations, Bug Reports, Testing & Pull Requests",
+                badge = "Contributors",
+                url = GITHUB_CONTRIBUTORS_URL,
+                icon = Icons.Rounded.Groups,
+            ),
+        )
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        MochiSectionTitle("Developers & Contributors")
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            color = colorScheme.surfaceContainerLow,
+            border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                contributors.forEachIndexed { index, contributor ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 64.dp)
+                            .clickable { onOpenUrl(contributor.url) }
+                            .padding(horizontal = 16.dp, vertical = 13.dp)
+                            .testTag("contributor_item_$index"),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(colorScheme.surfaceContainerHigh),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = contributor.icon,
+                                contentDescription = null,
+                                tint = colorScheme.onSurface,
+                                modifier = Modifier.size(19.dp),
+                            )
+                        }
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(
+                                    text = contributor.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f, fill = false),
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = colorScheme.surfaceContainerHighest,
+                                ) {
+                                    Text(
+                                        text = contributor.badge,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = colorScheme.onSurfaceVariant,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
+                            Text(
+                                text = contributor.role,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        Icon(
+                            imageVector = Icons.Rounded.OpenInNew,
+                            contentDescription = "Open link",
+                            tint = colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+
+                    if (index < contributors.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 70.dp, end = 16.dp),
+                            thickness = 0.6.dp,
+                            color = colorScheme.outlineVariant.copy(alpha = 0.65f),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
-enum class Setting {
-    APPEARANCE,
-    MEDIA_LIBRARY,
-    PLAYER,
-    GESTURES,
-    DECODER,
-    AUDIO,
-    SUBTITLE,
-    LYRICS,
-    GENERAL,
-    STATS,
-    BACKUP_RESTORE,
-    STORAGE,
-    WATCH_PARTY,
-    ABOUT,
+private data class MochiSettingEntry(
+    val title: String,
+    val subtitle: String,
+    @DrawableRes val iconRes: Int = 0,
+    val iconVector: ImageVector? = null,
+    val trailingExternal: Boolean = false,
+    val testTag: String,
+    val onClick: () -> Unit,
+)
+
+@Composable
+private fun MochiSectionTitle(title: String) {
+    Text(
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 0.8.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 6.dp),
+    )
 }
 
-private enum class AccentType { PRIMARY, SECONDARY, TERTIARY }
-
-private enum class SettingRow(
-    val titleResId: Int = 0,
-    val descriptionResId: Int = 0,
-    val title: String? = null,
-    val description: String? = null,
-    @DrawableRes val drawableResId: Int = 0,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector = NextIcons.Settings,
-    val animationType: SettingsIconAnimation = SettingsIconAnimation.PULSE,
-    val setting: Setting,
-    val accentType: AccentType = AccentType.PRIMARY,
+@Composable
+private fun MochiSettingsSection(
+    title: String,
+    items: List<MochiSettingEntry>,
 ) {
-    APPEARANCE(
-        titleResId = R.string.appearance_name,
-        descriptionResId = R.string.appearance_description,
-        drawableResId = R.drawable.palette,
-        setting = Setting.APPEARANCE,
-        accentType = AccentType.SECONDARY,
-    ),
-    MEDIA_LIBRARY(
-        titleResId = R.string.media_library,
-        descriptionResId = R.string.media_library_description,
-        drawableResId = R.drawable.history,
-        setting = Setting.MEDIA_LIBRARY,
-        accentType = AccentType.PRIMARY,
-    ),
-    PLAYER(
-        titleResId = R.string.player_name,
-        descriptionResId = R.string.player_description,
-        drawableResId = R.drawable.tune,
-        setting = Setting.PLAYER,
-        accentType = AccentType.TERTIARY,
-    ),
-    LYRICS(
-        title = "Lyrics",
-        description = "Live synced lyrics, styling & providers",
-        drawableResId = R.drawable.lyrics,
-        setting = Setting.LYRICS,
-        accentType = AccentType.SECONDARY,
-    ),
-    GESTURES(
-        titleResId = R.string.gestures_name,
-        descriptionResId = R.string.gestures_description,
-        drawableResId = R.drawable.swipe,
-        setting = Setting.GESTURES,
-        accentType = AccentType.PRIMARY,
-    ),
-    DECODER(
-        titleResId = R.string.decoder,
-        descriptionResId = R.string.decoder_desc,
-        drawableResId = R.drawable.sliders,
-        setting = Setting.DECODER,
-        accentType = AccentType.TERTIARY,
-    ),
-    AUDIO(
-        titleResId = R.string.audio,
-        descriptionResId = R.string.audio_desc,
-        drawableResId = R.drawable.equalizer,
-        setting = Setting.AUDIO,
-        accentType = AccentType.SECONDARY,
-    ),
-    SUBTITLE(
-        titleResId = R.string.subtitle,
-        descriptionResId = R.string.subtitle_desc,
-        drawableResId = R.drawable.language,
-        setting = Setting.SUBTITLE,
-        accentType = AccentType.PRIMARY,
-    ),
-    GENERAL(
-        titleResId = R.string.general_name,
-        descriptionResId = R.string.general_description,
-        drawableResId = R.drawable.contrast,
-        setting = Setting.GENERAL,
-        accentType = AccentType.SECONDARY,
-    ),
-    STATS(
-        title = "Statistics",
-        description = "Watch statistics and folder distributions",
-        drawableResId = R.drawable.stats,
-        setting = Setting.STATS,
-        accentType = AccentType.TERTIARY,
-    ),
-    BACKUP_RESTORE(
-        title = "Backup & Restore",
-        description = "Export and import app settings and library data",
-        drawableResId = R.drawable.backup,
-        setting = Setting.BACKUP_RESTORE,
-        accentType = AccentType.PRIMARY,
-    ),
-    STORAGE(
-        title = "Storage & Cache",
-        description = "Manage media library cache and local storage",
-        drawableResId = R.drawable.storage,
-        setting = Setting.STORAGE,
-        accentType = AccentType.TERTIARY,
-    ),
-    WATCH_PARTY(
-        title = "Watch Party (Sync Play)",
-        description = "Watch Telegram Cloud videos synchronously with friends",
-        drawableResId = R.drawable.sync,
-        setting = Setting.WATCH_PARTY,
-        accentType = AccentType.PRIMARY,
-    ),
-    ABOUT(
-        titleResId = R.string.about_name,
-        descriptionResId = R.string.about_description,
-        drawableResId = R.drawable.info,
-        setting = Setting.ABOUT,
-        accentType = AccentType.SECONDARY,
-    );
+    val colorScheme = MaterialTheme.colorScheme
 
-    @Composable
-    fun accentColor(): Color = when (accentType) {
-        AccentType.PRIMARY -> MaterialTheme.colorScheme.primary
-        AccentType.SECONDARY -> MaterialTheme.colorScheme.secondary
-        AccentType.TERTIARY -> MaterialTheme.colorScheme.tertiary
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        MochiSectionTitle(title)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            color = colorScheme.surfaceContainerLow,
+            border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                items.forEachIndexed { index, item ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 62.dp)
+                            .clickable(onClick = item.onClick)
+                            .padding(horizontal = 16.dp, vertical = 13.dp)
+                            .testTag(item.testTag),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(colorScheme.surfaceContainerHigh),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            when {
+                                item.iconRes != 0 -> Icon(
+                                    painter = painterResource(id = item.iconRes),
+                                    contentDescription = null,
+                                    tint = colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                item.iconVector != null -> Icon(
+                                    imageVector = item.iconVector,
+                                    contentDescription = null,
+                                    tint = colorScheme.onSurface,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = item.title,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                text = item.subtitle,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+
+                        Icon(
+                            imageVector = if (item.trailingExternal) {
+                                Icons.Rounded.OpenInNew
+                            } else {
+                                Icons.AutoMirrored.Rounded.KeyboardArrowRight
+                            },
+                            contentDescription = null,
+                            tint = colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                            modifier = Modifier.size(if (item.trailingExternal) 16.dp else 20.dp),
+                        )
+                    }
+
+                    if (index < items.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 70.dp, end = 16.dp),
+                            thickness = 0.6.dp,
+                            color = colorScheme.outlineVariant.copy(alpha = 0.65f),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun SettingsDropdownMenu(
+private fun SettingsQuickMenu(
     expanded: Boolean,
     onDismissRequest: () -> Unit,
     onOpenLocalVideo: () -> Unit,
     onOpenNetworkStream: () -> Unit,
     onCheckForUpdates: () -> Unit,
 ) {
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-
+    val colorScheme = MaterialTheme.colorScheme
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        modifier = Modifier
-            .background(
-                brush = Brush.verticalGradient(
-                    if (isDark) {
-                        listOf(
-                            Color(0xF0181A22),
-                            Color(0xF00D0E12),
-                        )
-                    } else {
-                        listOf(
-                            MaterialTheme.colorScheme.surfaceContainerHighest,
-                            MaterialTheme.colorScheme.surfaceContainerHigh,
-                        )
-                    },
-                ),
-                shape = RoundedCornerShape(20.dp),
-            )
-            .border(
-                width = 1.dp,
-                brush = Brush.verticalGradient(
-                    if (isDark) {
-                        listOf(
-                            Color.White.copy(alpha = 0.35f),
-                            Color.White.copy(alpha = 0.08f),
-                        )
-                    } else {
-                        listOf(
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.60f),
-                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f),
-                        )
-                    },
-                ),
-                shape = RoundedCornerShape(20.dp),
-            ),
-        containerColor = if (isDark) Color(0xEE14151B) else MaterialTheme.colorScheme.surfaceContainerHigh,
-        shadowElevation = 16.dp,
-        tonalElevation = 6.dp,
+        containerColor = colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
     ) {
         DropdownMenuItem(
             text = { Text(text = stringResource(id = R.string.open_local_video)) },
             onClick = onOpenLocalVideo,
             colors = MenuDefaults.itemColors(
-                textColor = MaterialTheme.colorScheme.onSurface,
-                leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                textColor = colorScheme.onSurface,
+                leadingIconColor = colorScheme.onSurfaceVariant,
             ),
             leadingIcon = {
                 Icon(
                     imageVector = NextIcons.FileOpen,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
         )
@@ -1684,14 +1308,13 @@ private fun SettingsDropdownMenu(
             text = { Text(text = stringResource(id = R.string.open_network_stream)) },
             onClick = onOpenNetworkStream,
             colors = MenuDefaults.itemColors(
-                textColor = MaterialTheme.colorScheme.onSurface,
-                leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                textColor = colorScheme.onSurface,
+                leadingIconColor = colorScheme.onSurfaceVariant,
             ),
             leadingIcon = {
                 Icon(
                     imageVector = NextIcons.Link,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
         )
@@ -1699,14 +1322,13 @@ private fun SettingsDropdownMenu(
             text = { Text(text = "Check for updates") },
             onClick = onCheckForUpdates,
             colors = MenuDefaults.itemColors(
-                textColor = MaterialTheme.colorScheme.onSurface,
-                leadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                textColor = colorScheme.onSurface,
+                leadingIconColor = colorScheme.onSurfaceVariant,
             ),
             leadingIcon = {
                 Icon(
                     imageVector = NextIcons.Update,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             },
         )
@@ -1742,209 +1364,28 @@ private fun SettingsNetworkUrlDialog(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AccountSettingsBottomSheet(
-    appVersion: String,
-    onDismiss: () -> Unit
-) {
-    val context = LocalContext.current
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        containerColor = Color(0xFF0C1019),
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .padding(vertical = 10.dp)
-                    .size(width = 38.dp, height = 4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(Color.White.copy(alpha = 0.25f))
-            )
-        }
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 36.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.08f))
-                            .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.ic_arch_player),
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = "Account Settings",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Subscription & Device Manager",
-                            fontSize = 12.sp,
-                            color = Color(0xFF828A9E)
-                        )
-                    }
-                }
-                IconButton(onClick = onDismiss) {
-                    Icon(
-                        imageVector = NextIcons.Close,
-                        contentDescription = "Close",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            // VIP Membership Card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF0F1B2B),
-                                Color(0xFF0B121E)
-                            )
-                        )
-                    )
-                    .border(
-                        1.dp,
-                        Brush.horizontalGradient(
-                            listOf(
-                                Color(0xFF38B6FF).copy(alpha = 0.40f),
-                                Color(0xFF0072D2).copy(alpha = 0.20f)
-                            )
-                        ),
-                        RoundedCornerShape(16.dp)
-                    )
-                    .padding(18.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "KRYPTON VIP ACCESS",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp,
-                            color = Color(0xFF38B6FF)
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFF00E676).copy(alpha = 0.18f),
-                            border = BorderStroke(0.6.dp, Color(0xFF00E676).copy(alpha = 0.5f))
-                        ) {
-                            Text(
-                                text = "ACTIVE",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF00E676),
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
-                    Text(
-                        text = "Lifetime Free • 4K HDR • Zero Ads • Direct Cloud",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.White
-                    )
-
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-
-                    Text(
-                        text = "• 4K UHD, HDR10+, Dolby Vision playback unlocked\n• High-speed Telegram Cloud streaming enabled\n• Zero ads and lifetime unrestricted access",
-                        fontSize = 12.sp,
-                        lineHeight = 18.sp,
-                        color = Color(0xFFBAC5D6)
-                    )
-                }
-            }
-
-            // Device Info Card
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(Color(0xFF131722))
-                    .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
-                    .padding(16.dp)
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        text = "Connected Device",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF828A9E)
-                    )
-                    Text(
-                        text = "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Krypton Player v$appVersion • Architecture: ${(Build.SUPPORTED_ABIS?.firstOrNull() ?: "universal").uppercase()}",
-                        fontSize = 12.sp,
-                        color = Color(0xFF828A9E)
-                    )
-                }
-            }
-
-            // Manage VIP Button
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF0072D2))
-                    .border(1.dp, Color(0xFF38B6FF).copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                    .clickable {
-                        android.widget.Toast.makeText(context, "VIP Pro features are 100% Free in Krypton Player!", android.widget.Toast.LENGTH_SHORT).show()
-                        onDismiss()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "VIP Membership Active",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        }
+private fun Context.appVersion(): String {
+    return try {
+        val packageInfo = packageManager.getPackageInfo(packageName, 0)
+        packageInfo.versionName ?: ""
+    } catch (_: Exception) {
+        ""
     }
+}
+
+enum class Setting {
+    APPEARANCE,
+    MEDIA_LIBRARY,
+    PLAYER,
+    GESTURES,
+    DECODER,
+    AUDIO,
+    SUBTITLE,
+    LYRICS,
+    GENERAL,
+    STATS,
+    BACKUP_RESTORE,
+    STORAGE,
+    WATCH_PARTY,
+    ABOUT,
 }

@@ -72,12 +72,19 @@ fun PlayerStatusHUD(
             }
         }
         val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        ContextCompat.registerReceiver(
+        val stickyIntent = ContextCompat.registerReceiver(
             context,
             receiver,
             filter,
             ContextCompat.RECEIVER_NOT_EXPORTED,
         )
+        stickyIntent?.let { intent ->
+            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+            if (level >= 0 && scale > 0) {
+                batteryPercentage = (level * 100) / scale
+            }
+        }
         onDispose {
             runCatching { context.unregisterReceiver(receiver) }
         }

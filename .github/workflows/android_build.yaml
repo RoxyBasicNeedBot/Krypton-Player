@@ -2,6 +2,12 @@ name: Build APKs
 
 on:
   workflow_dispatch:
+    inputs:
+      create_github_release:
+        description: 'Create/Update GitHub Release manually (keep off for Telegram-only artifacts)'
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [ 'main', 'dev' ]
     paths-ignore:
@@ -246,8 +252,9 @@ jobs:
           OWNER_CHAT_ID: ${{ secrets.OWNER_CHAT_ID }}
           ARCH_API_URL: ${{ secrets.ARCH_API_URL }}
 
-      - name: Create or Update Versioned Release
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
+      # Manual-only GitHub Release (disabled on automatic pushes; APKs are delivered via Telegram above)
+      - name: Create or Update Versioned Release (Manual Only)
+        if: github.event_name == 'workflow_dispatch' && inputs.create_github_release == true && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.app_version.outputs.tag_name }}
@@ -259,21 +266,7 @@ jobs:
             - **Zero Server Bandwidth**: High-speed direct streaming and downloads via official Telegram MTProto TCP sockets.
             - **Krypton Material 3 Expressive UI**: Sleek modern UI, custom icons, update manager, and advanced player controls.
             - **Persistent Library Thumbnails**: Fast, zero-flicker offline thumbnails with `.thumb.jpg` caching.
-          draft: false
-          prerelease: false
-          make_latest: true
-          files: |
-            ./app/build/outputs/apk/release/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update Rolling debug-build Release
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: debug-build
-          name: "KryptonPlayer Latest Build (debug-build)"
-          draft: false
+          draft: true
           prerelease: false
           make_latest: false
           files: |

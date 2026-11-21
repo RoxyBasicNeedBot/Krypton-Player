@@ -565,7 +565,10 @@ fun shouldUseHighContrastDarkTheme(
 }
 
 @Composable
-fun shouldUseDynamicTheming(uiState: MainActivityUiState): Boolean = false
+fun shouldUseDynamicTheming(uiState: MainActivityUiState): Boolean = when (uiState) {
+    MainActivityUiState.Loading -> false
+    is MainActivityUiState.Success -> uiState.preferences.useDynamicColors
+}
 
 @Composable
 fun shouldUsePureBlack(uiState: MainActivityUiState): Boolean = when (uiState) {
@@ -580,7 +583,10 @@ fun shouldUseSystemFont(uiState: MainActivityUiState): Boolean = when (uiState) 
 }
 
 @Composable
-fun customThemeValue(uiState: MainActivityUiState): String = ""
+fun customThemeValue(uiState: MainActivityUiState): String = when (uiState) {
+    MainActivityUiState.Loading -> ""
+    is MainActivityUiState.Success -> uiState.preferences.customThemeValue
+}
 
 @Composable
 fun shouldEnableMeshBackground(uiState: MainActivityUiState): Boolean = when (uiState) {

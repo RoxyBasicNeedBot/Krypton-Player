@@ -1,9 +1,12 @@
 name: Publish Android App
 
 on:
-  push:
-    branches:
-      - 'release/v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Release version name (e.g. 0.16.5)'
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -14,10 +17,7 @@ jobs:
 
       - name: Get updated version name and version code
         run: |
-          # Extract version name from branch (removing 'bump/v' prefix)
-          version_name=${GITHUB_REF#refs/heads/release/v}
-
-          # Store values as environment variables
+          version_name="${{ inputs.version_name }}"
           echo "VERSION_NAME=$version_name" >> $GITHUB_ENV
 
       - name: Set up Ruby
