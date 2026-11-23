@@ -1,0 +1,76 @@
+name: Repository Automation Bots
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  schedule:
+    - cron: '0 3 * * 1' # Weekly on Mondays at 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  welcome-first-timer:
+    name: Welcome First-Time Contributors
+    if: github.event_name == 'issues' || github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Greet first-time issue or PR author
+        uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: |
+            Hey! 👋 Thanks for opening your first issue in **Krypton Player**!
+
+            To help us investigate quickly, please make sure you've included:
+            - Your Android version & device model
+            - App version (`Settings → About`)
+            - Steps to reproduce or a quick screen recording / crash log
+
+            You can also join our community at **[@KryptonPlayer on Telegram](https://t.me/KryptonPlayer)** 🚀
+          pr-message: |
+            Hey! 🎉 Thanks for submitting your first Pull Request to **Krypton Player**!
+
+            Our CI checks will run automatically shortly. A maintainer will review your changes soon — thanks for helping make Krypton Player better!
+
+  auto-label-pr:
+    name: Auto-Label Pull Requests
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply area labels based on changed files
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+
+  stale-hygiene:
+    name: Mark & Close Stale Issues
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for inactive issues and PRs
+        uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          days-before-issue-stale: 45
+          days-before-issue-close: 14
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          exempt-issue-labels: 'pinned,security,bug,enhancement'
+          exempt-pr-labels: 'pinned,work-in-progress'
+          stale-issue-message: >
+            This issue has been automatically marked as stale because it has not had recent activity.
+            Comment if it's still relevant on the latest release, otherwise it will be closed in 14 days.
+          close-issue-message: >
+            Closing due to inactivity. Feel free to reopen or file a fresh issue if you still experience this on the latest version.
+          stale-pr-message: >
+            This PR has been inactive for 30 days. Let us know if you'd like to continue working on it!
+          operations-per-run: 30

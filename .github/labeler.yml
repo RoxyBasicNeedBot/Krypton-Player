@@ -1,0 +1,43 @@
+"player":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'feature/player/**'
+
+"ui / mochi":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'core/ui/**'
+          - 'app/src/main/res/**'
+
+"settings":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'feature/settings/**'
+
+"telegram-cloud":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*telegram*'
+          - '**/*tdlib*'
+          - '**/*Telegram*'
+          - '**/*Tdlib*'
+
+"tmdb-explore":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*tmdb*'
+          - '**/*Tmdb*'
+          - '**/*Explore*'
+          - '**/*explore*'
+
+"ci / workflows":
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/**'
+
+"documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'README.md'
+          - '**/*.md'
+          - 'fastlane/**'
