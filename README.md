@@ -96,9 +96,13 @@ License    : GNU General Public License v3.0
 
 | ⭐ Stars | 🍴 Forks | 📥 Total Downloads | 👀 Watchers | 🏷️ Latest Release | 🐛 Open Issues |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Live** | **Live** | **Live** | **Live** | **[Latest](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/latest)** | **[Issues](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
+| **9** | **7** | **49** | **3** | **[v0.16.4](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
 
-<sub>🤖 <i>Auto-synced automatically on every new star, fork, release, issue, and commit by <b>Krypton README Bot</b>.</i></sub>
+<p>
+  <b>🏆 Next Star Milestone:</b> `███████░░░░░░░░░░░░░` **36%** (9 / 25 ⭐)
+</p>
+
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 23, 2026 • 21:30 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -116,8 +120,13 @@ License    : GNU General Public License v3.0
 ## 📥 Download & Installation
 
 <!-- BOT:LATEST_RELEASE:START -->
-> [!TIP]
-> Grab the latest signed APK from [**GitHub Releases**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/latest). Once the **Krypton README Bot** runs on GitHub Actions, this section automatically displays direct APK download links, sizes, and live download counts for every ABI (`arm64-v8a`, `armeabi-v7a`, and `universal`).
+### 🚀 Latest Release: [KryptonPlayer v0.16.4 (Official Native TDLib MTProto 2.0)](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4) — `Nov 21, 2026`
+
+| Architecture / Variant | Size | Downloads | Direct Download |
+| :--- | :---: | :---: | :---: |
+| **ARM64-v8a** *(Recommended)* | `37.1 MB` | 8 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-arm64-v8a-release.apk) |
+| **ARMv7** *(32-bit)* | `35.0 MB` | 1 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-armeabi-v7a-release.apk) |
+| **Universal** *(All Devices)* | `54.7 MB` | 1 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-universal-release.apk) |
 <!-- BOT:LATEST_RELEASE:END -->
 
 ### Quick Install Steps
@@ -400,8 +409,14 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <summary><b>⚡ Latest Repository Commits (Auto-Updated by Bot)</b></summary>
   <br />
   <!-- BOT:ACTIVITY:START -->
-  <sub>Recent commits will populate automatically on the next <b>Krypton README Bot</b> run.</sub>
-  <!-- BOT:ACTIVITY:END -->
+| Commit | Message | Author | Date |
+| :---: | :--- | :--- | :---: |
+| [`71f3f09`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/71f3f09a9746fcdb0e872f59877ed2afd95408e5) | chore: configure repo automation and documentation | `@RoxyBasicNeedBot` | Nov 23, 2026 |
+| [`17ff4ce`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/17ff4ce8388e33ad3200cdb7f1b371ae39dacc7b) | refactor: improve theme consistency and UI styling | `@RoxyBasicNeedBot` | Nov 23, 2026 |
+| [`b283b41`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/b283b41daeeb53ab4f2ace1df1c291553ec2413c) | fix: improve reliability and animation transitions | `@RoxyBasicNeedBot` | Nov 21, 2026 |
+| [`f8948ad`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/f8948adedf52c71e44abe9c5c746c0f9a71bcbe1) | ci: update build workflow and telegram notifier | `@RoxyBasicNeedBot` | Nov 21, 2026 |
+| [`1cfe4ed`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/1cfe4ed34bf6b478a3e4f84812b37451e1432ada) | ci: improve release workflow and notification logic | `@RoxyBasicNeedBot` | Nov 21, 2026 |
+<!-- BOT:ACTIVITY:END -->
 </details>
 
 <br />
@@ -423,9 +438,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
 
 <!-- BOT:CONTRIBUTORS:START -->
 <div align="center">
-  <a href="https://github.com/RoxyBasicNeedBot/Krypton-Player/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=RoxyBasicNeedBot/Krypton-Player" alt="Krypton Player Contributors" />
-  </a>
+<table>
+  <tr>
+    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>9 commits</sub></td>
+  </tr>
+</table>
 </div>
 <!-- BOT:CONTRIBUTORS:END -->
 
