@@ -67,7 +67,7 @@ jobs:
           ls -lh core/data/src/main/jniLibs/arm64-v8a/libtdjni.so
 
       - name: Commit libtdjni.so to Repository
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "ci: build and bundle official libtdjni.so (arm64-v8a)"
           file_pattern: "core/data/src/main/jniLibs/**"
