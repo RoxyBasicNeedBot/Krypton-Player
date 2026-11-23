@@ -22,7 +22,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.border
-import dev.roxy.kryptonplayer.core.ui.liquidglass.liquidGlassBorderLaser
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -690,22 +689,11 @@ fun ReelsScreen(
             if (activeItem != null && !activeItem.isImage) {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Thin Custom Seekable Slider
+                // Clean Minimal Mochi Seekable Slider
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.Black.copy(alpha = 0.25f))
-                        .liquidGlassBorderLaser(
-                            laserColor = Color(0xFFFFD54F),
-                            coreColor = Color(0xFFFFFBEB),
-                            haloColor = Color(0xFFF59E0B),
-                            speedMillis = 3600,
-                            strokeWidth = 1.2.dp,
-                            glowWidth = 3.dp,
-                            cornerRadius = 12.dp,
-                        )
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
                 ) {
                     Slider(
                     value = if (isSeeking) seekProgress else currentProgress,

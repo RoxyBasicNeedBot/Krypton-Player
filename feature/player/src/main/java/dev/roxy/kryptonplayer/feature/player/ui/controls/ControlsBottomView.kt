@@ -107,7 +107,6 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.border
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.style.TextOverflow
 import dev.roxy.kryptonplayer.feature.player.state.getAudioBrandIconRes
 import kotlinx.coroutines.delay
@@ -118,7 +117,6 @@ import dev.roxy.kryptonplayer.feature.player.state.SeekbarThumbnailState
 import dev.roxy.kryptonplayer.feature.player.state.durationFormatted
 import dev.roxy.kryptonplayer.feature.player.state.pendingPositionFormatted
 import dev.roxy.kryptonplayer.feature.player.state.positionFormatted
-import dev.roxy.kryptonplayer.core.ui.liquidglass.liquidGlassBorderLaser
 import kotlinx.coroutines.launch
 
 @OptIn(UnstableApi::class)
@@ -334,18 +332,7 @@ private fun PlayerSeekbar(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.Black.copy(alpha = 0.20f))
-                    .liquidGlassBorderLaser(
-                        laserColor = Color(0xFFFFD54F),
-                        coreColor = Color(0xFFFFFBEB),
-                        haloColor = Color(0xFFF59E0B),
-                        speedMillis = 3600,
-                        strokeWidth = 1.3.dp,
-                        glowWidth = 3.8.dp,
-                        cornerRadius = 16.dp,
-                    )
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -604,24 +591,14 @@ private fun SimpleSlider(
 
     val animatedTrackHeight by animateDpAsState(
         targetValue = if (isInteracting) 6.dp else 3.5.dp,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "hotstarTrackH"
+        animationSpec = spring(dampingRatio = 0.82f, stiffness = 520f),
+        label = "mochySeekTrackH"
     )
     val animatedThumbSize by animateDpAsState(
-        targetValue = if (isInteracting) 18.dp else 10.dp,
-        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
-        label = "hotstarThumbS"
+        targetValue = if (isInteracting) 16.dp else 11.dp,
+        animationSpec = spring(dampingRatio = 0.78f, stiffness = 560f),
+        label = "mochySeekThumbS"
     )
-
-    val hotstarGradient = remember {
-        Brush.horizontalGradient(
-            listOf(
-                Color(0xFF0075FF), // JioHotstar Vibrant Electric Blue
-                Color(0xFFA8168B), // OTT Magenta
-                Color(0xFFFF2E93)  // Hotstar Neon Pink/Red
-            )
-        )
-    }
 
     Slider(
         value = value,
@@ -642,7 +619,7 @@ private fun SimpleSlider(
                         .background(Color.White, CircleShape)
                         .then(
                             if (isInteracting) {
-                                Modifier.border(2.dp, Color(0xFFFF2E93).copy(alpha = 0.85f), CircleShape)
+                                Modifier.border(2.dp, Color.White.copy(alpha = 0.35f), CircleShape)
                             } else {
                                 Modifier
                             }
@@ -660,7 +637,7 @@ private fun SimpleSlider(
                     .fillMaxWidth()
                     .height(animatedTrackHeight)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.22f))
+                    .background(Color.White.copy(alpha = 0.24f))
             ) {
                 if (progressFraction > 0f) {
                     Box(
@@ -668,7 +645,7 @@ private fun SimpleSlider(
                             .fillMaxWidth(progressFraction)
                             .height(animatedTrackHeight)
                             .clip(CircleShape)
-                            .background(hotstarGradient)
+                            .background(Color.White)
                     )
                 }
             }

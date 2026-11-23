@@ -60,7 +60,7 @@ fun LibrariesScreen(
                 },
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         val libs = remember { Libs.Builder().withContext(context).build() }
 

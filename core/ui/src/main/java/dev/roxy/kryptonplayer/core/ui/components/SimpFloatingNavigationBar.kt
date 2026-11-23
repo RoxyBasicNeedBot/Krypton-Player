@@ -76,7 +76,6 @@ import com.kyant.backdrop.shadow.Shadow
 import dev.roxy.kryptonplayer.core.ui.liquidglass.DampedDragAnimation
 import dev.roxy.kryptonplayer.core.ui.liquidglass.PlatformBackdrop
 import dev.roxy.kryptonplayer.core.ui.liquidglass.drawInteractiveGlass
-import dev.roxy.kryptonplayer.core.ui.liquidglass.liquidGlassBorderLaser
 import dev.roxy.kryptonplayer.core.ui.liquidglass.rememberGlassInteraction
 import dev.roxy.kryptonplayer.core.ui.liquidglass.rememberGlassLuminance
 import kotlin.math.roundToInt
@@ -227,8 +226,8 @@ fun SimpFloatingNavigationBar(
                                     Brush.verticalGradient(
                                         colors = if (isDark) {
                                             listOf(
-                                                Color(0x55161822),
-                                                Color(0x770F1017),
+                                                Color(0xCC0A0A0D),
+                                                Color(0xE6050507),
                                             )
                                         } else {
                                             listOf(
@@ -245,8 +244,8 @@ fun SimpFloatingNavigationBar(
                         brush = Brush.verticalGradient(
                             colors = if (isDark) {
                                 listOf(
-                                    Color.White.copy(alpha = 0.35f),
-                                    Color.White.copy(alpha = 0.08f),
+                                    Color.White.copy(alpha = 0.22f),
+                                    Color.White.copy(alpha = 0.06f),
                                 )
                             } else {
                                 listOf(
@@ -256,10 +255,6 @@ fun SimpFloatingNavigationBar(
                             },
                         ),
                         shape = CapsuleShape,
-                    )
-                    .liquidGlassBorderLaser(
-                        laserColor = Color(0xFFFFD54F),
-                        speedMillis = 4000,
                     ),
                 contentAlignment = Alignment.CenterStart,
             ) {
@@ -513,8 +508,8 @@ fun SimpFloatingNavigationBar(
                                     Brush.verticalGradient(
                                         colors = if (isDark) {
                                             listOf(
-                                                Color(0x55161822),
-                                                Color(0x770F1017),
+                                                Color(0xCC0A0A0D),
+                                                Color(0xE6050507),
                                             )
                                         } else {
                                             listOf(
@@ -531,8 +526,8 @@ fun SimpFloatingNavigationBar(
                         brush = Brush.verticalGradient(
                             colors = if (isDark) {
                                 listOf(
-                                    Color.White.copy(alpha = 0.40f),
-                                    Color.White.copy(alpha = 0.10f),
+                                    Color.White.copy(alpha = 0.22f),
+                                    Color.White.copy(alpha = 0.06f),
                                 )
                             } else {
                                 listOf(
@@ -542,10 +537,6 @@ fun SimpFloatingNavigationBar(
                             },
                         ),
                         shape = CircleShape,
-                    )
-                    .liquidGlassBorderLaser(
-                        laserColor = MaterialTheme.colorScheme.primary,
-                        speedMillis = 4000,
                     )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },

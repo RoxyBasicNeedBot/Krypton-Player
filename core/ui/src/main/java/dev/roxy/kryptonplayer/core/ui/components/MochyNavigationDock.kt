@@ -29,9 +29,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Explore
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Explore
-import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -141,8 +139,8 @@ fun MochyNavigationDock(
             ),
             MochyNavTabItem(
                 title = "Settings",
-                unlitVector = Icons.Outlined.Settings,
-                litVector = Icons.Rounded.Settings,
+                unlitIconRes = R.drawable.ic_nav_settings_outline,
+                litIconRes = R.drawable.ic_nav_settings_filled,
                 iconSize = 22.dp,
             ),
         )

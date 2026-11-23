@@ -322,7 +322,7 @@ fun KryptonPlayerTheme(
                 dynamicColorScheme(
                     seedColor = dynamicThemeColor,
                     isDark = true,
-                    isAmoled = pureBlack,
+                    isAmoled = true,
                     style = paletteStyleFor(dynamicThemeColor),
                 )
             }
@@ -333,12 +333,12 @@ fun KryptonPlayerTheme(
                     decodedSeed != null -> exactPaletteColorScheme(
                         palette = decodedSeed,
                         isDark = true,
-                        isAmoled = pureBlack,
+                        isAmoled = true,
                     )
                     namedPalette != null -> exactPaletteColorScheme(
                         palette = namedPalette.toSeedPalette(),
                         isDark = true,
-                        isAmoled = pureBlack,
+                        isAmoled = true,
                     )
                     else -> darkScheme
                 }
@@ -350,46 +350,25 @@ fun KryptonPlayerTheme(
         }
     }
 
+    // Pure OLED / AMOLED Pitch Black enforced everywhere across the app with Mochi obsidian cards
     val appliedColorScheme = remember(baseColorScheme, highContrastDarkTheme, pureBlack) {
-        if (pureBlack || highContrastDarkTheme) {
-            // Pure OLED / AMOLED Pitch Black with Mochi-inspired elevated obsidian cards
-            baseColorScheme.copy(
-                background = Color(0xFF000000),
-                surface = Color(0xFF000000),
-                surfaceDim = Color(0xFF000000),
-                surfaceBright = Color(0xFF1A1B20),
-                surfaceContainerLowest = Color(0xFF000000),
-                surfaceContainerLow = Color(0xFF0B0B0D),
-                surfaceContainer = Color(0xFF121215),
-                surfaceContainerHigh = Color(0xFF1A1B20),
-                surfaceContainerHighest = Color(0xFF23242B),
-                surfaceVariant = Color(0xFF15161B),
-                onBackground = Color(0xFFF5F5F7),
-                onSurface = Color(0xFFF5F5F7),
-                onSurfaceVariant = Color(0xFFA1A4AE),
-                outline = Color.White.copy(alpha = 0.16f),
-                outlineVariant = Color.White.copy(alpha = 0.08f),
-            )
-        } else {
-            // Mochi-inspired Deep Obsidian Charcoal Surfaces
-            baseColorScheme.copy(
-                background = Color(0xFF0B0B0E),
-                surface = Color(0xFF0E0E12),
-                surfaceDim = Color(0xFF08080B),
-                surfaceBright = Color(0xFF22232B),
-                surfaceContainerLowest = Color(0xFF08080A),
-                surfaceContainerLow = Color(0xFF121318),
-                surfaceContainer = Color(0xFF17181E),
-                surfaceContainerHigh = Color(0xFF1F2028),
-                surfaceContainerHighest = Color(0xFF282A33),
-                surfaceVariant = Color(0xFF1E1F26),
-                onBackground = Color(0xFFF4F4F6),
-                onSurface = Color(0xFFF4F4F6),
-                onSurfaceVariant = Color(0xFFA6A9B3),
-                outline = Color(0xFF3A3D47),
-                outlineVariant = Color.White.copy(alpha = 0.08f),
-            )
-        }
+        baseColorScheme.copy(
+            background = Color(0xFF000000),
+            surface = Color(0xFF000000),
+            surfaceDim = Color(0xFF000000),
+            surfaceBright = Color(0xFF1A1B20),
+            surfaceContainerLowest = Color(0xFF000000),
+            surfaceContainerLow = Color(0xFF0B0B0D),
+            surfaceContainer = Color(0xFF121215),
+            surfaceContainerHigh = Color(0xFF191A1F),
+            surfaceContainerHighest = Color(0xFF23242B),
+            surfaceVariant = Color(0xFF141519),
+            onBackground = Color(0xFFF5F5F7),
+            onSurface = Color(0xFFF5F5F7),
+            onSurfaceVariant = Color(0xFFA1A4AE),
+            outline = Color.White.copy(alpha = 0.16f),
+            outlineVariant = Color.White.copy(alpha = 0.08f),
+        )
     }
 
     val finalColorScheme = if (disableAnimations) {

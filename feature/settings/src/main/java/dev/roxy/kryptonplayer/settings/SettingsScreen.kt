@@ -3,6 +3,7 @@ package dev.roxy.kryptonplayer.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -111,6 +113,13 @@ fun SettingsScreen(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val appVersion = remember { context.appVersion().ifBlank { "0.16" } }
+    val primaryAbi = remember {
+        when ((Build.SUPPORTED_ABIS?.firstOrNull() ?: "universal").lowercase()) {
+            "arm64-v8a" -> "ARM64"
+            "armeabi-v7a" -> "ARMv7"
+            else -> "UNIVERSAL"
+        }
+    }
 
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     var showUpdateSheet by remember { mutableStateOf(false) }
@@ -169,6 +178,19 @@ fun SettingsScreen(
                 }
             }
             else -> Unit
+        }
+    }
+
+    val handleUpdateAction: () -> Unit = {
+        when (val state = updateState) {
+            is UpdateState.Available -> {
+                pendingUpdateInfo = state.info
+                showUpdateSheet = true
+            }
+            is UpdateState.Downloading -> showUpdateSheet = true
+            is UpdateState.ReadyToInstall -> viewModel.installApk(state.apkUri)
+            is UpdateState.Checking -> Unit
+            else -> viewModel.checkForUpdates(manual = true)
         }
     }
 
@@ -244,7 +266,7 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .background(colorScheme.background),
         ) {
-            // Live backdrop source layer: scrollable Settings list with edge fade
+            // Live backdrop source layer: scrollable Mochi Hub & Settings list with GPU edge fade
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -257,7 +279,7 @@ fun SettingsScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .widthIn(max = 640.dp)
-                        .mochyScrollFadeEdge(topFadeHeight = 16.dp, bottomFadeHeight = 48.dp),
+                        .mochyScrollFadeEdge(topFadeHeight = 18.dp, bottomFadeHeight = 52.dp),
                     contentPadding = PaddingValues(
                         start = 18.dp,
                         end = 18.dp,
@@ -266,12 +288,24 @@ fun SettingsScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
-                    // Spacer aligned with status bars so content starts cleanly below the top header
                     item(key = "status_bar_spacer") {
                         Spacer(modifier = Modifier.statusBarsPadding())
                     }
 
-                    // Inline Update Alert (only shown when an update is actively available / downloading / ready)
+                    // 1. Compact Mochi Brand & Build Hub Card
+                    item(key = "mochy_hub_identity_card") {
+                        MochyHubIdentityCard(
+                            appName = stringResource(id = R.string.app_name),
+                            versionName = appVersion,
+                            abi = primaryAbi,
+                            updateState = updateState,
+                            onUpdateClick = handleUpdateAction,
+                            onAboutClick = { onItemClick(Setting.ABOUT) },
+                            onAppearanceClick = { onItemClick(Setting.APPEARANCE) },
+                        )
+                    }
+
+                    // Active inline update strip when an update is available / downloading / ready
                     item(key = "update_alert_strip") {
                         val activeUpdateInfo = when (val state = updateState) {
                             is UpdateState.Available -> state.info
@@ -299,14 +333,14 @@ fun SettingsScreen(
                         }
                     }
 
-                    // 1. Appearance & Library
-                    item(key = "group_appearance_library") {
+                    // 2. Customisation & Interface
+                    item(key = "group_customisation") {
                         SettingsCardGroup(
-                            title = "Appearance & Library",
+                            title = "Customisation & Interface",
                             items = listOf(
                                 SettingsRowItem(
                                     title = stringResource(id = R.string.appearance_name),
-                                    subtitle = stringResource(id = R.string.appearance_description),
+                                    subtitle = "AMOLED black, color palettes, dock & seekbar",
                                     iconRes = R.drawable.palette,
                                     testTag = "setting_appearance",
                                     onClick = { onItemClick(Setting.APPEARANCE) },
@@ -329,10 +363,10 @@ fun SettingsScreen(
                         )
                     }
 
-                    // 2. Playback & Controls
+                    // 3. Playback & App Behaviour
                     item(key = "group_playback") {
                         SettingsCardGroup(
-                            title = "Playback & Controls",
+                            title = "Playback & App Behaviour",
                             items = listOf(
                                 SettingsRowItem(
                                     title = stringResource(id = R.string.player_name),
@@ -371,7 +405,7 @@ fun SettingsScreen(
                                 ),
                                 SettingsRowItem(
                                     title = "Lyrics",
-                                    subtitle = "Synced lyrics, display style & providers",
+                                    subtitle = "Synced glow lyrics, style & providers",
                                     iconRes = R.drawable.lyrics,
                                     testTag = "setting_lyrics",
                                     onClick = { onItemClick(Setting.LYRICS) },
@@ -387,7 +421,7 @@ fun SettingsScreen(
                         )
                     }
 
-                    // 3. System & Data
+                    // 4. System & Data
                     item(key = "group_system") {
                         SettingsCardGroup(
                             title = "System & Data",
@@ -408,7 +442,7 @@ fun SettingsScreen(
                                 ),
                                 SettingsRowItem(
                                     title = "Backup & Restore",
-                                    subtitle = "Export and import app preferences",
+                                    subtitle = "Export, import & migrate preferences",
                                     iconRes = R.drawable.backup,
                                     testTag = "setting_backup_restore",
                                     onClick = { onItemClick(Setting.BACKUP_RESTORE) },
@@ -417,8 +451,8 @@ fun SettingsScreen(
                         )
                     }
 
-                    // 4. App & Updates
-                    item(key = "group_app") {
+                    // 5. Credits, Support & About
+                    item(key = "group_credits_about") {
                         val isChecking = updateState is UpdateState.Checking
                         val updateSubtitle = when (val state = updateState) {
                             is UpdateState.Checking -> "Checking for updates..."
@@ -431,7 +465,7 @@ fun SettingsScreen(
                         }
 
                         SettingsCardGroup(
-                            title = "App",
+                            title = "Credits, Support & About",
                             items = listOf(
                                 SettingsRowItem(
                                     title = "Updates",
@@ -439,22 +473,11 @@ fun SettingsScreen(
                                     iconVector = Icons.Rounded.SystemUpdate,
                                     isLoading = isChecking,
                                     testTag = "setting_check_updates",
-                                    onClick = {
-                                        when (val state = updateState) {
-                                            is UpdateState.Available -> {
-                                                pendingUpdateInfo = state.info
-                                                showUpdateSheet = true
-                                            }
-                                            is UpdateState.Downloading -> showUpdateSheet = true
-                                            is UpdateState.ReadyToInstall -> viewModel.installApk(state.apkUri)
-                                            is UpdateState.Checking -> Unit
-                                            else -> viewModel.checkForUpdates(manual = true)
-                                        }
-                                    },
+                                    onClick = handleUpdateAction,
                                 ),
                                 SettingsRowItem(
                                     title = stringResource(id = R.string.about_name),
-                                    subtitle = "Developer, contributors, support & licenses",
+                                    subtitle = "Lead developer, contributors, support & licenses",
                                     iconRes = R.drawable.info,
                                     testTag = "setting_about",
                                     onClick = { onItemClick(Setting.ABOUT) },
@@ -496,7 +519,7 @@ fun SettingsScreen(
                     Box {
                         Surface(
                             shape = CircleShape,
-                            color = colorScheme.surfaceContainer.copy(alpha = 0.85f),
+                            color = colorScheme.surfaceContainerLow.copy(alpha = 0.92f),
                             border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
                         ) {
                             IconButton(
@@ -549,6 +572,232 @@ fun SettingsScreen(
                 onSearchDoubleTap = onSearchClick,
                 backdrop = backdrop,
                 modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MochyHubIdentityCard(
+    appName: String,
+    versionName: String,
+    abi: String,
+    updateState: UpdateState,
+    onUpdateClick: () -> Unit,
+    onAboutClick: () -> Unit,
+    onAppearanceClick: () -> Unit,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val isChecking = updateState is UpdateState.Checking
+    val updatePillLabel = when (val state = updateState) {
+        is UpdateState.Checking -> "Checking"
+        is UpdateState.Available -> "v${state.info.versionName}"
+        is UpdateState.Downloading -> if (state.progress in 0..100) "${state.progress}%" else "Updating"
+        is UpdateState.ReadyToInstall -> "Install"
+        else -> "Updates"
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("mochy_hub_identity_card"),
+        shape = RoundedCornerShape(24.dp),
+        color = colorScheme.surfaceContainerLow,
+        border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Surface(
+                    modifier = Modifier.size(50.dp),
+                    shape = RoundedCornerShape(15.dp),
+                    color = colorScheme.surfaceContainerHigh,
+                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_nav_settings_filled),
+                            contentDescription = appName,
+                            tint = colorScheme.onSurface,
+                            modifier = Modifier.size(25.dp),
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = appName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        MochyHubMetaPill(text = "v$versionName")
+                        MochyHubMetaPill(text = abi)
+                        MochyHubMetaPill(text = "AMOLED")
+                    }
+                }
+
+                val updateInteraction = remember { MutableInteractionSource() }
+                Surface(
+                    onClick = onUpdateClick,
+                    interactionSource = updateInteraction,
+                    modifier = Modifier
+                        .heightIn(min = 36.dp)
+                        .mochyItemPress(updateInteraction, pressedScale = 0.96f)
+                        .testTag("mochy_hub_update_pill"),
+                    shape = CircleShape,
+                    color = if (updateState is UpdateState.Available || updateState is UpdateState.ReadyToInstall) {
+                        colorScheme.primary
+                    } else {
+                        colorScheme.surfaceContainerHigh
+                    },
+                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        val onPill = if (updateState is UpdateState.Available || updateState is UpdateState.ReadyToInstall) {
+                            colorScheme.onPrimary
+                        } else {
+                            colorScheme.onSurface
+                        }
+                        if (isChecking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(13.dp),
+                                strokeWidth = 1.8.dp,
+                                color = onPill,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = if (updateState is UpdateState.ReadyToInstall) {
+                                    Icons.Rounded.CheckCircle
+                                } else {
+                                    Icons.Rounded.SystemUpdate
+                                },
+                                contentDescription = null,
+                                tint = onPill,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                        Text(
+                            text = updatePillLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = onPill,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+
+            HorizontalDivider(
+                thickness = 0.6.dp,
+                color = colorScheme.outlineVariant.copy(alpha = 0.7f),
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MochyHubQuickPill(
+                    label = "Theme & Look",
+                    iconRes = R.drawable.palette,
+                    onClick = onAppearanceClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("mochy_hub_quick_theme"),
+                )
+                MochyHubQuickPill(
+                    label = "Credits & Support",
+                    iconRes = R.drawable.info,
+                    onClick = onAboutClick,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("mochy_hub_quick_credits"),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MochyHubMetaPill(text: String) {
+    val colorScheme = MaterialTheme.colorScheme
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = colorScheme.surfaceContainerHigh,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium,
+            color = colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun MochyHubQuickPill(
+    label: String,
+    @DrawableRes iconRes: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val interactionSource = remember { MutableInteractionSource() }
+    Surface(
+        onClick = onClick,
+        interactionSource = interactionSource,
+        modifier = modifier
+            .heightIn(min = 42.dp)
+            .mochyItemPress(interactionSource, pressedScale = 0.97f),
+        shape = RoundedCornerShape(14.dp),
+        color = colorScheme.surfaceContainerHigh.copy(alpha = 0.75f),
+        border = BorderStroke(0.75.dp, colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = colorScheme.onSurface,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(modifier = Modifier.width(7.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Medium,
+                color = colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

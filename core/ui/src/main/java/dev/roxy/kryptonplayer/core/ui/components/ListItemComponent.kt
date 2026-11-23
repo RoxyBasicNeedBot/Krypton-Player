@@ -59,16 +59,17 @@ fun NextSegmentedListItem(
         }
     }
 
+    val colorScheme = MaterialTheme.colorScheme
     val resolvedColors = colors ?: ListItemDefaults.segmentedColors(
-        containerColor = Color(0xFF0F131D),
-        disabledContainerColor = Color(0xFF0A0D15),
-        contentColor = Color.White,
-        supportingContentColor = Color(0xFF828A9E),
-        disabledContentColor = Color.White.copy(alpha = 0.40f),
-        disabledSupportingContentColor = Color(0xFF828A9E).copy(alpha = 0.40f),
+        containerColor = colorScheme.surfaceContainerLow,
+        disabledContainerColor = colorScheme.surfaceContainerLowest,
+        contentColor = colorScheme.onSurface,
+        supportingContentColor = colorScheme.onSurfaceVariant,
+        disabledContentColor = colorScheme.onSurface.copy(alpha = 0.40f),
+        disabledSupportingContentColor = colorScheme.onSurfaceVariant.copy(alpha = 0.40f),
     )
 
-    val borderColor = Color.White.copy(alpha = 0.08f)
+    val borderColor = colorScheme.outlineVariant
 
     SegmentedListItem(
         modifier = modifier

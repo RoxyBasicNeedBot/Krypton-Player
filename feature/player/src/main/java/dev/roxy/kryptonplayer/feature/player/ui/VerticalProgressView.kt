@@ -1,10 +1,10 @@
 package dev.roxy.kryptonplayer.feature.player.ui
 
-import dev.roxy.kryptonplayer.core.ui.liquidglass.liquidGlassBorderLaser
 import androidx.annotation.IntRange
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,8 +49,8 @@ import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
  * - MpvrxPrimaryContainer: Deep violet purple (0xFF5F3768) for base slider start
  * - MpvrxBoostError: Vivid error container red (0xFFFF5449) for boost overflow
  */
-val MpvrxPrimary = Color(0xFFE8B5EF)
-val MpvrxPrimaryContainer = Color(0xFF5F3768)
+val MpvrxPrimary = Color(0xFFFFFFFF)
+val MpvrxPrimaryContainer = Color(0xFFB4B8C4)
 val MpvrxBoostError = Color(0xFFFF5449)
 
 private const val NORMAL_MAX_PERCENTAGE = 100
@@ -84,16 +84,8 @@ fun VerticalSlider(
             .height(130.dp)
             .width(36.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.Black.copy(alpha = 0.3f))
-            .liquidGlassBorderLaser(
-                laserColor = Color(0xFFFFD54F),
-                coreColor = Color(0xFFFFFBEB),
-                haloColor = Color(0xFFF59E0B),
-                speedMillis = 3600,
-                strokeWidth = 1.4.dp,
-                glowWidth = 3.5.dp,
-                cornerRadius = 20.dp,
-            ),
+            .background(Color(0xD90A0A0D))
+            .border(0.9.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(20.dp)),
         contentAlignment = Alignment.BottomCenter,
     ) {
         val targetHeight by animateFloatAsState(
@@ -143,16 +135,8 @@ fun VerticalSlider(
             .height(130.dp)
             .width(36.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.Black.copy(alpha = 0.3f))
-            .liquidGlassBorderLaser(
-                laserColor = Color(0xFFFFD54F),
-                coreColor = Color(0xFFFFFBEB),
-                haloColor = Color(0xFFF59E0B),
-                speedMillis = 3600,
-                strokeWidth = 1.4.dp,
-                glowWidth = 3.5.dp,
-                cornerRadius = 20.dp,
-            ),
+            .background(Color(0xD90A0A0D))
+            .border(0.9.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(20.dp)),
         contentAlignment = Alignment.BottomCenter,
     ) {
         val targetHeight by animateFloatAsState(

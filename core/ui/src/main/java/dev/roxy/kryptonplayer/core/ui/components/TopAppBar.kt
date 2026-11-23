@@ -22,10 +22,11 @@ fun NextTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = androidx.compose.ui.graphics.Color(0xFF07090E),
-        titleContentColor = androidx.compose.ui.graphics.Color.White,
-        navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
-        actionIconContentColor = androidx.compose.ui.graphics.Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
+        scrolledContainerColor = MaterialTheme.colorScheme.background,
+        titleContentColor = MaterialTheme.colorScheme.onBackground,
+        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+        actionIconContentColor = MaterialTheme.colorScheme.onBackground,
     ),
     scrollBehavior: androidx.compose.material3.TopAppBarScrollBehavior? = null,
 ) {
@@ -49,10 +50,11 @@ fun NextTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(
-        containerColor = androidx.compose.ui.graphics.Color(0xFF07090E),
-        titleContentColor = androidx.compose.ui.graphics.Color.White,
-        navigationIconContentColor = androidx.compose.ui.graphics.Color.White,
-        actionIconContentColor = androidx.compose.ui.graphics.Color.White,
+        containerColor = MaterialTheme.colorScheme.background,
+        scrolledContainerColor = MaterialTheme.colorScheme.background,
+        titleContentColor = MaterialTheme.colorScheme.onBackground,
+        navigationIconContentColor = MaterialTheme.colorScheme.onBackground,
+        actionIconContentColor = MaterialTheme.colorScheme.onBackground,
     ),
     scrollBehavior: androidx.compose.material3.TopAppBarScrollBehavior? = null,
 ) {
