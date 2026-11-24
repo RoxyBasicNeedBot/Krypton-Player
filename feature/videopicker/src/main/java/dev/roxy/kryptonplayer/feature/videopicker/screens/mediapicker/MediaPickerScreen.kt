@@ -172,7 +172,6 @@ import dev.roxy.kryptonplayer.core.ui.components.SimpFloatingNavigationBar
 import dev.roxy.kryptonplayer.core.ui.components.LottieTelegramLogo
 import dev.roxy.kryptonplayer.core.ui.components.MainNavTab
 import dev.roxy.kryptonplayer.core.ui.liquidglass.PlatformBackdrop
-import dev.roxy.kryptonplayer.feature.videopicker.composables.MochySettingsView
 import androidx.compose.material.icons.outlined.VideoLibrary
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.outlined.Search
@@ -1100,8 +1099,8 @@ internal fun MediaPickerScreen(
                                                 .size(38.dp)
                                                 .clip(CircleShape)
                                                 .clickable {
-                                                    CrashBreadcrumbs.recordClick("Profile Avatar Icon", "Home Top Bar", "Navigating to Mochy Profile/Settings")
-                                                    selectedTab = MediaPickerTab.SETTINGS
+                                                    CrashBreadcrumbs.recordClick("Profile Avatar Icon", "Home Top Bar", "Navigating to Krypton Hub")
+                                                    onSettingsClick()
                                                 },
                                             contentAlignment = Alignment.Center,
                                         ) {
@@ -1154,8 +1153,8 @@ internal fun MediaPickerScreen(
                                                 .size(38.dp)
                                                 .clip(CircleShape)
                                                 .clickable {
-                                                    CrashBreadcrumbs.recordClick("Profile Avatar Icon", "Search Top Bar", "Navigating to Mochy Profile/Settings")
-                                                    selectedTab = MediaPickerTab.SETTINGS
+                                                    CrashBreadcrumbs.recordClick("Profile Avatar Icon", "Search Top Bar", "Navigating to Krypton Hub")
+                                                    onSettingsClick()
                                                 },
                                             contentAlignment = Alignment.Center,
                                         ) {
@@ -1616,18 +1615,10 @@ internal fun MediaPickerScreen(
                         onRetry = tmdbExploreViewModel::fetchAllData
                     )
                 } else {
-                    MochySettingsView(
-                        onSettingsClick = onSettingsClick,
-                        onDownloadsClick = onTelegramClick,
-                        onWatchlistClick = {
-                            selectedTab = MediaPickerTab.SEARCH
-                        },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (isWideScreen) Modifier.padding(horizontal = 32.dp) else Modifier
-                            )
-                    )
+                    LaunchedEffect(currentTab) {
+                        selectedTab = MediaPickerTab.HOME
+                        onSettingsClick()
+                    }
                 }
             }
         }
@@ -2638,9 +2629,11 @@ private fun MediaNavigationBar(
                     0 -> onTabSelected(MediaPickerTab.HOME)
                     1 -> onTabSelected(MediaPickerTab.SEARCH)
                     2 -> onTabSelected(MediaPickerTab.LIBRARY)
-                    3 -> onTabSelected(MediaPickerTab.SETTINGS)
+                    3 -> onSettingsClick()
                 }
             },
+            onSearchDoubleTap = onSearchClick,
+            backdrop = backdrop,
             modifier = modifier.then(
                 if (isWideScreen) Modifier.widthIn(max = 520.dp) else Modifier.fillMaxWidth()
             )
