@@ -102,7 +102,7 @@ License    : GNU General Public License v3.0
   <b>🏆 Next Star Milestone:</b> `███████░░░░░░░░░░░░░` **36%** (9 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 24, 2026 • 18:06 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 24, 2026 • 18:10 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`0350adf`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/0350adf402fd3623631b6e2ca8e75a7da9d7c87c) | Delete .github/dependabot.yml | `@RoxyBasicNeedBot` | Nov 24, 2026 |
+| [`e5638c7`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/e5638c785afc11965811ef3a8498b09911f9c096) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 24, 2026 |
 | [`17de511`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/17de51144e4b63e615b525a72b01252435a654fd) | chore: refactor settings and update readme workflow | `@RoxyBasicNeedBot` | Nov 24, 2026 |
 | [`2962374`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/2962374ef212663648240999ef759587e943f196) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 24, 2026 |
 | [`b2c48e6`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/b2c48e64b9ec5903821093b1c062ff93e630a6cd) | refactor: implement UserHub state and improve CI stability | `@RoxyBasicNeedBot` | Nov 24, 2026 |
-| [`a1bf26d`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a1bf26d58658999475a0960a9b77ae4a1aa06a5a) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 24, 2026 |
-| [`748d848`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/748d848baf40b7e0655c60bcddbec5f9964b874d) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 23, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
