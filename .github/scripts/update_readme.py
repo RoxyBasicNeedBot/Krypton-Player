@@ -309,13 +309,11 @@ def main() -> int:
     updated = replace_section(updated, "CONTRIBUTORS", build_contributors_block(contributors))
     updated = replace_section(updated, "ACTIVITY", build_activity_block(commits))
 
-    # Ignore timestamp-only changes so the bot never pushes empty commits when stats haven't changed
-    ts_pattern = re.compile(r"Last updated: [^<]+")
-    if ts_pattern.sub("", updated) != ts_pattern.sub("", original):
+    if updated != original:
         README_PATH.write_text(updated, encoding="utf-8")
         print("[ok] README.md updated with latest GitHub metrics.")
     else:
-        print("[ok] No metric changes detected — skipping README update.")
+        print("[ok] README.md already up to date.")
 
     return 0
 
