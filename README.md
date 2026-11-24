@@ -96,13 +96,13 @@ License    : GNU General Public License v3.0
 
 | ⭐ Stars | 🍴 Forks | 📥 Total Downloads | 👀 Watchers | 🏷️ Latest Release | 🐛 Open Issues |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| **9** | **7** | **50** | **3** | **[v0.16.4](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4)** | **[11](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
+| **9** | **7** | **51** | **3** | **[v0.16.4](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4)** | **[1](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
 
 <p>
   <b>🏆 Next Star Milestone:</b> `███████░░░░░░░░░░░░░` **36%** (9 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 24, 2026 • 09:06 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 24, 2026 • 17:58 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -126,7 +126,7 @@ License    : GNU General Public License v3.0
 | :--- | :---: | :---: | :---: |
 | **ARM64-v8a** *(Recommended)* | `37.1 MB` | 8 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-arm64-v8a-release.apk) |
 | **ARMv7** *(32-bit)* | `35.0 MB` | 1 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-armeabi-v7a-release.apk) |
-| **Universal** *(All Devices)* | `54.7 MB` | 2 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-universal-release.apk) |
+| **Universal** *(All Devices)* | `54.7 MB` | 3 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-universal-release.apk) |
 <!-- BOT:LATEST_RELEASE:END -->
 
 ### Quick Install Steps
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`b2c48e6`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/b2c48e64b9ec5903821093b1c062ff93e630a6cd) | refactor: implement UserHub state and improve CI stability | `@RoxyBasicNeedBot` | Nov 24, 2026 |
+| [`a1bf26d`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a1bf26d58658999475a0960a9b77ae4a1aa06a5a) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 24, 2026 |
 | [`748d848`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/748d848baf40b7e0655c60bcddbec5f9964b874d) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 23, 2026 |
 | [`71f3f09`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/71f3f09a9746fcdb0e872f59877ed2afd95408e5) | chore: configure repo automation and documentation | `@RoxyBasicNeedBot` | Nov 23, 2026 |
 | [`17ff4ce`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/17ff4ce8388e33ad3200cdb7f1b371ae39dacc7b) | refactor: improve theme consistency and UI styling | `@RoxyBasicNeedBot` | Nov 23, 2026 |
-| [`b283b41`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/b283b41daeeb53ab4f2ace1df1c291553ec2413c) | fix: improve reliability and animation transitions | `@RoxyBasicNeedBot` | Nov 21, 2026 |
-| [`f8948ad`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/f8948adedf52c71e44abe9c5c746c0f9a71bcbe1) | ci: update build workflow and telegram notifier | `@RoxyBasicNeedBot` | Nov 21, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
@@ -440,7 +440,7 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
 <div align="center">
 <table>
   <tr>
-    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>9 commits</sub></td>
+    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>10 commits</sub></td>
   </tr>
 </table>
 </div>
