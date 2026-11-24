@@ -3,7 +3,6 @@ package dev.roxy.kryptonplayer.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -61,11 +60,6 @@ import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
 import dev.roxy.kryptonplayer.settings.composables.AllSettingsContent
 import dev.roxy.kryptonplayer.settings.composables.MochyHubContent
 
-private const val HUB_GITHUB_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player"
-private const val HUB_CONTRIBUTORS_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player/graphs/contributors"
-private const val HUB_TELEGRAM_URL = "https://t.me/KryptonPlayer"
-private const val HUB_BOOST_URL = "https://t.me/boost/KryptonPlayer"
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -79,14 +73,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val appVersion = remember { context.appVersion().ifBlank { "0.16" } }
-    val primaryAbi = remember {
-        when ((Build.SUPPORTED_ABIS?.firstOrNull() ?: "universal").lowercase()) {
-            "arm64-v8a" -> "ARM64"
-            "armeabi-v7a" -> "ARMv7"
-            else -> "UNIVERSAL"
-        }
-    }
 
+    val userHubState by viewModel.userHubState.collectAsStateWithLifecycle()
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
     var showAllSettings by rememberSaveable { mutableStateOf(false) }
     var showUpdateSheet by remember { mutableStateOf(false) }
@@ -104,24 +92,28 @@ fun SettingsScreen(
         }
     }
 
+    val playVideoUri: (Uri) -> Unit = { uri ->
+        try {
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "video/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                setPackage(context.packageName)
+            }
+            context.startActivity(intent)
+        } catch (_: Exception) {
+            val fallback = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "video/*")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runCatching { context.startActivity(fallback) }
+        }
+    }
+
     val selectVideoFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         if (uri != null) {
-            try {
-                val intent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, "video/*")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                    setPackage(context.packageName)
-                }
-                context.startActivity(intent)
-            } catch (_: Exception) {
-                val fallback = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(uri, "video/*")
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
-                runCatching { context.startActivity(fallback) }
-            }
+            playVideoUri(uri)
         }
     }
 
@@ -245,7 +237,7 @@ fun SettingsScreen(
             targetState = showAllSettings,
             transitionSpec = {
                 if (targetState) {
-                    // Forward: Mochi Hub -> App Settings
+                    // Forward: 4th Profile/Stats Tab -> All Settings
                     (slideInHorizontally(tween(300, easing = MochyMotion.EaseOut)) { it / 3 } +
                         fadeIn(tween(240, easing = MochyMotion.EaseOut)))
                         .togetherWith(
@@ -253,7 +245,7 @@ fun SettingsScreen(
                                 fadeOut(tween(180, easing = MochyMotion.EaseInOut)),
                         )
                 } else {
-                    // Back: App Settings -> Mochi Hub
+                    // Back: All Settings -> 4th Profile/Stats Tab
                     (scaleIn(tween(280, easing = MochyMotion.EaseOut), initialScale = 0.95f) +
                         fadeIn(tween(220, easing = MochyMotion.EaseOut)))
                         .togetherWith(
@@ -262,30 +254,22 @@ fun SettingsScreen(
                         )
                 }
             },
-            label = "mochy_hub_settings_transition",
+            label = "mochy_profile_settings_transition",
         ) { inAllSettings ->
             if (!inAllSettings) {
                 MochyHubContent(
-                    appName = stringResource(id = R.string.app_name),
-                    appVersion = appVersion,
-                    primaryAbi = primaryAbi,
-                    developerName = stringResource(id = R.string.app_developer),
-                    updateState = updateState,
-                    pendingUpdateInfo = pendingUpdateInfo,
-                    onOpenAllSettings = { showAllSettings = true },
-                    onSettingClick = onItemClick,
-                    onUpdateAction = handleUpdateAction,
-                    onOpenLocalVideo = { selectVideoFileLauncher.launch("video/*") },
-                    onOpenNetworkStream = { showNetworkStreamDialog = true },
-                    onOpenTelegram = { openUriSafely(HUB_TELEGRAM_URL) },
-                    onOpenBoost = { openUriSafely(HUB_BOOST_URL) },
-                    onOpenGitHub = { openUriSafely(HUB_GITHUB_URL) },
-                    onOpenContributors = { openUriSafely(HUB_CONTRIBUTORS_URL) },
+                    userState = userHubState,
+                    onOpenSettings = { showAllSettings = true },
+                    onOpenDetailedStats = { onItemClick(Setting.STATS) },
+                    onPlayVideo = { video ->
+                        val parsed = runCatching { Uri.parse(video.uriString) }.getOrNull()
+                        if (parsed != null && video.uriString.isNotBlank()) {
+                            playVideoUri(parsed)
+                        }
+                    },
                     onNavigateToHome = onNavigateToHome,
                     onNavigateToExplore = onNavigateToExplore,
                     onSearchClick = onSearchClick,
-                    onMoreMenuClick = { isMoreMenuExpanded = true },
-                    moreMenuContent = quickMenu,
                 )
             } else {
                 AllSettingsContent(

@@ -1,15 +1,19 @@
 package dev.roxy.kryptonplayer.settings.composables
 
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,6 +21,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -32,8 +37,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -47,8 +53,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -58,55 +68,37 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo
-import dev.roxy.kryptonplayer.core.data.update.UpdateState
+import dev.roxy.kryptonplayer.core.model.Video
 import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.components.MochyBottomBlurScrim
 import dev.roxy.kryptonplayer.core.ui.components.MochyMotion
 import dev.roxy.kryptonplayer.core.ui.components.MochyNavigationDock
-import dev.roxy.kryptonplayer.core.ui.components.MochyPromptButton
-import dev.roxy.kryptonplayer.core.ui.components.MochyPromptButtonState
 import dev.roxy.kryptonplayer.core.ui.components.MochyScrollBlurHeader
 import dev.roxy.kryptonplayer.core.ui.components.mochyItemPress
 import dev.roxy.kryptonplayer.core.ui.components.mochyScrollFadeEdge
-import dev.roxy.kryptonplayer.core.ui.components.toPromptButtonState
-import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
 import dev.roxy.kryptonplayer.core.ui.liquidglass.layerBackdrop
 import dev.roxy.kryptonplayer.core.ui.liquidglass.rememberBackdrop
-import dev.roxy.kryptonplayer.settings.Setting
+import dev.roxy.kryptonplayer.settings.FolderStatItem
+import dev.roxy.kryptonplayer.settings.UserHubUiState
+import java.util.Locale
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
- * Full Mochi-style 4th-Tab Hub Experience:
- * - Atmospheric textured Hero Stage with floating interactive Mochi mascot, orbital rings & quick actions
- * - Signature featured "App Settings" card (opens dedicated All Settings screen)
- * - Live animated Updates card with MochyPromptButton (shimmer + download fill + rocket install)
- * - 2x2 Textured Bento Quick-Access tiles (Appearance, Watch Party, Statistics, Storage)
- * - Lead Developer (ROXY) spotlight card + Contributors & Open-Source Credits card
- * - Community & Support tactile pills (Telegram, Boost, GitHub)
- * - Real GPU-blurred scroll header + floating Mochi navigation dock
+ * Mochi-style 4th Tab: Pure User Profile, Watch Telemetry & Library Stats Dashboard.
+ * - Top bar has ONLY the crisp circular Settings gear icon (opens full All Settings).
+ * - Body is 100% focused on the user's real profile, watch time, completion ring,
+ *   quality breakdown, recently watched videos, and top folders — zero settings clutter.
  */
 @Composable
 fun MochyHubContent(
-    appName: String,
-    appVersion: String,
-    primaryAbi: String,
-    developerName: String,
-    updateState: UpdateState,
-    pendingUpdateInfo: AppUpdateInfo?,
-    onOpenAllSettings: () -> Unit,
-    onSettingClick: (Setting) -> Unit,
-    onUpdateAction: () -> Unit,
-    onOpenLocalVideo: () -> Unit,
-    onOpenNetworkStream: () -> Unit,
-    onOpenTelegram: () -> Unit,
-    onOpenBoost: () -> Unit,
-    onOpenGitHub: () -> Unit,
-    onOpenContributors: () -> Unit,
+    userState: UserHubUiState,
+    onOpenSettings: () -> Unit,
+    onOpenDetailedStats: () -> Unit,
+    onPlayVideo: (Video) -> Unit,
     onNavigateToHome: () -> Unit,
     onNavigateToExplore: () -> Unit,
     onSearchClick: () -> Unit,
-    onMoreMenuClick: () -> Unit,
-    moreMenuContent: @Composable () -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val listState = rememberLazyListState()
@@ -144,177 +136,142 @@ fun MochyHubContent(
                 contentPadding = PaddingValues(
                     start = 18.dp,
                     end = 18.dp,
-                    top = 72.dp,
+                    top = 74.dp,
                     bottom = 132.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                item(key = "hub_status_spacer") {
+                item(key = "profile_status_spacer") {
                     Spacer(modifier = Modifier.statusBarsPadding())
                 }
 
-                // 1. Atmospheric Mochi Hero Stage Card
-                item(key = "hub_hero_stage") {
+                // 1. User Profile Identity Hero Card
+                item(key = "user_profile_hero") {
                     MochyStaggeredReveal(index = 0) {
-                        MochyHeroStageCard(
-                            appName = appName,
-                            versionName = appVersion,
-                            abi = primaryAbi,
-                            onOpenLocalVideo = onOpenLocalVideo,
-                            onOpenNetworkStream = onOpenNetworkStream,
+                        UserProfileHeroCard(
+                            userState = userState,
                         )
                     }
                 }
 
-                // 2. Signature Featured "App Settings" Hero Card (opens All Settings)
-                item(key = "hub_all_settings_card") {
+                // 2. Watch Progress & Cinema Activity Ring Card
+                item(key = "user_watch_progress") {
                     MochyStaggeredReveal(index = 1) {
-                        AppSettingsHeroCard(
-                            onClick = onOpenAllSettings,
+                        WatchProgressRingCard(
+                            userState = userState,
+                            onClick = onOpenDetailedStats,
                         )
                     }
                 }
 
-                // 3. Signature Mochi Updates Card with animated MochyPromptButton
-                item(key = "hub_updates_card") {
+                // 3. 2x2 Live User Telemetry Bento Tiles
+                item(key = "user_stats_bento_header") {
                     MochyStaggeredReveal(index = 2) {
-                        MochyUpdatesHubCard(
-                            appVersion = appVersion,
-                            updateState = updateState,
-                            pendingUpdateInfo = pendingUpdateInfo,
-                            onUpdateClick = onUpdateAction,
-                            onChangelogClick = { onSettingClick(Setting.ABOUT) },
-                        )
+                        UserSectionLabel(title = "Your Telemetry")
                     }
                 }
 
-                // 4. 2x2 Textured Bento Quick Shortcuts
-                item(key = "hub_bento_header") {
+                item(key = "user_stats_bento_row_1") {
                     MochyStaggeredReveal(index = 3) {
-                        HubSectionLabel(title = "Quick Access")
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            StatBentoTile(
+                                value = formatWatchDuration(userState.totalWatchTimeMs),
+                                label = "Watch Time",
+                                caption = "Across all local videos",
+                                iconRes = R.drawable.history,
+                                texture = MochyCardTexture.DOT_MATRIX,
+                                testTag = "hub_stat_watch_time",
+                                onClick = onOpenDetailedStats,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatBentoTile(
+                                value = "${userState.watchedVideos}/${userState.totalVideos}",
+                                label = "Watched",
+                                caption = "${userState.completedVideos} completed",
+                                iconRes = R.drawable.stats,
+                                texture = MochyCardTexture.DIAGONAL_GRAIN,
+                                testTag = "hub_stat_watched",
+                                onClick = onOpenDetailedStats,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     }
                 }
 
-                item(key = "hub_bento_row_1") {
+                item(key = "user_stats_bento_row_2") {
                     MochyStaggeredReveal(index = 4) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            HubBentoTile(
-                                title = "Appearance",
-                                subtitle = "AMOLED, dock & style",
-                                iconRes = R.drawable.palette,
-                                texture = MochyCardTexture.DOT_MATRIX,
-                                testTag = "hub_tile_appearance",
-                                onClick = { onSettingClick(Setting.APPEARANCE) },
-                                modifier = Modifier.weight(1f),
-                            )
-                            HubBentoTile(
-                                title = "Watch Party",
-                                subtitle = "Telegram Cloud sync",
-                                iconRes = R.drawable.sync,
-                                texture = MochyCardTexture.DIAGONAL_GRAIN,
-                                testTag = "hub_tile_watch_party",
-                                onClick = { onSettingClick(Setting.WATCH_PARTY) },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                    }
-                }
-
-                item(key = "hub_bento_row_2") {
-                    MochyStaggeredReveal(index = 5) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            HubBentoTile(
-                                title = "Statistics",
-                                subtitle = "Watch history & stats",
-                                iconRes = R.drawable.stats,
-                                texture = MochyCardTexture.CONCENTRIC_RADAR,
-                                testTag = "hub_tile_stats",
-                                onClick = { onSettingClick(Setting.STATS) },
-                                modifier = Modifier.weight(1f),
-                            )
-                            HubBentoTile(
-                                title = "Storage",
-                                subtitle = "Cache & downloads",
+                            StatBentoTile(
+                                value = formatStorageSize(userState.totalStorageBytes),
+                                label = "Media Library",
+                                caption = "${userState.totalVideos} total files",
                                 iconRes = R.drawable.storage,
+                                texture = MochyCardTexture.CONCENTRIC_RADAR,
+                                testTag = "hub_stat_storage",
+                                onClick = onOpenDetailedStats,
+                                modifier = Modifier.weight(1f),
+                            )
+                            StatBentoTile(
+                                value = "${userState.totalFolders}",
+                                label = "Folders",
+                                caption = formatWatchDuration(userState.totalLibraryDurationMs) + " runtime",
+                                iconRes = R.drawable.sync,
                                 texture = MochyCardTexture.DOT_MATRIX,
-                                testTag = "hub_tile_storage",
-                                onClick = { onSettingClick(Setting.STORAGE) },
+                                testTag = "hub_stat_folders",
+                                onClick = onOpenDetailedStats,
                                 modifier = Modifier.weight(1f),
                             )
                         }
                     }
                 }
 
-                // 5. Lead Developer & Credits Spotlight
-                item(key = "hub_creator_header") {
+                // 4. Resolution & Video Quality Breakdown
+                item(key = "user_quality_breakdown") {
+                    MochyStaggeredReveal(index = 5) {
+                        QualityBreakdownCard(userState = userState)
+                    }
+                }
+
+                // 5. Continue Watching / Recently Played
+                item(key = "user_recent_header") {
                     MochyStaggeredReveal(index = 6) {
-                        HubSectionLabel(title = "Developer & Credits")
+                        UserSectionLabel(title = "Recently Watched")
                     }
                 }
 
-                item(key = "hub_lead_dev_card") {
+                item(key = "user_recent_card") {
                     MochyStaggeredReveal(index = 7) {
-                        HubLeadDeveloperCard(
-                            developerName = developerName,
-                            onOpenTelegram = onOpenTelegram,
-                            onOpenGitHub = onOpenGitHub,
-                            onOpenContributors = onOpenContributors,
-                            onOpenAbout = { onSettingClick(Setting.ABOUT) },
+                        RecentlyWatchedCard(
+                            videos = userState.recentlyPlayed,
+                            onPlayVideo = onPlayVideo,
                         )
                     }
                 }
 
-                // 6. Community & Support Row
-                item(key = "hub_community_header") {
-                    MochyStaggeredReveal(index = 8) {
-                        HubSectionLabel(title = "Community & Support")
+                // 6. Top Media Folders Breakdown
+                if (userState.topFolders.isNotEmpty()) {
+                    item(key = "user_folders_header") {
+                        MochyStaggeredReveal(index = 8) {
+                            UserSectionLabel(title = "Top Folders")
+                        }
                     }
-                }
 
-                item(key = "hub_community_card") {
-                    MochyStaggeredReveal(index = 9) {
-                        HubCommunityCard(
-                            onOpenTelegram = onOpenTelegram,
-                            onOpenBoost = onOpenBoost,
-                            onOpenGitHub = onOpenGitHub,
-                        )
-                    }
-                }
-
-                // 7. Minimal Signature Footer
-                item(key = "hub_footer") {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 6.dp, bottom = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Text(
-                            text = "${appName.uppercase()} • PURE AMOLED",
-                            style = MaterialTheme.typography.labelSmall,
-                            letterSpacing = 1.6.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                        )
-                        Text(
-                            text = "v$appVersion · $primaryAbi · Crafted by $developerName",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontSize = 10.sp,
-                            color = colorScheme.onSurfaceVariant.copy(alpha = 0.42f),
-                        )
+                    item(key = "user_folders_card") {
+                        MochyStaggeredReveal(index = 9) {
+                            TopFoldersBreakdownCard(folders = userState.topFolders)
+                        }
                     }
                 }
             }
         }
 
-        // Floating scroll-reactive frosted glass header
+        // Floating scroll-reactive frosted glass header with ONLY the Settings icon on top-right
         MochyScrollBlurHeader(
             scrollFraction = scrollFraction,
             backdrop = backdrop,
@@ -331,55 +288,36 @@ fun MochyHubContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                Text(
+                    text = "Profile",
+                    fontSize = (28f - 6f * easedScroll).sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colorScheme.onSurface,
+                    letterSpacing = (-0.5f + 0.2f * easedScroll).sp,
+                    modifier = Modifier.graphicsLayer {
+                        translationY = (1f - easedScroll) * 2f
+                    },
+                )
+
+                val settingsInteraction = remember { MutableInteractionSource() }
+                Surface(
+                    shape = CircleShape,
+                    color = colorScheme.surfaceContainerLow.copy(alpha = 0.92f),
+                    border = BorderStroke(0.85.dp, Color.White.copy(alpha = 0.16f)),
+                    modifier = Modifier.mochyItemPress(settingsInteraction, pressedScale = 0.92f),
                 ) {
-                    Text(
-                        text = appName,
-                        fontSize = (26f - 5f * easedScroll).sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.onSurface,
-                        letterSpacing = (-0.5f + 0.2f * easedScroll).sp,
-                        modifier = Modifier.graphicsLayer {
-                            translationY = (1f - easedScroll) * 2f
-                        },
-                    )
-                    Surface(
-                        shape = CircleShape,
-                        color = colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
-                        border = BorderStroke(0.7.dp, Color.White.copy(alpha = 0.14f)),
+                    IconButton(
+                        onClick = onOpenSettings,
+                        interactionSource = settingsInteraction,
+                        modifier = Modifier.testTag("hub_top_settings_button"),
                     ) {
-                        Text(
-                            text = "HUB",
-                            fontSize = 9.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.2.sp,
-                            color = colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
+                            contentDescription = "Open Settings",
+                            tint = colorScheme.onSurface,
+                            modifier = Modifier.size(21.dp),
                         )
                     }
-                }
-
-                Box {
-                    Surface(
-                        shape = CircleShape,
-                        color = colorScheme.surfaceContainerLow.copy(alpha = 0.92f),
-                        border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.14f)),
-                    ) {
-                        IconButton(
-                            onClick = onMoreMenuClick,
-                            modifier = Modifier.testTag("settings_more_button"),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.MoreVert,
-                                contentDescription = "Quick actions",
-                                tint = colorScheme.onSurface,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                    moreMenuContent()
                 }
             }
         }
@@ -406,18 +344,25 @@ fun MochyHubContent(
 }
 
 @Composable
-private fun MochyHeroStageCard(
-    appName: String,
-    versionName: String,
-    abi: String,
-    onOpenLocalVideo: () -> Unit,
-    onOpenNetworkStream: () -> Unit,
+private fun UserProfileHeroCard(
+    userState: UserHubUiState,
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    val infiniteTransition = rememberInfiniteTransition(label = "profile_avatar_halo")
+    val haloRotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 10000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "profile_halo_rot",
+    )
+
     MochyGlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("mochy_hub_identity_card"),
+            .testTag("mochy_user_profile_card"),
         texture = MochyCardTexture.AURORA_MESH,
         cornerRadius = 28.dp,
         enable3DTilt = false,
@@ -431,23 +376,61 @@ private fun MochyHeroStageCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            MochyFloatingMascotStage(size = 92.dp)
+            if (!userState.photoUrl.isNullOrBlank()) {
+                Box(
+                    modifier = Modifier.size(86.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { rotationZ = haloRotation }
+                            .border(
+                                width = 1.8.dp,
+                                brush = Brush.sweepGradient(
+                                    colors = listOf(
+                                        Color.White.copy(alpha = 0.90f),
+                                        Color.White.copy(alpha = 0.12f),
+                                        Color.White.copy(alpha = 0.45f),
+                                        Color.White.copy(alpha = 0.12f),
+                                        Color.White.copy(alpha = 0.90f),
+                                    ),
+                                ),
+                                shape = CircleShape,
+                            ),
+                    )
+                    AsyncImage(
+                        model = userState.photoUrl,
+                        contentDescription = userState.displayName,
+                        modifier = Modifier
+                            .size(76.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+            } else {
+                MochyFloatingMascotStage(size = 90.dp)
+            }
 
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Text(
-                    text = appName,
+                    text = userState.displayName,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.5).sp,
+                    letterSpacing = (-0.4).sp,
                     color = colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "Pure AMOLED 4K HDR Cinema Engine",
+                    text = userState.handleOrSubtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
 
@@ -455,10 +438,11 @@ private fun MochyHeroStageCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                HubMetaPill(text = "v$versionName")
-                HubMetaPill(text = abi)
-                HubMetaPill(text = "AMOLED")
-                HubMetaPill(text = "Media3")
+                ProfileMetaPill(text = userState.providerLabel)
+                if (userState.count4K > 0) {
+                    ProfileMetaPill(text = "${userState.count4K} 4K UHD")
+                }
+                ProfileMetaPill(text = "AMOLED")
             }
 
             HorizontalDivider(
@@ -467,180 +451,317 @@ private fun MochyHeroStageCard(
                 modifier = Modifier.padding(top = 4.dp),
             )
 
+            // 3-column live summary strip inside Hero
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                HubActionPill(
-                    label = "Local Video",
-                    iconVector = NextIcons.FileOpen,
-                    onClick = onOpenLocalVideo,
-                    modifier = Modifier
-                        .weight(1f)
-                        .testTag("hub_quick_local_video"),
+                HeroQuickMetric(
+                    value = formatWatchDuration(userState.totalWatchTimeMs),
+                    label = "Watched",
+                    modifier = Modifier.weight(1f),
                 )
-                HubActionPill(
-                    label = "Network Stream",
-                    iconVector = NextIcons.Link,
-                    onClick = onOpenNetworkStream,
+                Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .testTag("hub_quick_network_stream"),
+                        .width(0.7.dp)
+                        .height(28.dp)
+                        .background(Color.White.copy(alpha = 0.10f)),
+                )
+                HeroQuickMetric(
+                    value = "${userState.totalVideos}",
+                    label = "Videos",
+                    modifier = Modifier.weight(1f),
+                )
+                Box(
+                    modifier = Modifier
+                        .width(0.7.dp)
+                        .height(28.dp)
+                        .background(Color.White.copy(alpha = 0.10f)),
+                )
+                HeroQuickMetric(
+                    value = formatStorageSize(userState.totalStorageBytes),
+                    label = "Library",
+                    modifier = Modifier.weight(1f),
                 )
             }
         }
     }
 }
 
+@Composable
+private fun HeroQuickMetric(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+        )
+    }
+}
+
 /**
- * Signature Mochi Featured "App Settings" Card — primary entry into all 14 settings modules.
+ * Animated circular watch-completion ring card with real watch status breakdown.
  */
 @Composable
-private fun AppSettingsHeroCard(
+private fun WatchProgressRingCard(
+    userState: UserHubUiState,
     onClick: () -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val infiniteTransition = rememberInfiniteTransition(label = "app_settings_card_anim")
-    val iconPulse by infiniteTransition.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.04f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 2200),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "app_settings_icon_pulse",
+    val animatedProgress by animateFloatAsState(
+        targetValue = userState.watchedFraction,
+        animationSpec = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+        label = "watch_ring_progress",
     )
+    val pct = (animatedProgress * 100f).toInt()
 
     MochyGlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("hub_app_settings_card"),
+            .testTag("hub_watch_progress_card"),
         texture = MochyCardTexture.CONCENTRIC_RADAR,
         cornerRadius = 24.dp,
         enable3DTilt = true,
-        maxTilt = 4.5f,
-        shimmerSweep = true,
+        maxTilt = 4.0f,
         elevated = true,
         onClick = onClick,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 18.dp),
+                .padding(18.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(15.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
         ) {
+            // Animated circular progress ring
             Box(
-                modifier = Modifier
-                    .size(52.dp)
-                    .graphicsLayer {
-                        scaleX = iconPulse
-                        scaleY = iconPulse
-                    }
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(Color.White, Color(0xFFD6D8E0)),
-                        ),
-                    ),
+                modifier = Modifier.size(86.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Tune,
-                    contentDescription = "App Settings",
-                    tint = Color.Black,
-                    modifier = Modifier.size(25.dp),
-                )
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val strokeW = 7.dp.toPx()
+                    val pad = strokeW / 2f + 2.dp.toPx()
+                    val arcSize = Size(size.width - pad * 2f, size.height - pad * 2f)
+                    val topLeft = Offset(pad, pad)
+
+                    drawArc(
+                        color = Color.White.copy(alpha = 0.10f),
+                        startAngle = -90f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        topLeft = topLeft,
+                        size = arcSize,
+                        style = Stroke(width = strokeW, cap = StrokeCap.Round),
+                    )
+
+                    val sweep = (360f * animatedProgress).coerceAtLeast(if (animatedProgress > 0f) 6f else 0f)
+                    if (sweep > 0f) {
+                        drawArc(
+                            brush = Brush.sweepGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.55f),
+                                    Color.White,
+                                    Color.White,
+                                ),
+                            ),
+                            startAngle = -90f,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = topLeft,
+                            size = arcSize,
+                            style = Stroke(width = strokeW, cap = StrokeCap.Round),
+                        )
+
+                        val endRad = Math.toRadians((-90.0 + sweep))
+                        val cx = size.width / 2f + (arcSize.width / 2f) * cos(endRad).toFloat()
+                        val cy = size.height / 2f + (arcSize.height / 2f) * sin(endRad).toFloat()
+                        drawCircle(
+                            color = Color.White,
+                            radius = strokeW * 0.48f,
+                            center = Offset(cx, cy),
+                        )
+                    }
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "$pct%",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                    )
+                    Text(
+                        text = "SEEN",
+                        fontSize = 9.sp,
+                        letterSpacing = 1.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "App Settings",
-                        style = MaterialTheme.typography.titleMedium,
+                        text = "Cinema Activity",
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = colorScheme.onSurface,
                     )
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.12f),
-                        border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.18f)),
-                    ) {
-                        Text(
-                            text = "ALL",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                        )
-                    }
-                }
-                Text(
-                    text = "Player, gestures, audio, subtitles, lyrics, decoder & system",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            Surface(
-                shape = CircleShape,
-                color = Color.White.copy(alpha = 0.10f),
-                border = BorderStroke(0.7.dp, Color.White.copy(alpha = 0.16f)),
-                modifier = Modifier.size(34.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = colorScheme.onSurface,
-                        modifier = Modifier.size(20.dp),
+                        contentDescription = "Detailed Statistics",
+                        tint = colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                        modifier = Modifier.size(18.dp),
                     )
                 }
+
+                ActivityMetricRow(label = "Completed", value = "${userState.completedVideos} videos")
+                ActivityMetricRow(label = "In Progress", value = "${userState.inProgressVideos} videos")
+                ActivityMetricRow(
+                    label = "Unwatched",
+                    value = "${(userState.totalVideos - userState.watchedVideos).coerceAtLeast(0)} videos",
+                )
             }
         }
     }
 }
 
-/**
- * Mochi Signature Updates Card featuring the animated [MochyPromptButton].
- */
 @Composable
-private fun MochyUpdatesHubCard(
-    appVersion: String,
-    updateState: UpdateState,
-    pendingUpdateInfo: AppUpdateInfo?,
-    onUpdateClick: () -> Unit,
-    onChangelogClick: () -> Unit,
+private fun ActivityMetricRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.White,
+        )
+    }
+}
+
+@Composable
+private fun StatBentoTile(
+    value: String,
+    label: String,
+    caption: String,
+    @DrawableRes iconRes: Int,
+    texture: MochyCardTexture,
+    testTag: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val buttonState: MochyPromptButtonState = remember(updateState, pendingUpdateInfo) {
-        when (updateState) {
-            is UpdateState.Idle -> MochyPromptButtonState.UpdateAvailable(
-                customText = "Check for Updates",
-            )
-            else -> updateState.toPromptButtonState(
-                fileSize = pendingUpdateInfo?.fileSize?.takeIf { it > 0L }
-                    ?: pendingUpdateInfo?.apkAssets?.firstOrNull()?.size
-                    ?: 0L,
-            )
+    MochyGlassCard(
+        modifier = modifier
+            .heightIn(min = 122.dp)
+            .testTag(testTag),
+        texture = texture,
+        cornerRadius = 22.dp,
+        enable3DTilt = true,
+        maxTilt = 5.2f,
+        onClick = onClick,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(11.dp))
+                    .background(Color.White.copy(alpha = 0.09f))
+                    .border(0.7.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(11.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(id = iconRes),
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colorScheme.onSurface,
+                    maxLines = 1,
+                )
+                Text(
+                    text = caption,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontSize = 10.5.sp,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun QualityBreakdownCard(
+    userState: UserHubUiState,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val total = userState.totalVideos.coerceAtLeast(1).toFloat()
+    val w4k = (userState.count4K / total).coerceIn(0f, 1f)
+    val wFhd = (userState.countFullHd / total).coerceIn(0f, 1f)
+    val wHd = (userState.countHd / total).coerceIn(0f, 1f)
+    val wSd = (userState.countSd / total).coerceIn(0f, 1f)
 
     MochyGlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("hub_updates_card"),
+            .testTag("hub_quality_breakdown_card"),
         texture = MochyCardTexture.DIAGONAL_GRAIN,
-        cornerRadius = 24.dp,
+        cornerRadius = 22.dp,
         enable3DTilt = false,
     ) {
         Column(
@@ -651,301 +772,256 @@ private fun MochyUpdatesHubCard(
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        text = "Updates & Releases",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = colorScheme.onSurface,
-                    )
-                    Text(
-                        text = when (updateState) {
-                            is UpdateState.Available -> "New release v${updateState.info.versionName} ready"
-                            is UpdateState.Downloading -> "Downloading update package…"
-                            is UpdateState.ReadyToInstall -> "Verified APK ready to install"
-                            else -> "Installed build v$appVersion"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                val changelogInteraction = remember { MutableInteractionSource() }
-                Surface(
-                    onClick = onChangelogClick,
-                    interactionSource = changelogInteraction,
-                    modifier = Modifier
-                        .mochyItemPress(changelogInteraction, pressedScale = 0.95f)
-                        .testTag("hub_changelog_chip"),
-                    shape = CircleShape,
-                    color = colorScheme.surfaceContainerHigh,
-                    border = BorderStroke(0.7.dp, Color.White.copy(alpha = 0.14f)),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.history),
-                            contentDescription = null,
-                            tint = colorScheme.onSurface,
-                            modifier = Modifier.size(13.dp),
-                        )
-                        Text(
-                            text = "What's New",
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = colorScheme.onSurface,
-                        )
-                    }
-                }
-            }
-
-            MochyPromptButton(
-                state = buttonState,
-                onClick = onUpdateClick,
-                height = 50.dp,
-                containerColor = Color(0xFF17181E),
-                progressFillColor = Color.White,
-                readyContainerColor = Color.White,
-                onReadyContentColor = Color.Black,
-                modifier = Modifier.testTag("mochy_hub_update_pill"),
-            )
-        }
-    }
-}
-
-@Composable
-private fun HubBentoTile(
-    title: String,
-    subtitle: String,
-    @DrawableRes iconRes: Int,
-    texture: MochyCardTexture,
-    testTag: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    MochyGlassCard(
-        modifier = modifier
-            .heightIn(min = 114.dp)
-            .testTag(testTag),
-        texture = texture,
-        cornerRadius = 22.dp,
-        enable3DTilt = true,
-        maxTilt = 5.5f,
-        onClick = onClick,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(alpha = 0.09f))
-                        .border(0.7.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        painter = painterResource(id = iconRes),
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(19.dp),
-                    )
-                }
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = title,
+                    text = "Library Quality",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontSize = 11.5.sp,
-                    color = colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                ProfileMetaPill(text = "${userState.totalVideos} videos")
             }
-        }
-    }
-}
 
-@Composable
-private fun HubLeadDeveloperCard(
-    developerName: String,
-    onOpenTelegram: () -> Unit,
-    onOpenGitHub: () -> Unit,
-    onOpenContributors: () -> Unit,
-    onOpenAbout: () -> Unit,
-) {
-    val colorScheme = MaterialTheme.colorScheme
-    val infiniteTransition = rememberInfiniteTransition(label = "dev_ring_glow")
-    val ringRotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 9000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "dev_ring_rotation",
-    )
-
-    MochyGlassCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .testTag("hub_lead_dev_card"),
-        texture = MochyCardTexture.DOT_MATRIX,
-        cornerRadius = 24.dp,
-        enable3DTilt = true,
-        maxTilt = 3.5f,
-        onClick = onOpenAbout,
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
+            // Monochrome segmented quality bar
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.08f)),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                // Avatar with animated rotating specular ring
-                Box(
-                    modifier = Modifier.size(62.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
+                if (w4k > 0f) {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { rotationZ = ringRotation }
-                            .border(
-                                width = 1.6.dp,
-                                brush = Brush.sweepGradient(
-                                    colors = listOf(
-                                        Color.White.copy(alpha = 0.85f),
-                                        Color.White.copy(alpha = 0.10f),
-                                        Color.White.copy(alpha = 0.45f),
-                                        Color.White.copy(alpha = 0.10f),
-                                        Color.White.copy(alpha = 0.85f),
-                                    ),
-                                ),
-                                shape = CircleShape,
-                            ),
+                            .weight(w4k)
+                            .fillMaxHeight()
+                            .background(Color.White),
                     )
-                    AsyncImage(
-                        model = R.drawable.dev_profile,
-                        contentDescription = "Lead Developer",
+                }
+                if (wFhd > 0f) {
+                    Box(
                         modifier = Modifier
-                            .size(54.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Crop,
+                            .weight(wFhd)
+                            .fillMaxHeight()
+                            .background(Color.White.copy(alpha = 0.68f)),
                     )
                 }
-
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                    ) {
-                        Text(
-                            text = developerName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = colorScheme.onSurface,
-                        )
-                        HubMetaPill(text = "LEAD DEV")
-                    }
-                    Text(
-                        text = "Creator • Core Architecture, Mochi UI & Cloud",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
+                if (wHd > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .weight(wHd)
+                            .fillMaxHeight()
+                            .background(Color.White.copy(alpha = 0.38f)),
                     )
                 }
-
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
-                    modifier = Modifier.size(20.dp),
-                )
+                if (wSd > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .weight(wSd)
+                            .fillMaxHeight()
+                            .background(Color.White.copy(alpha = 0.18f)),
+                    )
+                }
             }
 
-            HorizontalDivider(
-                thickness = 0.6.dp,
-                color = Color.White.copy(alpha = 0.08f),
-            )
-
-            // Built-with / Contributors & About pills
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                HubDrawablePill(
-                    label = "Telegram",
-                    iconRes = R.drawable.ic_telegram,
-                    onClick = onOpenTelegram,
-                    modifier = Modifier.weight(1f),
-                )
-                HubDrawablePill(
-                    label = "GitHub",
-                    iconRes = R.drawable.ic_github,
-                    onClick = onOpenGitHub,
-                    modifier = Modifier.weight(1f),
-                )
-                HubDrawablePill(
-                    label = "Credits",
-                    iconRes = R.drawable.info,
-                    onClick = onOpenContributors,
-                    modifier = Modifier.weight(1f),
-                )
+                QualityLegendPill(label = "4K", count = userState.count4K, dotAlpha = 1.0f)
+                QualityLegendPill(label = "1080p", count = userState.countFullHd, dotAlpha = 0.68f)
+                QualityLegendPill(label = "720p", count = userState.countHd, dotAlpha = 0.38f)
+                QualityLegendPill(label = "SD", count = userState.countSd, dotAlpha = 0.20f)
             }
         }
     }
 }
 
 @Composable
-private fun HubCommunityCard(
-    onOpenTelegram: () -> Unit,
-    onOpenBoost: () -> Unit,
-    onOpenGitHub: () -> Unit,
+private fun QualityLegendPill(label: String, count: Int, dotAlpha: Float) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = dotAlpha)),
+        )
+        Text(
+            text = "$label · $count",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun RecentlyWatchedCard(
+    videos: List<Video>,
+    onPlayVideo: (Video) -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     MochyGlassCard(
         modifier = Modifier
             .fillMaxWidth()
-            .testTag("hub_community_card"),
+            .testTag("hub_recently_watched_card"),
+        texture = MochyCardTexture.DOT_MATRIX,
+        cornerRadius = 22.dp,
+        enable3DTilt = false,
+    ) {
+        if (videos.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.75f),
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                Text(
+                    text = "No watch history yet",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colorScheme.onSurface,
+                )
+                Text(
+                    text = "Videos you play will appear here with live resume progress.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                videos.forEachIndexed { index, video ->
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val progress = video.playedPercentage.coerceIn(0f, 1f)
+                    val pct = (progress * 100f).toInt()
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 68.dp)
+                            .mochyItemPress(interactionSource, pressedScale = 0.985f)
+                            .clickable(
+                                interactionSource = interactionSource,
+                                indication = null,
+                                onClick = { onPlayVideo(video) },
+                            )
+                            .padding(horizontal = 14.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(width = 64.dp, height = 42.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .border(0.6.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(10.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            AsyncImage(
+                                model = video.artworkUri ?: video.uriString,
+                                contentDescription = video.displayName,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.58f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            Text(
+                                text = video.displayName,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(4.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.14f)),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(progress)
+                                            .fillMaxHeight()
+                                            .clip(CircleShape)
+                                            .background(Color.White),
+                                    )
+                                }
+                                Text(
+                                    text = "$pct%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium,
+                                    color = colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+
+                    if (index < videos.lastIndex) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 90.dp, end = 14.dp),
+                            thickness = 0.6.dp,
+                            color = Color.White.copy(alpha = 0.07f),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopFoldersBreakdownCard(
+    folders: List<FolderStatItem>,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    MochyGlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("hub_top_folders_card"),
         texture = MochyCardTexture.DIAGONAL_GRAIN,
         cornerRadius = 22.dp,
         enable3DTilt = false,
@@ -953,38 +1029,71 @@ private fun HubCommunityCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                HubDrawablePill(
-                    label = "Telegram",
-                    iconRes = R.drawable.telegram,
-                    onClick = onOpenTelegram,
-                    modifier = Modifier.weight(1f),
-                )
-                HubDrawablePill(
-                    label = "Boost",
-                    iconRes = R.drawable.bolt,
-                    onClick = onOpenBoost,
-                    modifier = Modifier.weight(1f),
-                )
-                HubDrawablePill(
-                    label = "Issues",
-                    iconRes = R.drawable.ic_github,
-                    onClick = onOpenGitHub,
-                    modifier = Modifier.weight(1f),
-                )
+            folders.forEach { folder ->
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Folder,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.80f),
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Text(
+                                text = folder.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                color = colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "${folder.videoCount} · ${formatStorageSize(folder.totalBytes)}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.5.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.09f)),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(folder.shareFraction)
+                                .fillMaxHeight()
+                                .clip(CircleShape)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        colors = listOf(Color.White, Color.White.copy(alpha = 0.55f)),
+                                    ),
+                                ),
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun HubSectionLabel(title: String) {
+private fun UserSectionLabel(title: String) {
     Text(
         text = title.uppercase(),
         style = MaterialTheme.typography.labelMedium,
@@ -996,11 +1105,11 @@ private fun HubSectionLabel(title: String) {
 }
 
 @Composable
-private fun HubMetaPill(text: String) {
+private fun ProfileMetaPill(text: String) {
     Surface(
         shape = RoundedCornerShape(8.dp),
         color = Color.White.copy(alpha = 0.08f),
-        border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.12f)),
+        border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.13f)),
     ) {
         Text(
             text = text,
@@ -1009,93 +1118,32 @@ private fun HubMetaPill(text: String) {
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.5.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
         )
     }
 }
 
-@Composable
-private fun HubActionPill(
-    label: String,
-    iconVector: androidx.compose.ui.graphics.vector.ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    Surface(
-        onClick = onClick,
-        interactionSource = interactionSource,
-        modifier = modifier
-            .heightIn(min = 42.dp)
-            .mochyItemPress(interactionSource, pressedScale = 0.96f),
-        shape = RoundedCornerShape(14.dp),
-        color = Color.White.copy(alpha = 0.07f),
-        border = BorderStroke(0.75.dp, Color.White.copy(alpha = 0.13f)),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            Icon(
-                imageVector = iconVector,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(16.dp),
-            )
-            Spacer(modifier = Modifier.width(7.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+private fun formatWatchDuration(durationMs: Long): String {
+    if (durationMs <= 0L) return "0m"
+    val totalMinutes = durationMs / 60_000L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    return when {
+        hours >= 100L -> "${hours}h"
+        hours > 0L -> "${hours}h ${minutes}m"
+        totalMinutes > 0L -> "${totalMinutes}m"
+        else -> "<1m"
     }
 }
 
-@Composable
-private fun HubDrawablePill(
-    label: String,
-    @DrawableRes iconRes: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    Surface(
-        onClick = onClick,
-        interactionSource = interactionSource,
-        modifier = modifier
-            .heightIn(min = 40.dp)
-            .mochyItemPress(interactionSource, pressedScale = 0.96f),
-        shape = RoundedCornerShape(13.dp),
-        color = Color.White.copy(alpha = 0.065f),
-        border = BorderStroke(0.7.dp, Color.White.copy(alpha = 0.12f)),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
-        ) {
-            Icon(
-                painter = painterResource(id = iconRes),
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(15.dp),
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Medium,
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+private fun formatStorageSize(bytes: Long): String {
+    if (bytes <= 0L) return "0 MB"
+    val kb = bytes / 1024.0
+    val mb = kb / 1024.0
+    val gb = mb / 1024.0
+    return when {
+        gb >= 1.0 -> String.format(Locale.US, "%.1f GB", gb)
+        mb >= 1.0 -> String.format(Locale.US, "%.0f MB", mb)
+        else -> String.format(Locale.US, "%.0f KB", kb)
     }
 }
