@@ -102,7 +102,7 @@ License    : GNU Affero General Public License v3.0
   <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 19:39 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 19:46 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`49f23d7`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/49f23d74cbc949bd384a7aa79a8877d1cdb19925) | fix: expose API_PLAYLIST constant in PlayerApi companion object | `@RoxyBasicNeedBot` | Nov 25, 2026 |
+| [`0e303a2`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/0e303a2bf6db913f5cb72cc0c9be53497494dd49) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`3f24c2d`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/3f24c2dfa35d8f837e6f2b57d7b516c66cade7e1) | fix: resolve OkHttp 5 deprecations, remove nextlib-mediainfo conflict... | `@RoxyBasicNeedBot` | Nov 25, 2026 |
 | [`9e19355`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/9e193557238ecbe085e995ae7d297d99a7ceb2d2) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`737fbe2`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/737fbe2e74a3e547f8cab274519e8f6f098d6d08) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
-| [`9f8592d`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/9f8592dc2c2ef1c3b5f6c83b12c0cb452f12034e) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
-| [`bb1a8e6`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/bb1a8e6958e5bdde3b86002da511092fcaf3a841) | feat: migrate playback engine from ExoPlayer/Media3 to libmpv and rel... | `@RoxyBasicNeedBot` | Nov 25, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
