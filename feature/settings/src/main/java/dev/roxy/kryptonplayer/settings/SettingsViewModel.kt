@@ -9,16 +9,50 @@ import dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo
 import dev.roxy.kryptonplayer.core.data.update.AppUpdateManager
 import dev.roxy.kryptonplayer.core.data.update.GitHubCommitInfo
 import dev.roxy.kryptonplayer.core.data.update.UpdateState
+import dev.roxy.kryptonplayer.core.database.dao.MediumDao
+import dev.roxy.kryptonplayer.core.database.dao.MediumStateDao
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class HubUserStatsSummary(
+    val totalWatchTimeMs: Long = 0L,
+    val watchedVideosCount: Int = 0,
+    val totalVideosInLibrary: Int = 0,
+    val uniqueFoldersCount: Int = 0,
+)
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val appUpdateManager: AppUpdateManager,
+    mediumDao: MediumDao,
+    mediumStateDao: MediumStateDao,
 ) : ViewModel() {
     val updateState: StateFlow<UpdateState> = appUpdateManager.updateState
     val gitHubCommits: StateFlow<List<GitHubCommitInfo>> = appUpdateManager.gitHubCommits
+
+    val userStats: StateFlow<HubUserStatsSummary> = combine(
+        mediumDao.getAll(),
+        mediumStateDao.getAll(),
+    ) { mediaList, stateList ->
+        val totalWatchTimeMs = stateList.sumOf { it.playbackPosition.coerceAtLeast(0L) }
+        val watchedCount = stateList.count { it.playbackPosition > 0L || it.lastPlayedTime != null }
+        val totalVideos = mediaList.size
+        val foldersCount = mediaList.map { it.parentPath }.distinct().size
+        HubUserStatsSummary(
+            totalWatchTimeMs = totalWatchTimeMs,
+            watchedVideosCount = watchedCount,
+            totalVideosInLibrary = totalVideos,
+            uniqueFoldersCount = foldersCount,
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = HubUserStatsSummary(),
+    )
 
     init {
         // App update checking temporarily disabled as requested

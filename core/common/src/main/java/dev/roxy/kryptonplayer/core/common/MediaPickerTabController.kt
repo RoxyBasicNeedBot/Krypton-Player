@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 enum class MainTargetTab {
     HOME,
+    SEARCH,
     EXPLORE,
 }
 

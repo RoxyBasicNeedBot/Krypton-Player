@@ -1,11 +1,11 @@
 package dev.roxy.kryptonplayer.onboarding
 
+import android.content.Context
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,18 +50,21 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import dev.roxy.kryptonplayer.R
 import dev.roxy.kryptonplayer.core.ui.R as CoreUiR
 import dev.roxy.kryptonplayer.core.ui.preview.DayNightPreview
-import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
 import dev.roxy.kryptonplayer.core.ui.theme.JioHotstarFontFamily
+import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.sin
@@ -71,12 +75,21 @@ private const val AUTO_ENTER_MILLIS = 3000L
 /**
  * Stage 4 — Brushed Silver & Graphite Krypton Member Card Finale:
  * Matte monochrome brushed-silver metallic finish, zero neon, smooth specular sheen sweep,
- * and interactive 3D drag-tilt physics.
+ * and interactive 3D drag-tilt physics. Displays user's chosen profile name & photo.
  */
 @Composable
 internal fun KryptonPassFinaleStep(
     onFinished: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val profilePrefs = remember { context.getSharedPreferences("krypton_profile_prefs", Context.MODE_PRIVATE) }
+    val username = remember {
+        profilePrefs.getString("username", null)?.takeIf { it.isNotBlank() } ?: "Cinema Member"
+    }
+    val profilePicUri = remember {
+        profilePrefs.getString("profile_pic_uri", null)
+    }
+
     val scope = rememberCoroutineScope()
     val enter = remember { Animatable(0f) }
     val tiltX = remember { Animatable(0f) }
@@ -181,7 +194,11 @@ internal fun KryptonPassFinaleStep(
                         )
                     },
             ) {
-                BrushedSilverKryptonCard(clockSeconds = clockSeconds)
+                BrushedSilverKryptonCard(
+                    clockSeconds = clockSeconds,
+                    username = username,
+                    profilePicUri = profilePicUri,
+                )
             }
 
             Spacer(Modifier.height(34.dp))
@@ -229,6 +246,8 @@ internal fun KryptonPassFinaleStep(
 @Composable
 private fun BrushedSilverKryptonCard(
     clockSeconds: FloatState,
+    username: String,
+    profilePicUri: String?,
 ) {
     val cardShape = RoundedCornerShape(22.dp)
 
@@ -324,7 +343,7 @@ private fun BrushedSilverKryptonCard(
                         contentAlignment = Alignment.Center,
                     ) {
                         Image(
-                            painter = painterResource(id = CoreUiR.drawable.app_logo_monochrome),
+                            painter = painterResource(id = CoreUiR.drawable.ic_launcher_monochrome),
                             contentDescription = null,
                             contentScale = ContentScale.Fit,
                             colorFilter = ColorFilter.tint(Color.White),
@@ -351,14 +370,27 @@ private fun BrushedSilverKryptonCard(
                     }
                 }
 
-                Text(
-                    text = "USR#001",
-                    fontFamily = JioHotstarFontFamily,
-                    color = Color(0xFF424242),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.06.em,
-                )
+                if (!profilePicUri.isNullOrBlank()) {
+                    val model = if (profilePicUri.contains("://")) profilePicUri else "file://$profilePicUri"
+                    AsyncImage(
+                        model = model,
+                        contentDescription = username,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .border(1.2.dp, Color(0xFF1C1C1C), CircleShape),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Text(
+                        text = "USR#001",
+                        fontFamily = JioHotstarFontFamily,
+                        color = Color(0xFF424242),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.06.em,
+                    )
+                }
             }
 
             Row(
@@ -366,9 +398,9 @@ private fun BrushedSilverKryptonCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom,
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "CINEMA EDITION",
+                        text = "CINEMA MEMBER",
                         fontFamily = JioHotstarFontFamily,
                         color = Color(0xFF505050),
                         fontSize = 10.sp,
@@ -377,12 +409,14 @@ private fun BrushedSilverKryptonCard(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "Ready to watch",
+                        text = username,
                         fontFamily = JioHotstarFontFamily,
                         color = Color(0xFF141414),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.03).em,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 

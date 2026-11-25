@@ -149,12 +149,12 @@ fun MochyNavigationDock(
     val safeSelectedIndex = selectedTabIndex.coerceIn(0, tabs.lastIndex)
     val colorScheme = MaterialTheme.colorScheme
     val isDark = colorScheme.surface.luminance() < 0.5f
-    val dockTopSurface = colorScheme.surfaceContainerHigh.copy(alpha = if (backdrop != null) 0.62f else 0.90f)
-    val dockBottomSurface = colorScheme.surfaceContainerLow.copy(alpha = if (backdrop != null) 0.74f else 0.95f)
-    val dockOutlineTop = colorScheme.onSurface.copy(alpha = if (isDark) 0.18f else 0.12f)
-    val dockOutlineBottom = colorScheme.onSurface.copy(alpha = if (isDark) 0.06f else 0.05f)
-    val pillFillColor = colorScheme.primary.copy(alpha = 0.15f)
-    val pillStrokeColor = colorScheme.primary.copy(alpha = 0.24f)
+    val dockTopSurface = colorScheme.surfaceContainerHigh.copy(alpha = if (backdrop != null) 0.72f else 0.94f)
+    val dockBottomSurface = colorScheme.surfaceContainerLow.copy(alpha = if (backdrop != null) 0.84f else 0.97f)
+    val dockOutlineTop = colorScheme.onSurface.copy(alpha = if (isDark) 0.24f else 0.16f)
+    val dockOutlineBottom = colorScheme.onSurface.copy(alpha = if (isDark) 0.09f else 0.07f)
+    val pillFillColor = if (isDark) Color.White.copy(alpha = 0.16f) else colorScheme.primary.copy(alpha = 0.18f)
+    val pillStrokeColor = if (isDark) Color.White.copy(alpha = 0.34f) else colorScheme.primary.copy(alpha = 0.32f)
 
     val dockSurfaceModifier = if (backdrop != null) {
         Modifier
@@ -290,13 +290,14 @@ private fun RowScope.MochyTabSlot(
         animationSpec = tween(durationMillis = 220, easing = MochyMotion.EaseOut),
         label = "tab_lit",
     )
+    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     val iconTint by animateColorAsState(
-        targetValue = if (isSelected) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
+        targetValue = when {
+            isSelected -> if (isDark) Color.White else MaterialTheme.colorScheme.primary
+            isPressed -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f)
+            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
         },
-        animationSpec = tween(durationMillis = 220, easing = MochyMotion.EaseOut),
+        animationSpec = tween(durationMillis = 200, easing = MochyMotion.EaseOut),
         label = "tab_tint",
     )
     val dotWidth by animateDpAsState(
@@ -381,8 +382,8 @@ private fun RowScope.MochyTabSlot(
                 text = tab.title,
                 fontSize = 10.sp,
                 lineHeight = 11.sp,
-                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
-                color = iconTint.copy(alpha = if (isSelected) 0.96f else 0.68f),
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = iconTint.copy(alpha = if (isSelected) 1f else 0.78f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -392,7 +393,7 @@ private fun RowScope.MochyTabSlot(
                     modifier = Modifier
                         .size(width = dotWidth, height = 2.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)),
+                        .background(if (isDark) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.90f)),
                 )
             }
         }

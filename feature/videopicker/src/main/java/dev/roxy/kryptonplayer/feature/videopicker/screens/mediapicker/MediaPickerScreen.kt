@@ -195,6 +195,7 @@ import dev.roxy.kryptonplayer.feature.videopicker.composables.MediaView
 import dev.roxy.kryptonplayer.feature.videopicker.composables.TmdbExploreView
 import dev.roxy.kryptonplayer.feature.videopicker.composables.NoVideosFound
 import dev.roxy.kryptonplayer.feature.videopicker.composables.MovieDetailDialog
+import dev.roxy.kryptonplayer.feature.videopicker.screens.search.EmbeddedSearchTabView
 import dev.roxy.kryptonplayer.feature.videopicker.screens.search.TmdbSearchRoute
 import dev.roxy.kryptonplayer.feature.videopicker.composables.ActorDetailDialog
 import dev.roxy.kryptonplayer.core.ui.components.LiquidGlassIconButton
@@ -514,9 +515,12 @@ internal fun MediaPickerScreen(
                 MainTargetTab.HOME -> {
                     selectedTab = MediaPickerTab.HOME
                 }
+                MainTargetTab.SEARCH -> {
+                    selectedTab = MediaPickerTab.SEARCH
+                }
                 MainTargetTab.EXPLORE -> {
                     detailBackStack = emptyList()
-                    selectedTab = MediaPickerTab.SEARCH
+                    selectedTab = MediaPickerTab.EXPLORE
                 }
             }
             MediaPickerTabController.targetTab.value = null
@@ -530,9 +534,12 @@ internal fun MediaPickerScreen(
                     MainTargetTab.HOME -> {
                         selectedTab = MediaPickerTab.HOME
                     }
+                    MainTargetTab.SEARCH -> {
+                        selectedTab = MediaPickerTab.SEARCH
+                    }
                     MainTargetTab.EXPLORE -> {
                         detailBackStack = emptyList()
-                        selectedTab = MediaPickerTab.SEARCH
+                        selectedTab = MediaPickerTab.EXPLORE
                     }
                 }
                 MediaPickerTabController.targetTab.value = null
@@ -546,7 +553,7 @@ internal fun MediaPickerScreen(
         detailBackStack = detailBackStack.dropLast(1)
     }
 
-    BackHandler(enabled = selectedTab == MediaPickerTab.SEARCH && tmdbExploreState.activeSeeAllCategory != null && detailBackStack.isEmpty()) {
+    BackHandler(enabled = selectedTab == MediaPickerTab.EXPLORE && tmdbExploreState.activeSeeAllCategory != null && detailBackStack.isEmpty()) {
         tmdbExploreViewModel.clearSeeAll()
     }
 
@@ -554,6 +561,7 @@ internal fun MediaPickerScreen(
         selectedTab = MediaPickerTab.HOME
     }
 
+    var searchTabFocusTrigger by remember { mutableStateOf(0) }
     var showMoreMenu by rememberSaveable { mutableStateOf(false) }
     var showQuickSettingsDialog by rememberSaveable { mutableStateOf(false) }
     var showUrlDialog by rememberSaveable { mutableStateOf(false) }
@@ -873,27 +881,26 @@ internal fun MediaPickerScreen(
                         NextTopAppBar(
                             scrollBehavior = if (isHomeRoot) homeTopAppBarScrollBehavior else null,
                             title = {
-                                if (selectedTab == MediaPickerTab.SEARCH) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(id = NextIcons.Tmdb),
-                                            contentDescription = null,
-                                            modifier = Modifier.size(32.dp),
-                                            tint = Color.Unspecified
-                                        )
-                                        Text(
-                                            text = "Explore",
-                                            style = MaterialTheme.typography.titleLarge.copy(
-                                                fontWeight = FontWeight.SemiBold,
-                                                letterSpacing = 0.2.sp
-                                            ),
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
+                                if (selectedTab == MediaPickerTab.EXPLORE) {
+                                    Text(
+                                        text = "Explore",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            letterSpacing = 0.2.sp
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                } else if (selectedTab == MediaPickerTab.SEARCH) {
+                                    Text(
+                                        text = "Search",
+                                        style = MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.SemiBold,
+                                            letterSpacing = 0.2.sp
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 } else {
                                     val titleText = (uiState.folderName ?: stringResource(R.string.app_name)).takeIf { !selectionManager.isInSelectionMode } ?: ""
                                     if (titleText.isNotEmpty()) {
@@ -1049,51 +1056,38 @@ internal fun MediaPickerScreen(
                                             )
                                         }
                                     }
-                                } else if (selectedTab == MediaPickerTab.HOME || selectedTab == MediaPickerTab.LIBRARY) {
+                                } else if (selectedTab == MediaPickerTab.HOME || selectedTab == MediaPickerTab.SEARCH) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         modifier = Modifier.padding(end = 4.dp),
                                     ) {
-                                        LiquidGlassIconButton(
-                                            onClick = {
-                                                CrashBreadcrumbs.recordClick("Link / Network Stream Icon", "Home Top Bar", "Opening Network Stream Dialog")
-                                                showUrlDialog = true
-                                            },
-                                            size = 38.dp,
-                                            backdrop = backdrop,
-                                        ) {
-                                            Icon(
-                                                imageVector = NextIcons.Link,
-                                                contentDescription = stringResource(id = R.string.open_network_stream),
-                                                modifier = Modifier.size(20.dp),
-                                                tint = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        }
-                                        AnimatedTelegramButton(
-                                            onClick = {
-                                                CrashBreadcrumbs.recordClick("Telegram Cloud Icon", "Home Top Bar", "Navigating to Telegram Screen")
-                                                onTelegramClick()
-                                            },
-                                            backdrop = backdrop,
-                                        )
-                                        LiquidGlassIconButton(
-                                            onClick = {
-                                                CrashBreadcrumbs.recordClick("Quick Settings Icon", "Home Top Bar", "Opening Quick Settings Dialog")
-                                                showQuickSettingsDialog = true
-                                            },
-                                            size = 38.dp,
-                                            backdrop = backdrop,
-                                        ) {
-                                            Icon(
-                                                imageVector = NextIcons.DashBoard,
-                                                contentDescription = stringResource(id = R.string.quick_settings),
-                                                modifier = Modifier.size(20.dp),
-                                                tint = MaterialTheme.colorScheme.onSurface,
+                                        if (selectedTab == MediaPickerTab.HOME) {
+                                            LiquidGlassIconButton(
+                                                onClick = {
+                                                    CrashBreadcrumbs.recordClick("Link / Network Stream Icon", "Home Top Bar", "Opening Network Stream Dialog")
+                                                    showUrlDialog = true
+                                                },
+                                                size = 38.dp,
+                                                backdrop = backdrop,
+                                            ) {
+                                                Icon(
+                                                    imageVector = NextIcons.Link,
+                                                    contentDescription = stringResource(id = R.string.open_network_stream),
+                                                    modifier = Modifier.size(20.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurface,
+                                                )
+                                            }
+                                            AnimatedTelegramButton(
+                                                onClick = {
+                                                    CrashBreadcrumbs.recordClick("Telegram Cloud Icon", "Home Top Bar", "Navigating to Telegram Screen")
+                                                    onTelegramClick()
+                                                },
+                                                backdrop = backdrop,
                                             )
                                         }
 
-                                        // Mochy 1:1 Persistent Top Bar Profile Avatar (1:1 with HomeScreen.kt lines 1850-1885)
+                                        // Mochy 1:1 Persistent Top Bar Profile Avatar
                                         Box(
                                             modifier = Modifier
                                                 .size(38.dp)
@@ -1134,7 +1128,7 @@ internal fun MediaPickerScreen(
                                             }
                                         }
                                     }
-                                } else if (selectedTab == MediaPickerTab.SEARCH) {
+                                } else if (selectedTab == MediaPickerTab.EXPLORE) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1145,7 +1139,7 @@ internal fun MediaPickerScreen(
                                         }) {
                                             Icon(
                                                 imageVector = NextIcons.Search,
-                                                contentDescription = "Search TMDb Movies, Shows & Actors"
+                                                contentDescription = "Search Movies, Shows & Actors"
                                             )
                                         }
                                         Box(
@@ -1153,7 +1147,7 @@ internal fun MediaPickerScreen(
                                                 .size(38.dp)
                                                 .clip(CircleShape)
                                                 .clickable {
-                                                    CrashBreadcrumbs.recordClick("Profile Avatar Icon", "Search Top Bar", "Navigating to Krypton Hub")
+                                                    CrashBreadcrumbs.recordClick("Profile Avatar Icon", "Explore Top Bar", "Navigating to Krypton Hub")
                                                     onSettingsClick()
                                                 },
                                             contentAlignment = Alignment.Center,
@@ -1245,12 +1239,9 @@ internal fun MediaPickerScreen(
                                 selectedTab = it
                             },
                             onSearchClick = {
-                                CrashBreadcrumbs.recordClick("Search Icon", "MediaNavigationBar", "Opening Search")
-                                if (selectedTab == MediaPickerTab.SEARCH) {
-                                    detailBackStack = detailBackStack + TmdbDetailDestination.TmdbSearch
-                                } else {
-                                    onSearchClick()
-                                }
+                                CrashBreadcrumbs.recordClick("Search Icon", "MediaNavigationBar", "Focusing Search")
+                                selectedTab = MediaPickerTab.SEARCH
+                                searchTabFocusTrigger += 1
                             },
                             onSettingsClick = {
                                 CrashBreadcrumbs.recordClick("Settings Icon", "MediaNavigationBar")
@@ -1315,7 +1306,7 @@ internal fun MediaPickerScreen(
                 AnimatedContent(
                     targetState = selectedTab,
                     transitionSpec = {
-                        if (targetState == MediaPickerTab.SEARCH || targetState == MediaPickerTab.LIBRARY || targetState == MediaPickerTab.SETTINGS) {
+                        if (targetState.ordinal > initialState.ordinal) {
                             (slideInHorizontally(animationSpec = spring(dampingRatio = 0.85f, stiffness = 450f)) { width -> width / 4 } + fadeIn(tween(250)))
                                 .togetherWith(slideOutHorizontally(animationSpec = spring(dampingRatio = 0.85f, stiffness = 450f)) { width -> -width / 4 } + fadeOut(tween(250)))
                         } else {
@@ -1328,7 +1319,7 @@ internal fun MediaPickerScreen(
                         .fillMaxSize()
                         .layerBackdrop(backdrop),
                 ) { currentTab ->
-                    if (currentTab == MediaPickerTab.HOME || currentTab == MediaPickerTab.LIBRARY) {
+                    if (currentTab == MediaPickerTab.HOME) {
                     when (uiState.mediaDataState) {
                         is DataState.Error -> {
                         }
@@ -1596,6 +1587,16 @@ internal fun MediaPickerScreen(
                         }
                     }
                 } else if (currentTab == MediaPickerTab.SEARCH) {
+                    EmbeddedSearchTabView(
+                        onPlayVideo = onPlayVideo,
+                        onFolderClick = { path ->
+                            selectedTab = MediaPickerTab.HOME
+                            onFolderClick(path)
+                        },
+                        contentPadding = updatedScaffoldPadding,
+                        focusTrigger = searchTabFocusTrigger,
+                    )
+                } else if (currentTab == MediaPickerTab.EXPLORE) {
                     TmdbExploreView(
                         tmdbExploreState = tmdbExploreState,
                         onSeeAllCategoryClick = tmdbExploreViewModel::showSeeAll,
@@ -2614,7 +2615,7 @@ private fun MediaNavigationBar(
     val selectedIndex = when (selectedTab) {
         MediaPickerTab.HOME -> 0
         MediaPickerTab.SEARCH -> 1
-        MediaPickerTab.LIBRARY -> 2
+        MediaPickerTab.EXPLORE -> 2
         MediaPickerTab.SETTINGS -> 3
     }
 
@@ -2628,7 +2629,7 @@ private fun MediaNavigationBar(
                 when (index) {
                     0 -> onTabSelected(MediaPickerTab.HOME)
                     1 -> onTabSelected(MediaPickerTab.SEARCH)
-                    2 -> onTabSelected(MediaPickerTab.LIBRARY)
+                    2 -> onTabSelected(MediaPickerTab.EXPLORE)
                     3 -> onSettingsClick()
                 }
             },
@@ -2646,7 +2647,7 @@ private fun MediaNavigationBar(
 enum class MediaPickerTab {
     HOME,
     SEARCH,
-    LIBRARY,
+    EXPLORE,
     SETTINGS
 }
 

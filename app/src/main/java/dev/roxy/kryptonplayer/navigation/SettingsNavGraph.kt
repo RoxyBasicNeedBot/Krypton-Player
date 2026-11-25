@@ -74,7 +74,14 @@ fun NavGraphBuilder.settingsNavGraph(
                     }
                 }
             },
-            onSearchClick = navController::navigateToSearch,
+            onSearchClick = {
+                MediaPickerTabController.openTab(MainTargetTab.SEARCH)
+                if (!navController.popBackStack(SETTINGS_ROUTE, inclusive = true)) {
+                    if (!navController.popBackStack(settingsNavigationRoute, inclusive = true)) {
+                        navController.navigateUp()
+                    }
+                }
+            },
             onItemClick = { setting ->
                 when (setting) {
                     Setting.APPEARANCE -> navController.navigateToAppearancePreferences()

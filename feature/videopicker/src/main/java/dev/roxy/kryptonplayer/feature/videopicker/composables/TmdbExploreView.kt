@@ -424,15 +424,12 @@ fun TmdbExploreView(
 
 
 /**
- * JioHotstar-style auto-advancing Hero Billboard Carousel.
- * Features:
- * - 420dp immersive cinematic frame with authentic JioHotstar Inter typography
- * - Auto-advances every 4.5 seconds with touch drag detection (pauses when touched)
- * - Multi-layer JioHotstar bottom fade gradient for crisp text legibility
- * - Category / Trending rank badge & IMDb / TMDB ratings
- * - Title, Year, Content type, UHD 4K, 5.1 Audio badges, and overview synopsis
- * - "Watch Details" solid white button & "Watchlist" frosted button
- * - JioHotstar dynamic indicator pills with animated width
+ * Modern AMOLED Cinema Peek Hero Carousel:
+ * - HorizontalPager with side-peek contentPadding and smooth scale/alpha interpolation
+ * - Dual-layer visual: blurred/scrimmed widescreen backdrop + crisp floating mini poster card
+ * - Top trending badge & gold star rating badge (no TMDB logo)
+ * - Clean title, year, media type badge, 2-line overview, and high-contrast action buttons
+ * - External animated pill page indicators below the carousel
  */
 @Composable
 fun JioHotstarHeroBillboard(
@@ -452,14 +449,13 @@ fun JioHotstarHeroBillboard(
     val isDragged by pagerState.interactionSource.collectIsDraggedAsState()
     val coroutineScope = rememberCoroutineScope()
 
-    // Auto-advance every 4.5 seconds (resets and pauses smoothly when user touches/drags)
     LaunchedEffect(pagerState.currentPage, isDragged, validItems.size) {
         if (validItems.size > 1 && !isDragged) {
-            delay(4500L)
+            delay(4800L)
             val nextPage = (pagerState.currentPage + 1) % validItems.size
             pagerState.animateScrollToPage(
                 page = nextPage,
-                animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing)
+                animationSpec = tween(durationMillis = 620, easing = FastOutSlowInEasing)
             )
         }
     }
@@ -467,375 +463,385 @@ fun JioHotstarHeroBillboard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 4.dp)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Main framed card with JioHotstar signature styling
-        Card(
+        HorizontalPager(
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = 18.dp),
+            pageSpacing = 12.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(420.dp),
-            shape = RoundedCornerShape(22.dp),
-            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF090B10)
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxSize()
-                ) { page ->
-                    val item = validItems[page]
-                    val id: Int
-                    val title: String
-                    val posterPath: String?
-                    val backdropPath: String?
-                    val rating: Double
-                    val releaseDate: String?
-                    val overview: String?
-                    val isTv: Boolean
+                .height(378.dp)
+        ) { page ->
+            val item = validItems[page]
+            val id: Int
+            val title: String
+            val posterPath: String?
+            val backdropPath: String?
+            val rating: Double
+            val releaseDate: String?
+            val overview: String?
+            val isTv: Boolean
 
-                    when (item) {
-                        is ExploreItem.MovieItem -> {
-                            id = item.id
-                            title = item.title
-                            posterPath = item.posterPath
-                            backdropPath = item.backdropPath
-                            rating = item.rating
-                            releaseDate = item.releaseDate
-                            overview = item.overview
-                            isTv = false
-                        }
-                        is ExploreItem.TvShowItem -> {
-                            id = item.id
-                            title = item.name
-                            posterPath = item.posterPath
-                            backdropPath = item.backdropPath
-                            rating = item.rating
-                            releaseDate = item.firstAirDate
-                            overview = item.overview
-                            isTv = true
-                        }
-                        else -> return@HorizontalPager
+            when (item) {
+                is ExploreItem.MovieItem -> {
+                    id = item.id
+                    title = item.title
+                    posterPath = item.posterPath
+                    backdropPath = item.backdropPath
+                    rating = item.rating
+                    releaseDate = item.releaseDate
+                    overview = item.overview
+                    isTv = false
+                }
+                is ExploreItem.TvShowItem -> {
+                    id = item.id
+                    title = item.name
+                    posterPath = item.posterPath
+                    backdropPath = item.backdropPath
+                    rating = item.rating
+                    releaseDate = item.firstAirDate
+                    overview = item.overview
+                    isTv = true
+                }
+                else -> return@HorizontalPager
+            }
+
+            val backdropImage = backdropPath ?: posterPath
+            val backdropUrl = backdropImage?.let {
+                NetworkConfig.tmdbImageUrl(if (backdropPath != null) "w780" else "w500", it)
+            }
+            val posterUrl = (posterPath ?: backdropPath)?.let {
+                NetworkConfig.tmdbImageUrl("w342", it)
+            }
+
+            Card(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { onMediaClick(id, isTv) },
+                shape = RoundedCornerShape(26.dp),
+                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFF0B0D14)
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (backdropUrl != null) {
+                        AsyncImage(
+                            model = backdropUrl,
+                            contentDescription = title,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(Color(0xFF1A1E2E), Color(0xFF0B0D14))
+                                    )
+                                )
+                        )
                     }
 
-                    val imagePath = backdropPath ?: posterPath
-                    val imageUrl = imagePath?.let {
-                        NetworkConfig.tmdbImageUrl(if (backdropPath != null) "w780" else "w500", it)
-                    }
-
+                    // Top vignette for badge legibility
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .clickable { onMediaClick(id, isTv) }
+                            .fillMaxWidth()
+                            .height(110.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.72f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+
+                    // Rich multi-stop bottom AMOLED cinema gradient
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(275.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    0.0f to Color.Transparent,
+                                    0.32f to Color(0x880B0D14),
+                                    0.65f to Color(0xEB0B0D14),
+                                    1.0f to Color(0xFF090B11)
+                                )
+                            )
+                    )
+
+                    // Top Row: Spotlight Rank Pill + Rating Pill
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp)
+                            .align(Alignment.TopCenter),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // High-res Backdrop / Poster Image
-                        if (imageUrl != null) {
-                            AsyncImage(
-                                model = imageUrl,
-                                contentDescription = title,
-                                modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .background(Color(0xFF131722))
-                            )
+                        Surface(
+                            shape = RoundedCornerShape(50),
+                            color = Color.Black.copy(alpha = 0.68f),
+                            border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.22f))
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                                modifier = Modifier.padding(horizontal = 11.dp, vertical = 5.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFFF4D6D))
+                                )
+                                Text(
+                                    text = "SPOTLIGHT #${page + 1}",
+                                    fontSize = 10.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.8.sp,
+                                    color = Color.White
+                                )
+                            }
                         }
 
-                        // Top Scrim: Soft shadow for top pill badges & contrast
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(140.dp)
-                                .align(Alignment.TopCenter)
-                                .background(
-                                    Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color.Black.copy(alpha = 0.70f),
-                                            Color.Transparent
-                                        ),
-                                        startY = 0f,
-                                        endY = 140f
-                                    )
-                                )
-                        )
-
-                        // Bottom Scrim: Multi-stop JioHotstar cinematic gradient fade into deep black
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(290.dp)
-                                .align(Alignment.BottomCenter)
-                                .background(
-                                    Brush.verticalGradient(
-                                        0.0f to Color.Transparent,
-                                        0.25f to Color(0x40090B10),
-                                        0.55f to Color(0xDD090B10),
-                                        0.80f to Color(0xFF090B10),
-                                        1.0f to Color(0xFF090B10)
-                                    )
-                                )
-                        )
-
-                        // Top Badges Row (JioHotstar Hot & Trending Pill + IMDb Rating)
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 14.dp)
-                                .align(Alignment.TopCenter),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Trending Pill
+                        if (rating > 0.0) {
                             Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.Black.copy(alpha = 0.65f),
-                                border = BorderStroke(0.6.dp, Color.White.copy(alpha = 0.22f))
+                                shape = RoundedCornerShape(50),
+                                color = Color.Black.copy(alpha = 0.72f),
+                                border = BorderStroke(0.8.dp, Color(0xFFFFC107).copy(alpha = 0.55f))
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = "🔥 #${page + 1} IN TOP 10 TODAY",
-                                        fontSize = 10.5.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        letterSpacing = 0.5.sp,
-                                        color = Color(0xFFFF4D6D)
-                                    )
-                                }
-                            }
-
-                            // Top Right: Official IMDb Rating Chip
-                            if (rating > 0.0) {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = Color(0xFF1E1E24).copy(alpha = 0.85f),
-                                    border = BorderStroke(0.6.dp, Color(0xFFF5C518).copy(alpha = 0.65f))
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
-                                    ) {
-                                        Icon(
-                                            painter = painterResource(dev.roxy.kryptonplayer.core.ui.R.drawable.ic_imdb_logo),
-                                            contentDescription = "IMDb",
-                                            tint = Color.Unspecified,
-                                            modifier = Modifier.size(17.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.5.dp))
-                                        Text(
-                                            text = String.format(Locale.US, "%.1f", rating),
-                                            fontSize = 11.5.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color.White
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        // Bottom Overlay: Title, Metadata, Action Buttons, and Page Indicators
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter)
-                                .padding(horizontal = 16.dp, vertical = 14.dp)
-                        ) {
-                            // Movie / Show Title (JioHotstar SemiBold Authentic Inter Typography)
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.headlineMedium.copy(
-                                    fontSize = 23.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    lineHeight = 28.sp,
-                                    letterSpacing = 0.15.sp
-                                ),
-                                color = Color.White,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-
-                            Spacer(modifier = Modifier.height(7.dp))
-
-                            // Metadata Tags Row: Year, Category Type, 4K UHD, 5.1 AUDIO, TMDB Match %
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                val year = releaseDate?.take(4)
-                                if (!year.isNullOrBlank()) {
-                                    Text(
-                                        text = year,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color.White.copy(alpha = 0.90f)
-                                    )
-                                    Text(
-                                        text = "•",
-                                        fontSize = 12.sp,
-                                        color = Color.White.copy(alpha = 0.40f)
-                                    )
-                                }
-
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Color.White.copy(alpha = 0.15f)
-                                ) {
-                                    Text(
-                                        text = if (isTv) "Series" else "Movie",
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                    )
-                                }
-
-                                // TMDB Match Chip
-                                if (rating > 0.0) {
-                                    val tmdbScore = (rating * 10).coerceIn(0.0, 100.0).toInt()
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = Color(0xFF032541).copy(alpha = 0.85f),
-                                        border = BorderStroke(0.5.dp, Color(0xFF01D277).copy(alpha = 0.5f))
-                                    ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(dev.roxy.kryptonplayer.core.ui.R.drawable.ic_tmdb_logo),
-                                                contentDescription = "TMDB",
-                                                tint = Color(0xFF01D277),
-                                                modifier = Modifier.size(11.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(3.dp))
-                                            Text(
-                                                text = "${tmdbScore}%",
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color(0xFF01D277)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Overview Teaser
-                            if (!overview.isNullOrBlank()) {
-                                Spacer(modifier = Modifier.height(7.dp))
-                                Text(
-                                    text = overview,
-                                    fontSize = 12.sp,
-                                    color = Color.White.copy(alpha = 0.74f),
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                    lineHeight = 16.5.sp
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Action Buttons Row (Watch Details + Watchlist)
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                // Watch Details Primary Action (JioHotstar Solid White pill)
-                                Button(
-                                    onClick = { onMediaClick(id, isTv) },
-                                    shape = RoundedCornerShape(22.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.White,
-                                        contentColor = Color.Black
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
-                                    modifier = Modifier.height(38.dp)
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.5.dp)
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(17.dp),
-                                        tint = Color.Black
+                                        imageVector = Icons.Rounded.Star,
+                                        contentDescription = "Rating",
+                                        tint = Color(0xFFFFC107),
+                                        modifier = Modifier.size(14.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "Watch Details",
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 13.sp,
-                                        color = Color.Black
-                                    )
-                                }
-
-                                // Watchlist Secondary Action (JioHotstar Frosted glass pill)
-                                var isWatchlisted by remember(id) { mutableStateOf(false) }
-                                OutlinedButton(
-                                    onClick = { isWatchlisted = !isWatchlisted },
-                                    shape = RoundedCornerShape(22.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        containerColor = Color.White.copy(alpha = 0.12f),
-                                        contentColor = Color.White
-                                    ),
-                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.25f)),
-                                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                                    modifier = Modifier.height(38.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isWatchlisted) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkAdd,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(15.dp),
-                                        tint = if (isWatchlisted) Color(0xFF0075FF) else Color.White
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = if (isWatchlisted) "In Watchlist" else "Watchlist",
-                                        fontWeight = FontWeight.Medium,
-                                        fontSize = 12.5.sp,
+                                        text = String.format(Locale.US, "%.1f", rating),
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
                                         color = Color.White
                                     )
                                 }
                             }
+                        }
+                    }
 
-                            // Dynamic Indicator Pills (JioHotstar dynamic blue active pill)
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 13.dp, bottom = 2.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                repeat(validItems.size) { pageIndex ->
-                                    val isSelected = pagerState.currentPage == pageIndex
-                                    val width by animateDpAsState(
-                                        targetValue = if (isSelected) 22.dp else 6.dp,
-                                        animationSpec = tween(durationMillis = 280),
-                                        label = "billboardIndicatorWidth"
+                    // Bottom Content: Floating Poster Card + Metadata + Actions
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            if (posterUrl != null) {
+                                Card(
+                                    modifier = Modifier
+                                        .width(74.dp)
+                                        .height(108.dp),
+                                    shape = RoundedCornerShape(14.dp),
+                                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.28f)),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                                ) {
+                                    AsyncImage(
+                                        model = posterUrl,
+                                        contentDescription = title,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = ContentScale.Crop
                                     )
-                                    val indicatorColor = if (isSelected) Color(0xFF0075FF) else Color.White.copy(alpha = 0.32f)
+                                }
+                            }
 
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(horizontal = 2.5.dp)
-                                            .width(width)
-                                            .height(3.5.dp)
-                                            .clip(CircleShape)
-                                            .background(indicatorColor)
-                                            .clickable {
-                                                coroutineScope.launch {
-                                                    pagerState.animateScrollToPage(pageIndex)
-                                                }
-                                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(5.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color.White.copy(alpha = 0.16f),
+                                        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.24f))
+                                    ) {
+                                        Text(
+                                            text = if (isTv) "SERIES" else "MOVIE",
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.7.sp,
+                                            color = Color.White,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+
+                                    val year = releaseDate?.take(4)
+                                    if (!year.isNullOrBlank()) {
+                                        Text(
+                                            text = year,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.White.copy(alpha = 0.85f)
+                                        )
+                                    }
+
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color.White.copy(alpha = 0.10f)
+                                    ) {
+                                        Text(
+                                            text = "4K HDR",
+                                            fontSize = 9.5.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color.White.copy(alpha = 0.88f),
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontSize = 21.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        lineHeight = 25.sp,
+                                        letterSpacing = (-0.2).sp
+                                    ),
+                                    color = Color.White,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+
+                                if (!overview.isNullOrBlank()) {
+                                    Text(
+                                        text = overview,
+                                        fontSize = 12.sp,
+                                        color = Color.White.copy(alpha = 0.76f),
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        lineHeight = 16.sp
                                     )
                                 }
                             }
                         }
+
+                        // Action Buttons Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = { onMediaClick(id, isTv) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color.White,
+                                    contentColor = Color.Black
+                                ),
+                                contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(42.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlayArrow,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = Color.Black
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Explore Details",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp,
+                                    color = Color.Black
+                                )
+                            }
+
+                            var isWatchlisted by remember(id) { mutableStateOf(false) }
+                            OutlinedButton(
+                                onClick = { isWatchlisted = !isWatchlisted },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (isWatchlisted) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.10f),
+                                    contentColor = Color.White
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (isWatchlisted) Color.White.copy(alpha = 0.55f) else Color.White.copy(alpha = 0.24f)
+                                ),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                                modifier = Modifier.height(42.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isWatchlisted) Icons.Rounded.Bookmark else Icons.Rounded.BookmarkAdd,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(17.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Text(
+                                    text = if (isWatchlisted) "Saved" else "Watchlist",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 12.5.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     }
                 }
+            }
+        }
+
+        // Sleek external pill indicator strip
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(validItems.size) { pageIndex ->
+                val isSelected = pagerState.currentPage == pageIndex
+                val width by animateDpAsState(
+                    targetValue = if (isSelected) 24.dp else 6.dp,
+                    animationSpec = tween(durationMillis = 260),
+                    label = "billboardIndicatorWidth"
+                )
+                val indicatorColor = if (isSelected) Color.White else Color.White.copy(alpha = 0.26f)
+
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 3.dp)
+                        .width(width)
+                        .height(5.dp)
+                        .clip(CircleShape)
+                        .background(indicatorColor)
+                        .clickable {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(pageIndex)
+                            }
+                        }
+                )
             }
         }
     }

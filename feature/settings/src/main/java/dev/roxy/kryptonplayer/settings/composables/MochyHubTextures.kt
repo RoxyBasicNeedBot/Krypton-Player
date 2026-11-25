@@ -139,17 +139,25 @@ fun MochyGlassCard(
     }
 
     val borderBoost by animateFloatAsState(
-        targetValue = if (isPressed) 1.55f else 1f,
+        targetValue = if (isPressed) 1.85f else 1f,
         animationSpec = MochyMotion.SpringSnappy,
         label = "mochy_card_border_boost",
     )
 
-    val topSurface = if (elevated) Color(0xFF17181E) else Color(0xFF111216)
-    val midSurface = if (elevated) Color(0xFF0E0F13) else Color(0xFF0A0B0E)
-    val bottomSurface = Color(0xFF060608)
+    val topSurface = when {
+        isPressed && onClick != null -> Color(0xFF232530)
+        elevated -> Color(0xFF191B22)
+        else -> Color(0xFF13151B)
+    }
+    val midSurface = when {
+        isPressed && onClick != null -> Color(0xFF1A1C24)
+        elevated -> Color(0xFF111318)
+        else -> Color(0xFF0D0E13)
+    }
+    val bottomSurface = if (isPressed && onClick != null) Color(0xFF121319) else Color(0xFF08090C)
 
-    val topBorderAlpha = (0.20f * borderBoost).coerceAtMost(0.36f)
-    val bottomBorderAlpha = (0.05f * borderBoost).coerceAtMost(0.14f)
+    val topBorderAlpha = (0.24f * borderBoost).coerceAtMost(0.52f)
+    val bottomBorderAlpha = (0.08f * borderBoost).coerceAtMost(0.24f)
 
     Box(
         modifier = modifier
@@ -504,10 +512,10 @@ fun MochyFloatingMascotStage(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                painter = painterResource(id = R.drawable.ic_nav_settings_filled),
+                painter = painterResource(id = R.drawable.ic_launcher_monochrome),
                 contentDescription = "Krypton Hub Emblem",
                 tint = Color.White,
-                modifier = Modifier.size(size * 0.36f),
+                modifier = Modifier.size(size * 0.44f),
             )
         }
     }

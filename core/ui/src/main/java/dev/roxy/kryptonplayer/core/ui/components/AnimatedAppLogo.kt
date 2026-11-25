@@ -30,7 +30,7 @@ fun AnimatedAppLogo(
     externalTrigger: Int = 0,
 ) {
     Image(
-        painter = painterResource(R.drawable.app_logo_monochrome),
+        painter = painterResource(R.drawable.ic_launcher_monochrome),
         contentDescription = null,
         contentScale = ContentScale.Fit,
         colorFilter = ColorFilter.tint(singleColor),
@@ -65,7 +65,7 @@ fun LaserAppLogoBadge(
         contentAlignment = Alignment.Center,
     ) {
         Image(
-            painter = painterResource(R.drawable.app_logo_monochrome),
+            painter = painterResource(R.drawable.ic_launcher_monochrome),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             colorFilter = ColorFilter.tint(Color.White),

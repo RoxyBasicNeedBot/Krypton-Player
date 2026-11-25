@@ -62,9 +62,7 @@ import dev.roxy.kryptonplayer.settings.composables.AllSettingsContent
 import dev.roxy.kryptonplayer.settings.composables.MochyHubContent
 
 private const val HUB_GITHUB_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player"
-private const val HUB_CONTRIBUTORS_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player/graphs/contributors"
 private const val HUB_TELEGRAM_URL = "https://t.me/KryptonPlayer"
-private const val HUB_BOOST_URL = "https://t.me/boost/KryptonPlayer"
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,6 +86,7 @@ fun SettingsScreen(
     }
 
     val updateState by viewModel.updateState.collectAsStateWithLifecycle()
+    val userStats by viewModel.userStats.collectAsStateWithLifecycle()
     var showAllSettings by rememberSaveable { mutableStateOf(false) }
     var showUpdateSheet by remember { mutableStateOf(false) }
     var pendingUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
@@ -270,6 +269,7 @@ fun SettingsScreen(
                     appVersion = appVersion,
                     primaryAbi = primaryAbi,
                     developerName = stringResource(id = R.string.app_developer),
+                    userStats = userStats,
                     updateState = updateState,
                     pendingUpdateInfo = pendingUpdateInfo,
                     onOpenAllSettings = { showAllSettings = true },
@@ -278,9 +278,7 @@ fun SettingsScreen(
                     onOpenLocalVideo = { selectVideoFileLauncher.launch("video/*") },
                     onOpenNetworkStream = { showNetworkStreamDialog = true },
                     onOpenTelegram = { openUriSafely(HUB_TELEGRAM_URL) },
-                    onOpenBoost = { openUriSafely(HUB_BOOST_URL) },
                     onOpenGitHub = { openUriSafely(HUB_GITHUB_URL) },
-                    onOpenContributors = { openUriSafely(HUB_CONTRIBUTORS_URL) },
                     onNavigateToHome = onNavigateToHome,
                     onNavigateToExplore = onNavigateToExplore,
                     onSearchClick = onSearchClick,
