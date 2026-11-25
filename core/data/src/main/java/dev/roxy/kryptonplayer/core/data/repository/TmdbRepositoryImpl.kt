@@ -454,8 +454,8 @@ class TmdbRepositoryImpl @Inject constructor(
                 requestBuilder.header("X-Arch-Client-Key", dev.roxy.kryptonplayer.core.data.network.NetworkConfig.CLIENT_KEY)
             }
             val bytes = okHttpClient.newCall(requestBuilder.build()).execute().use { response ->
-                if (!response.isSuccessful) throw IllegalStateException("Download failed with HTTP ${response.code()}")
-                response.body()?.bytes() ?: throw IllegalStateException("Empty body")
+                if (!response.isSuccessful) throw IllegalStateException("Download failed with HTTP ${response.code}")
+                response.body?.bytes() ?: throw IllegalStateException("Empty body")
             }
 
             val thumbsDir = File(context.filesDir, "custom_thumbnails").apply { mkdirs() }
@@ -486,8 +486,8 @@ class TmdbRepositoryImpl @Inject constructor(
                 requestBuilder.header("X-Arch-Client-Key", dev.roxy.kryptonplayer.core.data.network.NetworkConfig.CLIENT_KEY)
             }
             val bytes = okHttpClient.newCall(requestBuilder.build()).execute().use { response ->
-                if (!response.isSuccessful) throw IllegalStateException("Download failed with HTTP ${response.code()}")
-                response.body()?.bytes() ?: throw IllegalStateException("Empty body")
+                if (!response.isSuccessful) throw IllegalStateException("Download failed with HTTP ${response.code}")
+                response.body?.bytes() ?: throw IllegalStateException("Empty body")
             }
 
             val cleanTitle = title.replace(Regex("[^a-zA-Z0-9_-]"), "_").take(30)

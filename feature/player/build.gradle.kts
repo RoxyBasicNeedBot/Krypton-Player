@@ -102,7 +102,6 @@ dependencies {
     implementation(libs.androidx.media)
     implementation(libs.nanohttpd)
     implementation(libs.okhttp)
-    implementation(libs.github.anilbeesetti.nextlib.mediainfo)
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.guava)

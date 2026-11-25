@@ -270,7 +270,7 @@ class LyricsRepository @Inject constructor(
                         .build()
                     val resp = client.newCall(req).execute()
                     if (resp.isSuccessful) {
-                        val body = resp.body()?.string()
+                        val body = resp.body?.string()
                         if (!body.isNullOrBlank()) {
                             val item: LrcLibResponse = gson.fromJson(body, LrcLibResponse::class.java)
                             val synced = item.syncedLyrics
@@ -306,7 +306,7 @@ class LyricsRepository @Inject constructor(
 
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return null
-            val bodyString = response.body()?.string() ?: return null
+            val bodyString = response.body?.string() ?: return null
 
             val type = object : TypeToken<List<LrcLibResponse>>() {}.type
             val list: List<LrcLibResponse> = gson.fromJson(bodyString, type) ?: emptyList()
@@ -348,7 +348,7 @@ class LyricsRepository @Inject constructor(
 
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return null
-            val body = response.body()?.string() ?: return null
+            val body = response.body?.string() ?: return null
 
             val json = gson.fromJson(body, com.google.gson.JsonObject::class.java)
             val songs = json.getAsJsonObject("result")?.getAsJsonArray("songs") ?: return null
@@ -370,7 +370,7 @@ class LyricsRepository @Inject constructor(
 
             val lrcResp = client.newCall(lrcReq).execute()
             if (!lrcResp.isSuccessful) return null
-            val lrcBody = lrcResp.body()?.string() ?: return null
+            val lrcBody = lrcResp.body?.string() ?: return null
 
             val lrcJson = gson.fromJson(lrcBody, com.google.gson.JsonObject::class.java)
             val rawLrc = lrcJson.getAsJsonObject("lrc")?.get("lyric")?.asString
@@ -399,7 +399,7 @@ class LyricsRepository @Inject constructor(
             val request = Request.Builder().url(url).build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return null
-            val body = response.body()?.string() ?: return null
+            val body = response.body?.string() ?: return null
 
             val json = gson.fromJson(body, com.google.gson.JsonObject::class.java)
             val results = json.getAsJsonArray("results") ?: return null
@@ -421,7 +421,7 @@ class LyricsRepository @Inject constructor(
             val request = Request.Builder().url(url).build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return null
-            val body = response.body()?.string() ?: return null
+            val body = response.body?.string() ?: return null
 
             val json = gson.fromJson(body, com.google.gson.JsonObject::class.java)
             val lyrics = json.get("lyrics")?.asString
@@ -463,7 +463,7 @@ class LyricsRepository @Inject constructor(
                     .build()
                 val response = client.newCall(request).execute()
                 if (response.isSuccessful) {
-                    val body = response.body()?.string() ?: continue
+                    val body = response.body?.string() ?: continue
                     val ttmlOrLrc = if (body.trim().startsWith("<")) {
                         body.trim()
                     } else {
@@ -501,7 +501,7 @@ class LyricsRepository @Inject constructor(
                 .build()
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return null
-            val body = response.body()?.string() ?: return null
+            val body = response.body?.string() ?: return null
             val json = gson.fromJson(body, com.google.gson.JsonObject::class.java)
             val candidates = json.getAsJsonArray("candidates") ?: return null
             if (candidates.size() == 0) return null
@@ -514,7 +514,7 @@ class LyricsRepository @Inject constructor(
             val dlReq = Request.Builder().url(downloadUrl).header("User-Agent", "Mozilla/5.0").build()
             val dlResp = client.newCall(dlReq).execute()
             if (!dlResp.isSuccessful) return null
-            val dlBody = dlResp.body()?.string() ?: return null
+            val dlBody = dlResp.body?.string() ?: return null
             val dlJson = gson.fromJson(dlBody, com.google.gson.JsonObject::class.java)
             val base64Content = dlJson.get("content")?.asString ?: return null
             val decodedLrc = String(android.util.Base64.decode(base64Content, android.util.Base64.DEFAULT), Charsets.UTF_8)
@@ -550,7 +550,7 @@ class LyricsRepository @Inject constructor(
                     .build()
                 val searchResp = client.newCall(searchReq).execute()
                 if (searchResp.isSuccessful) {
-                    val searchBody = searchResp.body()?.string() ?: continue
+                    val searchBody = searchResp.body?.string() ?: continue
                     val array = gson.fromJson(searchBody, com.google.gson.JsonArray::class.java)
                     if (array != null && array.size() > 0) {
                         val firstItem = array.get(0).asJsonObject
@@ -561,7 +561,7 @@ class LyricsRepository @Inject constructor(
                             .build()
                         val lrcResp = client.newCall(lrcReq).execute()
                         if (lrcResp.isSuccessful) {
-                            val lrcBody = lrcResp.body()?.string() ?: continue
+                            val lrcBody = lrcResp.body?.string() ?: continue
                             val lrcText = if (lrcBody.trim().startsWith("{")) {
                                 try {
                                     val obj = gson.fromJson(lrcBody, com.google.gson.JsonObject::class.java)

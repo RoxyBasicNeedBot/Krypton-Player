@@ -54,7 +54,7 @@ object NetworkModule {
                 }
 
                 val request = builder.build()
-                val originalUrl = request.url()
+                val originalUrl = request.url
                 val primaryHost = try {
                     java.net.URI(BASE_URL).host ?: "your-worker.domain.workers.dev"
                 } catch (_: Exception) {
@@ -62,7 +62,7 @@ object NetworkModule {
                 }
                 val backupHost = "your-backup.onrender.com"
 
-                val isGatewayRequest = originalUrl.host() == primaryHost || originalUrl.host() == backupHost
+                val isGatewayRequest = originalUrl.host == primaryHost || originalUrl.host == backupHost
 
                 if (!isGatewayRequest) {
                     return@addInterceptor chain.proceed(request)
@@ -70,9 +70,9 @@ object NetworkModule {
 
                 try {
                     val response = chain.proceed(request)
-                    if (!response.isSuccessful && response.code() in 502..504) {
+                    if (!response.isSuccessful && response.code in 502..504) {
                         response.close()
-                        val altHost = if (originalUrl.host() == primaryHost) backupHost else primaryHost
+                        val altHost = if (originalUrl.host == primaryHost) backupHost else primaryHost
                         val altUrl = originalUrl.newBuilder().host(altHost).build()
                         val altRequest = request.newBuilder().url(altUrl).build()
                         return@addInterceptor try {
@@ -83,7 +83,7 @@ object NetworkModule {
                     }
                     response
                 } catch (e: java.io.IOException) {
-                    val altHost = if (originalUrl.host() == primaryHost) backupHost else primaryHost
+                    val altHost = if (originalUrl.host == primaryHost) backupHost else primaryHost
                     val altUrl = originalUrl.newBuilder().host(altHost).build()
                     val altRequest = request.newBuilder().url(altUrl).build()
                     try {
@@ -101,7 +101,7 @@ object NetworkModule {
         originalRequest: okhttp3.Request,
         originalUrl: okhttp3.HttpUrl
     ): okhttp3.Response? {
-        val pathSegments = originalUrl.pathSegments()
+        val pathSegments = originalUrl.pathSegments
         val tmdbIndex = pathSegments.indexOf("tmdb")
         if (tmdbIndex == -1 || tmdbIndex == pathSegments.size - 1) return null
 
@@ -132,7 +132,7 @@ object NetworkModule {
         for (seg in remainingPath) {
             directApiUrl.addPathSegment(seg)
         }
-        for (i in 0 until originalUrl.querySize()) {
+        for (i in 0 until originalUrl.querySize) {
             val name = originalUrl.queryParameterName(i)
             val value = originalUrl.queryParameterValue(i) ?: ""
             if (name != "api_key") {

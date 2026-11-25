@@ -331,7 +331,8 @@ fun MediaPlayerScreen(
         if (uiState.isConnectedToWatchParty) {
             while (true) {
                 kotlinx.coroutines.delay(2000)
-                viewModel.reportLocalPosition(player.currentPosition, player.isPlaying)
+                val snap = player.state.value
+                viewModel.reportLocalPosition(snap.currentPositionMs, snap.isPlaying)
             }
         }
     }
@@ -361,8 +362,8 @@ fun MediaPlayerScreen(
         }
     }
     val currentMediaUriStr = mediaPresentationState.currentUri?.toString()
-        ?: player.currentMediaItem?.localConfiguration?.uri?.toString()
-        ?: player.currentMediaItem?.mediaId
+        ?: player.state.value.currentItem?.uri?.toString()
+        ?: player.state.value.currentItem?.mediaId
         ?: (context as? android.app.Activity)?.intent?.data?.toString()
         ?: ""
     val isTelegramMedia = currentMediaUriStr.startsWith("tdlib://") ||
@@ -383,6 +384,10 @@ fun MediaPlayerScreen(
     val isCurrentMediaLiked = localLikeOverride ?: repoLiked
 
     var overlayView by remember { mutableStateOf<OverlayView?>(null) }
+    val subtitleOptionsState = dev.roxy.kryptonplayer.feature.player.state.rememberSubtitleOptionsState(
+        player = player,
+        onEvent = viewModel::onSubtitleOptionEvent,
+    )
 
     CompositionLocalProvider(LocalControlsVisibilityState provides controlsVisibilityState) {
         Box {
@@ -393,20 +398,14 @@ fun MediaPlayerScreen(
             ) {
                 PlayerContentFrame(
                     player = player,
+                    playerPreferences = playerPreferences,
                     pictureInPictureState = pictureInPictureState,
                     controlsVisibilityState = controlsVisibilityState,
                     tapGestureState = tapGestureState,
                     seekGestureState = seekGestureState,
                     videoZoomAndContentScaleState = videoZoomAndContentScaleState,
                     volumeAndBrightnessGestureState = volumeAndBrightnessGestureState,
-                    subtitleConfiguration = SubtitleConfiguration(
-                        useSystemCaptionStyle = playerPreferences.useSystemCaptionStyle,
-                        showBackground = playerPreferences.subtitleBackground,
-                        font = playerPreferences.subtitleFont,
-                        textSize = playerPreferences.subtitleTextSize,
-                        textBold = playerPreferences.subtitleTextBold,
-                        applyEmbeddedStyles = playerPreferences.applyEmbeddedStyles,
-                    ),
+                    subtitleOptionsState = subtitleOptionsState,
                 )
 
                 AnimatedVisibility(
@@ -621,7 +620,7 @@ fun MediaPlayerScreen(
                                         overlayView = OverlayView.VIDEO_CONTENT_SCALE
                                     },
                                     onPictureInPictureClick = {
-                                        if (!pictureInPictureState.hasPipPermission) {
+                                        if (!pictureInPictureState.hasPipPermission()) {
                                             Toast.makeText(context, coreUiR.string.enable_pip_from_settings, Toast.LENGTH_SHORT).show()
                                             pictureInPictureState.openPictureInPictureSettings()
                                         } else {

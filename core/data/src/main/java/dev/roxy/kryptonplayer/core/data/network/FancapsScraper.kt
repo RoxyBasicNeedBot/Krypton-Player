@@ -38,7 +38,7 @@ class FancapsScraper @Inject constructor() {
 
             val html = client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching null
-                response.body()?.string() ?: return@runCatching null
+                response.body?.string() ?: return@runCatching null
             }
 
             val linkPattern = Regex("""href=["'](/movies/MovieImages\.php\?name=[^&"']+&movieid=\d+)["']""")
@@ -70,7 +70,7 @@ class FancapsScraper @Inject constructor() {
 
             val html = client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching null
-                response.body()?.string() ?: return@runCatching null
+                response.body?.string() ?: return@runCatching null
             }
 
             val linkPattern = Regex("""href=["'](/tv/(?:showimages|episodeimages)\.php\?[^"']+)["']""")
@@ -114,7 +114,7 @@ class FancapsScraper @Inject constructor() {
 
             val html = client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching FancapsPageResult("", targetUrl, page, 1, emptyList())
-                response.body()?.string() ?: ""
+                response.body?.string() ?: ""
             }
 
             val titleMatch = Regex("""<title>(.*?)</title>""").find(html)
@@ -169,7 +169,7 @@ class FancapsScraper @Inject constructor() {
 
             val html = client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@runCatching null
-                response.body()?.string() ?: return@runCatching null
+                response.body?.string() ?: return@runCatching null
             }
 
             val epPattern = Regex("""href=["'](/tv/episodeimages\.php\?[^"']+)["']""")

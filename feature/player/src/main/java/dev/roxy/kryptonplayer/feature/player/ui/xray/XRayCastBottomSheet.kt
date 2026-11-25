@@ -446,7 +446,7 @@ private fun MediaSpecificationsContent(
     videoTitle: String,
     context: Context,
 ) {
-    val snapshot = player?.state?.collectAsState()?.value
+    val snapshot = player?.state?.collectAsStateWithLifecycle()?.value
     val videoTrack = snapshot?.videoTracks?.firstOrNull { it.isSelected } ?: snapshot?.videoTracks?.firstOrNull()
     val audioTrack = snapshot?.audioTracks?.firstOrNull { it.isSelected } ?: snapshot?.audioTracks?.firstOrNull()
 

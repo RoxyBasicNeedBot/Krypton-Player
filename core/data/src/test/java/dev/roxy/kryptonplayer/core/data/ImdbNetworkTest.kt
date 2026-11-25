@@ -60,8 +60,8 @@ class ImdbNetworkTest {
 
         try {
             client.newCall(request).execute().use { response ->
-                val code = response.code()
-                val body = response.body()?.string()
+                val code = response.code
+                val body = response.body?.string()
                 println("Health Check Status: $code")
                 println("Response: $body")
                 assert(response.isSuccessful) { "Health check failed with status $code" }
@@ -85,8 +85,8 @@ class ImdbNetworkTest {
 
         try {
             client.newCall(request).execute().use { response ->
-                val code = response.code()
-                val body = response.body()?.string()
+                val code = response.code
+                val body = response.body?.string()
                 println("Search Status: $code")
                 if (response.isSuccessful) {
                     println("SUCCESS: Got search results from IMDb API!")

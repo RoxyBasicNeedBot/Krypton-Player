@@ -922,8 +922,6 @@ private fun AutomationBehaviourTab(
 
 // ---------------- TAB 4: MEDIA INFORMATION ----------------
 
-@OptIn(UnstableApi::class)
-@Composable
 @Composable
 private fun MediaInformationTab(player: PlaybackController?) {
     val clipboardManager = LocalClipboardManager.current

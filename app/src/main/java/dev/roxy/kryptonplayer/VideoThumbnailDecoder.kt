@@ -29,7 +29,6 @@ import coil3.toAndroidUri
 import coil3.util.component1
 import coil3.util.component2
 import dev.roxy.kryptonplayer.core.common.playback.FrameThumbnailExtractor
-import io.github.anilbeesetti.nextlib.mediainfo.MediaThumbnailRetriever
 import kotlinx.coroutines.CancellationException
 import okio.FileSystem
 import kotlin.math.abs
@@ -96,67 +95,45 @@ class VideoThumbnailDecoder(
         }
 
         // Cache miss OR cache insufficient: decode fresh thumbnail
+        var knownDurationMs = 0L
+        var fallbackToPercentage = false
         val rawBitmap = try {
             MediaMetadataRetriever().use { nativeRetriever ->
-                MediaThumbnailRetriever().use { ffmpegRetriever ->
-                    var nativeOk = false
-                    try {
-                        nativeRetriever.setDataSource(source)
-                        nativeOk = true
-                    } catch (_: Exception) {}
+                nativeRetriever.setDataSource(source)
 
-                    var ffmpegOk = false
-                    try {
-                        ffmpegRetriever.setDataSource(source)
-                        ffmpegOk = true
-                    } catch (_: Exception) {}
-
-                    if (!nativeOk && !ffmpegOk) {
-                        throw IllegalStateException("Both native and ffmpeg retrievers failed to open source.")
-                    }
-
-                    // First, try to get embedded picture (album art/metadata thumbnail)
-                    val embeddedPicture = (if (nativeOk) nativeRetriever.embeddedPicture else null)
-                        ?: (if (ffmpegOk) ffmpegRetriever.getEmbeddedPicture() else null)
-                    val embeddedPictureBitmap = embeddedPicture?.let { pictureBytes ->
-                        BitmapFactory.decodeByteArray(pictureBytes, 0, pictureBytes.size)
-                    }
-
-                    if (embeddedPictureBitmap != null) return@use embeddedPictureBitmap
-
-                    val videoDuration = if (nativeOk) {
-                        nativeRetriever
-                            .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                            ?.toLongOrNull() ?: 0L
-                    } else {
-                        0L
-                    }
-
-                    val frame = when (strategy) {
-                        is ThumbnailStrategy.FirstFrame -> {
-                            val nativeFrame = if (nativeOk) nativeRetriever.getFrameAtTime(0) else null
-                            nativeFrame ?: (if (ffmpegOk) ffmpegRetriever.getFrameAtTime(0) else null)
-                        }
-
-                        is ThumbnailStrategy.FrameAtPercentage -> {
-                            val timeUs = (videoDuration * strategy.percentage * 1000).toLong()
-                            val nativeFrame = if (nativeOk) nativeRetriever.getFrameAtTime(timeUs) else null
-                            nativeFrame ?: (if (ffmpegOk) ffmpegRetriever.getFrameAtTime(timeUs) else null)
-                        }
-
-                        is ThumbnailStrategy.Hybrid -> {
-                            val firstFrame = if (nativeOk) nativeRetriever.getFrameAtTime(0) else null
-                            if (firstFrame == null || isSolidColor(firstFrame)) {
-                                val timeUs = (videoDuration * strategy.percentage * 1000).toLong()
-                                val nativeFrame = if (nativeOk) nativeRetriever.getFrameAtTime(timeUs) else null
-                                nativeFrame ?: (if (ffmpegOk) ffmpegRetriever.getFrameAtTime(timeUs) else null)
-                            } else {
-                                firstFrame
-                            }
-                        }
-                    }
-                    frame ?: throw IllegalStateException("Failed to extract frame from primary retrievers.")
+                // First, try to get embedded picture (album art/metadata thumbnail)
+                val embeddedPicture = nativeRetriever.embeddedPicture
+                val embeddedPictureBitmap = embeddedPicture?.let { pictureBytes ->
+                    BitmapFactory.decodeByteArray(pictureBytes, 0, pictureBytes.size)
                 }
+
+                if (embeddedPictureBitmap != null) return@use embeddedPictureBitmap
+
+                knownDurationMs = nativeRetriever
+                    .extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull() ?: 0L
+
+                val frame = when (strategy) {
+                    is ThumbnailStrategy.FirstFrame -> nativeRetriever.getFrameAtTime(0)
+
+                    is ThumbnailStrategy.FrameAtPercentage -> {
+                        fallbackToPercentage = true
+                        val timeUs = (knownDurationMs * strategy.percentage * 1000).toLong()
+                        nativeRetriever.getFrameAtTime(timeUs)
+                    }
+
+                    is ThumbnailStrategy.Hybrid -> {
+                        val firstFrame = nativeRetriever.getFrameAtTime(0)
+                        if (firstFrame == null || isSolidColor(firstFrame)) {
+                            fallbackToPercentage = true
+                            val timeUs = (knownDurationMs * strategy.percentage * 1000).toLong()
+                            nativeRetriever.getFrameAtTime(timeUs)
+                        } else {
+                            firstFrame
+                        }
+                    }
+                }
+                frame ?: throw IllegalStateException("Failed to extract frame from primary retriever.")
             }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
@@ -170,8 +147,18 @@ class VideoThumbnailDecoder(
                 val extracted = try {
                     val timeMs = when (strategy) {
                         is ThumbnailStrategy.FirstFrame -> 0L
-                        is ThumbnailStrategy.FrameAtPercentage -> 5000L
-                        is ThumbnailStrategy.Hybrid -> 0L
+                        is ThumbnailStrategy.FrameAtPercentage -> {
+                            if (knownDurationMs > 0L) (knownDurationMs * strategy.percentage).toLong() else 5000L
+                        }
+                        is ThumbnailStrategy.Hybrid -> {
+                            if (fallbackToPercentage && knownDurationMs > 0L) {
+                                (knownDurationMs * strategy.percentage).toLong()
+                            } else if (fallbackToPercentage) {
+                                5000L
+                            } else {
+                                0L
+                            }
+                        }
                     }
                     extractor.extractFrame(uri, timeMs)
                 } catch (ex: Exception) {
@@ -211,21 +198,6 @@ class VideoThumbnailDecoder(
     }
 
     private fun MediaMetadataRetriever.setDataSource(source: ImageSource) {
-        val metadata = source.metadata
-        when {
-            metadata is ContentMetadata -> {
-                setDataSource(options.context, metadata.uri.toAndroidUri())
-            }
-
-            source.fileSystem === FileSystem.SYSTEM -> {
-                setDataSource(source.file().toFile().path)
-            }
-
-            else -> error("Not supported")
-        }
-    }
-
-    private fun MediaThumbnailRetriever.setDataSource(source: ImageSource) {
         val metadata = source.metadata
         when {
             metadata is ContentMetadata -> {

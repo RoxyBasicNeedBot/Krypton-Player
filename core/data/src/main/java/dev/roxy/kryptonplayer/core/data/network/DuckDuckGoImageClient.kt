@@ -73,13 +73,13 @@ class DuckDuckGoImageClient @Inject constructor(
         baseClient.newBuilder()
             .cookieJar(object : CookieJar {
                 override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-                    val list = cookieStore.getOrPut(url.host()) { mutableListOf() }
-                    list.removeAll { old -> cookies.any { it.name() == old.name() } }
+                    val list = cookieStore.getOrPut(url.host) { mutableListOf() }
+                    list.removeAll { old -> cookies.any { it.name == old.name } }
                     list.addAll(cookies)
                 }
 
                 override fun loadForRequest(url: HttpUrl): List<Cookie> {
-                    return cookieStore[url.host()] ?: emptyList()
+                    return cookieStore[url.host] ?: emptyList()
                 }
             })
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -137,14 +137,14 @@ class DuckDuckGoImageClient @Inject constructor(
 
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) {
-                Log.w(TAG, "DDG image request failed: HTTP ${response.code()}")
-                if (response.code() == 403 || response.code() == 429) {
+                Log.w(TAG, "DDG image request failed: HTTP ${response.code}")
+                if (response.code == 403 || response.code == 429) {
                     vqdCache.remove(query)
                 }
                 return emptyList()
             }
 
-            val body = response.body()?.string() ?: return emptyList()
+            val body = response.body?.string() ?: return emptyList()
             val parsed = gson.fromJson(body, DuckDuckGoApiResponse::class.java)
             val items = parsed?.results?.mapNotNull { item ->
                 val orig = item.image ?: item.url ?: return@mapNotNull null
@@ -186,7 +186,7 @@ class DuckDuckGoImageClient @Inject constructor(
 
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return null
-            val html = response.body()?.string() ?: return null
+            val html = response.body?.string() ?: return null
 
             var foundVqd: String? = null
             for (regex in VQD_REGEXES) {
@@ -222,7 +222,7 @@ class DuckDuckGoImageClient @Inject constructor(
 
             val response = client.newCall(request).execute()
             if (!response.isSuccessful) return emptyList()
-            val html = response.body()?.string() ?: return emptyList()
+            val html = response.body?.string() ?: return emptyList()
 
             val results = mutableListOf<ArtistImageItem>()
             val matcher = BING_IUSC_REGEX.matcher(html)

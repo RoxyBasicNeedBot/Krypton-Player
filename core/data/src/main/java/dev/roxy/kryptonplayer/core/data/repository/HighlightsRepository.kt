@@ -128,7 +128,7 @@ class HighlightsRepositoryImpl @Inject constructor(
                 .build()
 
             val response = okHttpClient.newCall(request).execute()
-            val xmlData = response.body()?.string() ?: return emptyList()
+            val xmlData = response.body?.string() ?: return emptyList()
 
             val parser: XmlPullParser = Xml.newPullParser()
             parser.setInput(StringReader(xmlData))

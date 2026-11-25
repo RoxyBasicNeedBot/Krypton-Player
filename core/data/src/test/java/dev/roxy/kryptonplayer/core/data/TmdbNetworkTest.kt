@@ -25,8 +25,8 @@ class TmdbNetworkTest {
 
         try {
             client.newCall(request).execute().use { response ->
-                val code = response.code()
-                val body = response.body()?.string()
+                val code = response.code
+                val body = response.body?.string()
                 println("Health Check Status: $code")
                 println("Response: $body")
                 assert(response.isSuccessful) { "Health check failed with status $code" }
@@ -50,8 +50,8 @@ class TmdbNetworkTest {
 
         try {
             client.newCall(request).execute().use { response ->
-                val code = response.code()
-                val body = response.body()?.string()
+                val code = response.code
+                val body = response.body?.string()
                 println("Popular Movies Status: $code")
                 if (response.isSuccessful) {
                     println("SUCCESS: Got popular movies via proxy!")
@@ -80,8 +80,8 @@ class TmdbNetworkTest {
 
         try {
             client.newCall(request).execute().use { response ->
-                val code = response.code()
-                val body = response.body()?.string()
+                val code = response.code
+                val body = response.body?.string()
                 println("Search Multi Status: $code")
                 if (response.isSuccessful) {
                     println("SUCCESS: Search works via proxy!")

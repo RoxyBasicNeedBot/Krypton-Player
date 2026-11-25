@@ -11,8 +11,10 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.graphics.drawable.Icon
+import android.net.Uri
 import android.os.Build
 import android.os.Process
+import android.provider.Settings
 import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
@@ -28,9 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
 import androidx.core.util.Consumer
+import dev.roxy.kryptonplayer.core.common.extensions.isPipFeatureSupported
 import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.ui.R as coreUiR
-import dev.roxy.kryptonplayer.feature.player.extensions.isPipFeatureSupported
 import dev.roxy.kryptonplayer.feature.player.extensions.seekBack
 import dev.roxy.kryptonplayer.feature.player.extensions.seekForward
 import dev.roxy.kryptonplayer.feature.player.mpv.PlaybackSession
@@ -61,10 +63,12 @@ class PictureInPictureState(
     private val player: PlaybackController,
     private val autoEnter: Boolean = true,
 ) {
-    val isPipSupported: Boolean get() = activity.isPipFeatureSupported()
+    val isPipSupported: Boolean get() = activity.isPipFeatureSupported
 
     var isInPipMode: Boolean by mutableStateOf(false)
         private set
+
+    val isInPictureInPictureMode: Boolean get() = isInPipMode
 
     private var videoRect: Rect? = null
     private var receiverRegistered = false
@@ -121,6 +125,18 @@ class PictureInPictureState(
         videoRect = rect
         val snap = player.state.value
         updatePictureInPictureParams(snap.isPlaying, snap.videoWidth, snap.videoHeight)
+    }
+
+    fun enterPictureInPictureMode(): Boolean = openPictureInPicture()
+
+    fun openPictureInPictureSettings() {
+        val packageUri = Uri.fromParts("package", activity.packageName, null)
+        val pipIntent = Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS", packageUri)
+        if (runCatching { activity.startActivity(pipIntent) }.isFailure) {
+            runCatching {
+                activity.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri))
+            }
+        }
     }
 
     fun openPictureInPicture(): Boolean {

@@ -81,7 +81,7 @@ class CountryDetector @Inject constructor(
 
                 client.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
-                        val body = response.body()?.string() ?: return@use
+                        val body = response.body?.string() ?: return@use
                         val json = JSONObject(body)
 
                         val code = when {

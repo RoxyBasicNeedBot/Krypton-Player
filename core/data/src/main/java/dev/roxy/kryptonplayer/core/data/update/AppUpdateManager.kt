@@ -620,7 +620,7 @@ class AppUpdateManager @Inject constructor(
         try {
             val response: Response = httpClient.newCall(requestBuilder.build()).execute()
             response.use { resp ->
-                val code = resp.code()
+                val code = resp.code
 
                 if (code == 304) {
                     // Not Modified - release hasn't changed. Use cached JSON.
@@ -631,7 +631,7 @@ class AppUpdateManager @Inject constructor(
                     }
                     prefs.edit().putLong(KEY_LAST_CHECK_TIME, now).apply()
                 } else if (code in 200..299) {
-                    val bodyString = resp.body()?.string()
+                    val bodyString = resp.body?.string()
                     if (!bodyString.isNullOrBlank()) {
                         releaseDto = gson.fromJson(bodyString, GitHubReleaseDto::class.java)
                         val newEtag = resp.header("ETag")
@@ -662,14 +662,14 @@ class AppUpdateManager @Inject constructor(
                         return@withContext null
                     }
                 } else {
-                    Log.w(TAG, "GitHub releases API returned error HTTP $code: ${resp.message()}")
+                    Log.w(TAG, "GitHub releases API returned error HTTP $code: ${resp.message}")
                     val cachedJson = prefs.getString(KEY_CACHED_RELEASE_JSON, null)
                     if (!cachedJson.isNullOrBlank()) {
                         Log.i(TAG, "Falling back to cached release data after HTTP $code.")
                         releaseDto = gson.fromJson(cachedJson, GitHubReleaseDto::class.java)
                     } else {
                         if (manual) {
-                            _updateState.value = UpdateState.Error("Server returned code $code: ${resp.message()}")
+                            _updateState.value = UpdateState.Error("Server returned code $code: ${resp.message}")
                         } else {
                             _updateState.value = UpdateState.Idle
                         }
@@ -887,10 +887,10 @@ class AppUpdateManager @Inject constructor(
             try {
                 val response = httpClient.newCall(request).execute()
                 if (!response.isSuccessful) {
-                    throw IOException("HTTP error ${response.code()}: ${response.message()}")
+                    throw IOException("HTTP error ${response.code}: ${response.message}")
                 }
 
-                val body = response.body() ?: throw IOException("Empty response body from update server")
+                val body = response.body ?: throw IOException("Empty response body from update server")
                 val contentLen = body.contentLength()
                 if (contentLen > 0L) {
                     totalBytes = contentLen
@@ -1160,7 +1160,7 @@ class AppUpdateManager @Inject constructor(
                 .header("User-Agent", USER_AGENT)
             val response = httpClient.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
-                val content = response.body()?.string()?.trim() ?: return null
+                val content = response.body?.string()?.trim() ?: return null
                 // Extract 64-char hex string
                 val hexRegex = Regex("""\b[a-fA-F0-9]{64}\b""")
                 hexRegex.find(content)?.value
@@ -1248,7 +1248,7 @@ class AppUpdateManager @Inject constructor(
         try {
             val response = httpClient.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
-                val jsonStr = response.body()?.string()?.trim() ?: ""
+                val jsonStr = response.body?.string()?.trim() ?: ""
                 val releases = gson.fromJson(jsonStr, Array<GitHubReleaseDto>::class.java) ?: emptyArray()
                 val (activeCode, activeName) = resolveCurrentVersion(0, "")
 
@@ -1330,7 +1330,7 @@ class AppUpdateManager @Inject constructor(
         try {
             val response = httpClient.newCall(requestBuilder.build()).execute()
             if (response.isSuccessful) {
-                val jsonStr = response.body()?.string()?.trim() ?: ""
+                val jsonStr = response.body?.string()?.trim() ?: ""
                 val array = gson.fromJson(jsonStr, List::class.java) ?: emptyList<Any>()
                 for (item in array) {
                     val cMap = item as? Map<String, Any?> ?: continue

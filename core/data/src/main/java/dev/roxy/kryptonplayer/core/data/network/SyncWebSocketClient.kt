@@ -171,7 +171,7 @@ class SyncWebSocketClient @Inject constructor() {
         _isConnected.value = false
         webSocket?.close(1000, "User disconnected")
         webSocket = null
-        okHttpClient?.dispatcher()?.executorService()?.shutdown()
+        okHttpClient?.dispatcher?.executorService?.shutdown()
         okHttpClient = null
     }
 }

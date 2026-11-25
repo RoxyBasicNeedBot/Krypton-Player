@@ -31,7 +31,6 @@ ksp = "2.3.6"
 ktlint = "12.3.0"
 reorderable = "3.0.0"
 room = "2.8.4"
-nextlib = "1.9.3-0.12.0"
 universalChardet = "2.5.0"
 retrofit = "2.9.0"
 gson = "2.10.1"
@@ -88,7 +87,6 @@ androidx-palette = { group = "androidx.palette", name = "palette-ktx", version.r
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-okhttp = { module = "io.coil-kt.coil3:coil-network-okhttp", version.ref = "coil" }
 github-albfernandez-juniversalchardet = { group="com.github.albfernandez", name = "juniversalchardet", version.ref="universalChardet" }
-github-anilbeesetti-nextlib-mediainfo = { group = "io.github.anilbeesetti", name = "nextlib-mediainfo", version.ref = "nextlib" }
 mpvlib-standard = { module = "app.gyrolet.mpvlib:mpvlib", version.ref = "mpvlib" }
 nanohttpd = { module = "org.nanohttpd:nanohttpd", version.ref = "nanohttpd" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }

@@ -960,6 +960,10 @@ class PlayerViewModel @Inject constructor(
      * - Won't hard-sync more than once per 5s
      * - Won't spam AdjustSpeed(NORMAL) if already at normal speed
      */
+    fun updatePlayerPositionForSync(positionMs: Long) {
+        internalUiState.update { it.copy(currentPlayerPositionMs = positionMs) }
+    }
+
     fun reportLocalPosition(localPositionMs: Long, isPlaying: Boolean) {
         internalUiState.update { it.copy(currentPlayerPositionMs = localPositionMs) }
 
