@@ -74,5 +74,8 @@ class PlayerApi(val activity: PlayerActivity) {
         private const val API_SUBS_NAME = "subs.name"
         private const val API_VIDEO_LIST = "video_list"
         private const val API_RESULT_INTENT = "com.mxtech.intent.result.VIEW"
+
+        /** Public key used by callers (e.g. MediaNavGraph) to pass a playlist of URIs. */
+        const val API_PLAYLIST = API_VIDEO_LIST
     }
 }
