@@ -595,7 +595,7 @@ fun YourStuffSection(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = "Fast offline playback • ExoPlayer engine",
+                                    text = "Fast offline playback • libmpv engine",
                                     color = Color(0xFFBAC5D6),
                                     fontSize = 11.5.sp
                                 )

@@ -9,38 +9,39 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.media3.common.Player
-import androidx.media3.common.listen
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackEvent
 import dev.roxy.kryptonplayer.feature.player.extensions.toggleSystemBars
-import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.time.Duration
 
 @Composable
-fun rememberControlsVisibilityState(player: Player, hideAfter: Duration): ControlsVisibilityState {
+fun rememberControlsVisibilityState(
+    player: PlaybackController,
+    hideAfter: Duration,
+): ControlsVisibilityState {
     val activity = LocalActivity.current
     val coroutineScope = rememberCoroutineScope()
-    val controlsVisibilityState = remember { ControlsVisibilityState(player, hideAfter, coroutineScope) }
+    val controlsVisibilityState = remember(player, hideAfter) {
+        ControlsVisibilityState(player, hideAfter, coroutineScope)
+    }
     LaunchedEffect(player) { controlsVisibilityState.observe() }
     LaunchedEffect(controlsVisibilityState.controlsVisible, controlsVisibilityState.controlsLocked) {
         if (controlsVisibilityState.controlsLocked) {
             activity?.toggleSystemBars(showBars = false)
             return@LaunchedEffect
         }
-        if (controlsVisibilityState.controlsVisible) {
-            activity?.toggleSystemBars(showBars = true)
-        } else {
-            activity?.toggleSystemBars(showBars = false)
-        }
+        activity?.toggleSystemBars(showBars = controlsVisibilityState.controlsVisible)
     }
     return controlsVisibilityState
 }
 
 @Stable
 class ControlsVisibilityState(
-    private val player: Player,
+    private val player: PlaybackController,
     private val hideAfter: Duration,
     private val scope: CoroutineScope,
 ) {
@@ -80,11 +81,12 @@ class ControlsVisibilityState(
     }
 
     suspend fun observe() {
-        player.listen { events ->
-            if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) {
-                if (player.isPlaying) {
-                    autoHideControls()
-                }
+        if (player.state.value.isPlaying) {
+            autoHideControls()
+        }
+        player.events.collect { event ->
+            if (event is PlaybackEvent.IsPlayingChanged && event.isPlaying) {
+                autoHideControls()
             }
         }
     }
@@ -93,7 +95,7 @@ class ControlsVisibilityState(
         autoHideControlsJob?.cancel()
         autoHideControlsJob = scope.launch {
             delay(duration)
-            if (player.isPlaying) {
+            if (player.state.value.isPlaying) {
                 controlsVisible = false
             }
         }

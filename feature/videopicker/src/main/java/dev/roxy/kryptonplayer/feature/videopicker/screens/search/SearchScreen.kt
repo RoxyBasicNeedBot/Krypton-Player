@@ -75,7 +75,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.Player
 import dev.roxy.kryptonplayer.core.common.CrashBreadcrumbs
 import dev.roxy.kryptonplayer.core.domain.SearchResults
 import dev.roxy.kryptonplayer.core.domain.asRootFolder
@@ -89,11 +88,10 @@ import dev.roxy.kryptonplayer.core.ui.components.NextSegmentedListItem
 import dev.roxy.kryptonplayer.core.ui.components.NextTopAppBar
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
 import dev.roxy.kryptonplayer.core.ui.extensions.plus
-import dev.roxy.kryptonplayer.core.ui.theme.LocalMediaController
+import dev.roxy.kryptonplayer.core.ui.theme.LocalPlaybackController
 import dev.roxy.kryptonplayer.core.ui.theme.PremiumMeshBackground
 import dev.roxy.kryptonplayer.feature.videopicker.composables.FolderItem
 import dev.roxy.kryptonplayer.feature.videopicker.composables.MediaView
-import dev.roxy.kryptonplayer.feature.videopicker.composables.rememberPlayerState
 
 private enum class SearchCategoryFilter(val label: String, val icon: ImageVector) {
     ALL("All Media", Icons.Rounded.VideoLibrary),
@@ -324,11 +322,11 @@ internal fun SearchScreen(
     onEvent: (SearchUiEvent) -> Unit = {},
 ) {
     val focusRequester = remember { FocusRequester() }
-    val mediaController = LocalMediaController.current
-    val isMiniPlayerVisible = mediaController?.let { controller ->
-        val playerState = rememberPlayerState(controller)
-        playerState.currentMediaItem != null && playerState.playbackState != Player.STATE_IDLE
-    } ?: false
+    val playbackController = LocalPlaybackController.current
+    val playbackState = playbackController?.state?.collectAsStateWithLifecycle()?.value
+    val isMiniPlayerVisible = playbackState != null &&
+        playbackState.currentItem != null &&
+        !playbackState.isIdle
     val keyboardController = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(Unit) {

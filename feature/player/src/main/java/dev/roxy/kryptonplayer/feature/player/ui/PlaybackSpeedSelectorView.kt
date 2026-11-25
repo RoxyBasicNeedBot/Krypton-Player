@@ -33,19 +33,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
 import dev.roxy.kryptonplayer.core.common.extensions.round
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.components.NextSwitch
 import dev.roxy.kryptonplayer.feature.player.state.rememberPlaybackParametersState
 
-@OptIn(UnstableApi::class)
 @Composable
 fun BoxScope.PlaybackSpeedSelectorView(
     modifier: Modifier = Modifier,
     show: Boolean,
-    player: Player,
+    player: PlaybackController,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val playbackParametersState = rememberPlaybackParametersState(player)

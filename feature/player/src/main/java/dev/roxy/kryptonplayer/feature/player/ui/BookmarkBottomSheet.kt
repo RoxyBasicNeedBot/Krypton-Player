@@ -49,8 +49,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.Player
 import dev.roxy.kryptonplayer.core.common.Utils
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.model.BookmarkItem
 import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
@@ -60,16 +60,16 @@ import dev.roxy.kryptonplayer.feature.player.PlayerViewModel
 @Composable
 fun BookmarkBottomSheet(
     viewModel: PlayerViewModel,
-    player: Player,
+    player: PlaybackController,
     mediaUri: String,
     onSeekTo: (Long) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val bookmarks by viewModel.bookmarks.collectAsStateWithLifecycle()
 
     var noteText by remember { mutableStateOf("") }
-    val currentPosition = player.currentPosition
+    val currentPosition = player.state.value.currentPositionMs
     val formattedTime = Utils.formatDurationMillis(currentPosition)
 
     LaunchedEffect(mediaUri) {

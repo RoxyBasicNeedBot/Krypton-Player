@@ -5,6 +5,7 @@ import coil3.ImageLoader
 import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
+import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import coil3.request.CachePolicy
 import coil3.request.crossfade
 import dagger.Module
@@ -12,9 +13,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import dev.roxy.kryptonplayer.core.common.playback.FrameThumbnailExtractor
 import dev.roxy.kryptonplayer.core.data.repository.PreferencesRepository
 import dev.roxy.kryptonplayer.core.model.ThumbnailGenerationStrategy
-import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import okhttp3.Cache
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
@@ -33,6 +34,7 @@ object ImageLoaderModule {
         @ApplicationContext context: Context,
         preferencesRepository: PreferencesRepository,
         okHttpClient: OkHttpClient,
+        frameThumbnailExtractor: FrameThumbnailExtractor,
     ): ImageLoader {
         val imageOkHttpClient = okHttpClient.newBuilder()
             .dispatcher(
@@ -72,6 +74,7 @@ object ImageLoaderModule {
                                 ThumbnailGenerationStrategy.HYBRID -> ThumbnailStrategy.Hybrid(preferences.thumbnailFramePosition)
                             }
                         },
+                        frameThumbnailExtractor = frameThumbnailExtractor,
                     ),
                 )
             }

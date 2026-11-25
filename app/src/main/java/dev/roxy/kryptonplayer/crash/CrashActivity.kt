@@ -1003,8 +1003,12 @@ private fun CrashDiagnosticsCard(
             exceptionType.contains("OutOfMemoryError", ignoreCase = true) || exceptionMessage.contains("OOM", ignoreCase = true) -> {
                 "Memory Exhausted (OOM): The app ran out of heap memory. This typically happens when decoding too many large bitmaps or caching huge payloads. Restarting the app will clear temporary allocations."
             }
-            exceptionType.contains("PlaybackException", ignoreCase = true) || exceptionMessage.contains("media3", ignoreCase = true) -> {
-                "Video Playback Error: A media rendering or decoding issue occurred. This might be due to a temporary network disruption, expired stream session, or incompatible codec. Check your internet connection and try reloading the stream."
+            exceptionType.contains("PlaybackFailure", ignoreCase = true) ||
+                exceptionMessage.contains("MPV_PLAYBACK_ERROR", ignoreCase = true) ||
+                exceptionMessage.contains("libmpv", ignoreCase = true) ||
+                exceptionMessage.contains("MPV", ignoreCase = true) ||
+                exceptionMessage.contains("MediaCodec", ignoreCase = true) -> {
+                "Video Playback Error: A libmpv/MediaCodec media rendering or decoding issue occurred. This might be due to a temporary network disruption, expired stream session, or incompatible codec. Check your internet connection and try reloading the stream."
             }
             exceptionType.contains("ConnectException", ignoreCase = true) || exceptionType.contains("UnknownHostException", ignoreCase = true) || exceptionType.contains("SocketTimeoutException", ignoreCase = true) -> {
                 "Network Connection Error: Could not connect to the remote host. Please check if your internet is working and if the Telegram backend server is online and running."

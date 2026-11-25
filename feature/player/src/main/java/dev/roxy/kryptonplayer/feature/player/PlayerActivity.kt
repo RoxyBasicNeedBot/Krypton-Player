@@ -26,27 +26,21 @@ import androidx.core.util.Consumer
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.MimeTypes
-import androidx.media3.common.Player
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
-import com.google.common.util.concurrent.ListenableFuture
 import dagger.hilt.android.AndroidEntryPoint
 import dev.roxy.kryptonplayer.core.common.extensions.getMediaContentUri
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackEvent
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackLoopMode
 import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
+import dev.roxy.kryptonplayer.core.ui.theme.LocalPlaybackController
 import dev.roxy.kryptonplayer.feature.player.extensions.registerForSuspendActivityResult
-import dev.roxy.kryptonplayer.feature.player.extensions.setExtras
-import dev.roxy.kryptonplayer.feature.player.extensions.uriToSubtitleConfiguration
-import dev.roxy.kryptonplayer.feature.player.service.PlayerService
-import dev.roxy.kryptonplayer.feature.player.service.addSubtitleTrack
-import dev.roxy.kryptonplayer.feature.player.service.stopPlayerSession
+import dev.roxy.kryptonplayer.feature.player.extensions.seekBack
+import dev.roxy.kryptonplayer.feature.player.extensions.seekForward
 import dev.roxy.kryptonplayer.feature.player.utils.PlayerApi
 import java.util.concurrent.CopyOnWriteArrayList
+import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.guava.await
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -68,14 +62,11 @@ class PlayerActivity : ComponentActivity() {
     /**
      * Player
      */
-    private var controllerFuture: ListenableFuture<MediaController>? = null
-    private var mediaController: MediaController? = null
-    private lateinit var playerApi: PlayerApi
+    @Inject
+    lateinit var playbackController: PlaybackController
 
-    /**
-     * Listeners
-     */
-    private val playbackStateListener: Player.Listener = playbackStateListener()
+    private var eventsJob: Job? = null
+    private lateinit var playerApi: PlayerApi
 
     private val subtitleFileSuspendLauncher = registerForSuspendActivityResult(OpenDocument())
 
@@ -90,21 +81,11 @@ class PlayerActivity : ComponentActivity() {
 
         setContent {
             val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-            var player by remember { mutableStateOf<MediaController?>(null) }
-
-            LifecycleStartEffect(Unit) {
-                maybeInitControllerFuture()
-                lifecycleScope.launch {
-                    player = controllerFuture?.await()
-                }
-
-                onStopOrDispose {
-                    player = null
-                }
-            }
-
             val appPreferences = uiState.applicationPreferences ?: dev.roxy.kryptonplayer.core.model.ApplicationPreferences()
-            CompositionLocalProvider(LocalUseMaterialYouControls provides (uiState.playerPreferences?.useMaterialYouControls == true)) {
+            CompositionLocalProvider(
+                LocalUseMaterialYouControls provides (uiState.playerPreferences?.useMaterialYouControls == true),
+                LocalPlaybackController provides playbackController,
+            ) {
                 KryptonPlayerTheme(
                     darkTheme = true,
                     highContrastDarkTheme = appPreferences.useHighContrastDarkTheme,
@@ -113,7 +94,7 @@ class PlayerActivity : ComponentActivity() {
                     pureBlack = appPreferences.pureBlack,
                 ) {
                     MediaPlayerScreen(
-                        player = player,
+                        player = playbackController,
                         viewModel = viewModel,
                         playerPreferences = uiState.playerPreferences ?: return@KryptonPlayerTheme,
                         appPreferences = appPreferences,
@@ -121,24 +102,22 @@ class PlayerActivity : ComponentActivity() {
                             lifecycleScope.launch {
                                 val uri = subtitleFileSuspendLauncher.launch(
                                     arrayOf(
-                                        MimeTypes.APPLICATION_SUBRIP,
-                                        MimeTypes.APPLICATION_TTML,
-                                        MimeTypes.TEXT_VTT,
-                                        MimeTypes.TEXT_SSA,
-                                        MimeTypes.BASE_TYPE_APPLICATION + "/octet-stream",
-                                        MimeTypes.BASE_TYPE_TEXT + "/*",
+                                        "application/x-subrip",
+                                        "application/ttml+xml",
+                                        "text/vtt",
+                                        "text/x-ssa",
+                                        "application/octet-stream",
+                                        "text/*",
                                     ),
                                 ) ?: return@launch
-                                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                maybeInitControllerFuture()
-                                controllerFuture?.await()?.addSubtitleTrack(uri)
+                                runCatching {
+                                    contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                                playbackController.addExternalSubtitle(uri, select = true)
                             }
                         },
                         onOnlineSubtitleSelected = { file ->
-                            lifecycleScope.launch {
-                                maybeInitControllerFuture()
-                                controllerFuture?.await()?.addSubtitleTrack(android.net.Uri.fromFile(file))
-                            }
+                            playbackController.addExternalSubtitle(Uri.fromFile(file), select = true)
                         },
                         onBackClick = { finishAndStopPlayerSession() },
                         onPlayInBackgroundClick = {
@@ -153,53 +132,53 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
-        lifecycleScope.launch {
-            maybeInitControllerFuture()
-            mediaController = controllerFuture?.await()
-
-            mediaController?.run {
-                updateKeepScreenOnFlag()
-                addListener(playbackStateListener)
-                startPlayback()
+        eventsJob?.cancel()
+        eventsJob = lifecycleScope.launch {
+            playbackController.events.collect { event ->
+                when (event) {
+                    is PlaybackEvent.MediaItemTransition -> {
+                        intent.data = event.item?.uri
+                    }
+                    is PlaybackEvent.IsPlayingChanged -> {
+                        updateKeepScreenOnFlag()
+                    }
+                    is PlaybackEvent.PlaybackEnded -> {
+                        if (playbackController.state.value.repeatMode == PlaybackLoopMode.OFF) {
+                            isPlaybackFinished = true
+                            finishAndStopPlayerSession()
+                        }
+                    }
+                    else -> Unit
+                }
             }
         }
+        updateKeepScreenOnFlag()
+        startPlayback()
     }
 
     override fun onStop() {
-        mediaController?.run {
-            viewModel.playWhenReady = playWhenReady
-            removeListener(playbackStateListener)
-        }
+        val snap = playbackController.state.value
+        viewModel.playWhenReady = snap.isPlaying || snap.isLoading
+        eventsJob?.cancel()
+        eventsJob = null
+
         val shouldPlayInBackground = playInBackground || playerPreferences?.autoBackgroundPlay == true
         if (subtitleFileSuspendLauncher.isAwaitingResult || !shouldPlayInBackground) {
-            mediaController?.pause()
+            playbackController.pause()
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && isInPictureInPictureMode) {
             finish()
             if (!shouldPlayInBackground) {
-                mediaController?.stopPlayerSession()
+                playbackController.stop(clearPlaylist = true)
             }
         }
-
-        controllerFuture?.run {
-            MediaController.releaseFuture(this)
-            controllerFuture = null
-        }
         super.onStop()
-    }
-
-    private fun maybeInitControllerFuture() {
-        if (controllerFuture == null) {
-            val sessionToken = SessionToken(applicationContext, ComponentName(applicationContext, PlayerService::class.java))
-            controllerFuture = MediaController.Builder(applicationContext, sessionToken).buildAsync()
-        }
     }
 
     private fun startPlayback() {
         val uri = intent.data ?: return
 
-        // Intercept deep links
         val isCustomScheme = (uri.scheme == "kryptonplayer" || uri.scheme == "nextplayer") && uri.host == "sync" && uri.pathSegments.firstOrNull() == "join"
         val isHttpsScheme = (uri.scheme == "http" || uri.scheme == "https") && dev.roxy.kryptonplayer.core.data.network.NetworkConfig.isWorkerHost(uri.host) && uri.path?.contains("/sync/join/") == true
 
@@ -216,12 +195,16 @@ class PlayerActivity : ComponentActivity() {
             viewModel.setQualityUrls(qualityUrls)
         }
 
-        val returningFromBackground = !isIntentNew && mediaController?.currentMediaItem != null
-        val isNewUriTheCurrentMediaItem = mediaController?.currentMediaItem?.localConfiguration?.uri.toString() == uri.toString()
+        val currentItem = playbackController.state.value.currentItem
+        val returningFromBackground = !isIntentNew && currentItem != null
+        val isNewUriTheCurrentMediaItem = currentItem?.uri?.toString() == uri.toString()
 
         if (returningFromBackground || isNewUriTheCurrentMediaItem) {
-            mediaController?.prepare()
-            mediaController?.playWhenReady = viewModel.playWhenReady
+            if (viewModel.playWhenReady) {
+                playbackController.play()
+            } else {
+                playbackController.pause()
+            }
             return
         }
 
@@ -238,11 +221,8 @@ class PlayerActivity : ComponentActivity() {
                 android.widget.Toast.makeText(this, err, android.widget.Toast.LENGTH_LONG).show()
                 finish()
             } else if (streamUrl != null) {
-                // Update intent data to be the stream URL and add watch party room ID extra securely
                 intent.data = Uri.parse(streamUrl)
                 intent.putExtra("watch_party_room_id", roomId)
-                
-                // Now start normal playback
                 startPlayback()
             }
         }
@@ -272,83 +252,47 @@ class PlayerActivity : ComponentActivity() {
         }.takeIf { it >= 0 } ?: 0
 
         val mediaItems = playlist.mapIndexed { index, itemUriStr ->
-            MediaItem.Builder().apply {
-                setUri(itemUriStr)
-                setMediaId(itemUriStr)
-                if (itemUriStr.endsWith(".mp4", ignoreCase = true) || itemUriStr.contains("offline_media")) {
-                    setMimeType(androidx.media3.common.MimeTypes.VIDEO_MP4)
-                }
-                if (index == mediaItemIndexToPlay) {
-                    val streamTitle = playerApi.title
-                        ?: (itemUriStr.toUri().getQueryParameter("title"))
-                        ?: (itemUriStr.toUri().getQueryParameter("caption"))
-                    setMediaMetadata(
-                        MediaMetadata.Builder().apply {
-                            setTitle(streamTitle)
-                            setExtras(positionMs = playerApi.position?.toLong())
-                        }.build(),
-                    )
-                    val apiSubs = playerApi.getSubs().map { subtitle ->
-                        uriToSubtitleConfiguration(
-                            uri = subtitle.uri,
-                            subtitleEncoding = playerPreferences?.subtitleTextEncoding ?: "",
-                            isSelected = subtitle.isSelected,
-                        )
-                    }
-                    setSubtitleConfigurations(apiSubs)
-                }
-            }.build()
+            val parsedUri = itemUriStr.toUri()
+            val streamTitle = if (index == mediaItemIndexToPlay) {
+                playerApi.title
+                    ?: parsedUri.getQueryParameter("title")
+                    ?: parsedUri.getQueryParameter("caption")
+                    ?: parsedUri.lastPathSegment
+                    ?: ""
+            } else {
+                parsedUri.lastPathSegment ?: ""
+            }
+            val apiSubs = if (index == mediaItemIndexToPlay) {
+                playerApi.getSubs().map { it.uri }
+            } else {
+                emptyList()
+            }
+            dev.roxy.kryptonplayer.core.common.playback.PlaybackMediaItem(
+                mediaId = itemUriStr,
+                uri = parsedUri,
+                title = streamTitle,
+                positionMs = if (index == mediaItemIndexToPlay) playerApi.position?.toLong() ?: 0L else 0L,
+                externalSubtitles = apiSubs,
+            )
         }
 
         withContext(Dispatchers.Main) {
-            mediaController?.run {
-                setMediaItems(mediaItems, mediaItemIndexToPlay, playerApi.position?.toLong() ?: C.TIME_UNSET)
-                playWhenReady = viewModel.playWhenReady
-                prepare()
-            }
-        }
-    }
-
-    private fun playbackStateListener() = object : Player.Listener {
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            super.onMediaItemTransition(mediaItem, reason)
-            intent.data = mediaItem?.localConfiguration?.uri
-        }
-
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            super.onIsPlayingChanged(isPlaying)
-            updateKeepScreenOnFlag()
-        }
-
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            super.onPlaybackStateChanged(playbackState)
-            when (playbackState) {
-                Player.STATE_ENDED -> {
-                    isPlaybackFinished = mediaController?.playbackState == Player.STATE_ENDED
-                    finishAndStopPlayerSession()
-                }
-
-                else -> {}
-            }
-        }
-
-        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            super.onPlayWhenReadyChanged(playWhenReady, reason)
-
-            if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
-                if (mediaController?.repeatMode != Player.REPEAT_MODE_OFF) return
-                isPlaybackFinished = true
-                finishAndStopPlayerSession()
-            }
+            playbackController.setPlaylist(
+                items = mediaItems,
+                startIndex = mediaItemIndexToPlay,
+                startPositionMs = playerApi.position?.toLong() ?: -1L,
+                playWhenReady = viewModel.playWhenReady,
+            )
         }
     }
 
     override fun finish() {
         if (::playerApi.isInitialized && playerApi.shouldReturnResult) {
+            val snap = playbackController.state.value
             val result = playerApi.getResult(
                 isPlaybackFinished = isPlaybackFinished,
-                duration = mediaController?.duration ?: C.TIME_UNSET,
-                position = mediaController?.currentPosition ?: C.TIME_UNSET,
+                duration = snap.durationMs.takeIf { it > 0L } ?: -1L,
+                position = snap.currentPositionMs,
             )
             setResult(RESULT_OK, result)
         }
@@ -360,14 +304,12 @@ class PlayerActivity : ComponentActivity() {
         if (intent.data != null) {
             setIntent(intent)
             isIntentNew = true
-            if (mediaController != null) {
-                startPlayback()
-            }
+            startPlayback()
         }
     }
 
     private fun updateKeepScreenOnFlag() {
-        if (mediaController?.isPlaying == true) {
+        if (playbackController.state.value.isPlaying) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -376,7 +318,7 @@ class PlayerActivity : ComponentActivity() {
 
     private fun finishAndStopPlayerSession() {
         finish()
-        mediaController?.stopPlayerSession()
+        playbackController.stop(clearPlaylist = true)
     }
 
     override fun onWindowAttributesChanged(params: WindowManager.LayoutParams?) {
@@ -403,57 +345,48 @@ class PlayerActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        val player = mediaController ?: return super.onKeyDown(keyCode, event)
         return when (keyCode) {
             KeyEvent.KEYCODE_DPAD_CENTER,
             KeyEvent.KEYCODE_ENTER,
             KeyEvent.KEYCODE_NUMPAD_ENTER -> {
-                if (player.isPlaying) {
-                    player.pause()
-                } else {
-                    player.play()
-                }
+                playbackController.togglePlayPause()
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_LEFT,
             KeyEvent.KEYCODE_MEDIA_REWIND -> {
-                player.seekBack()
+                playbackController.seekBack()
                 true
             }
 
             KeyEvent.KEYCODE_DPAD_RIGHT,
             KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
-                player.seekForward()
+                playbackController.seekForward()
                 true
             }
 
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                if (player.isPlaying) {
-                    player.pause()
-                } else {
-                    player.play()
-                }
+                playbackController.togglePlayPause()
                 true
             }
 
             KeyEvent.KEYCODE_MEDIA_PLAY -> {
-                player.play()
+                playbackController.play()
                 true
             }
 
             KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                player.pause()
+                playbackController.pause()
                 true
             }
 
             KeyEvent.KEYCODE_MEDIA_NEXT -> {
-                player.seekToNext()
+                playbackController.seekToNext()
                 true
             }
 
             KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
-                player.seekToPrevious()
+                playbackController.seekToPrevious()
                 true
             }
 

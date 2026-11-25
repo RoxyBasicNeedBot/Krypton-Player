@@ -62,25 +62,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.media3.common.C
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.model.Font
 import dev.roxy.kryptonplayer.core.model.PlayerPreferences
 import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.components.NextSwitch
-import dev.roxy.kryptonplayer.feature.player.extensions.getName
+import dev.roxy.kryptonplayer.feature.player.extensions.displayName
+import dev.roxy.kryptonplayer.feature.player.state.PlayerTrackType
 import dev.roxy.kryptonplayer.feature.player.state.SubtitleOptionsEvent
 import dev.roxy.kryptonplayer.feature.player.state.rememberSubtitleOptionsState
 import dev.roxy.kryptonplayer.feature.player.state.rememberTracksState
 import java.util.Locale
 
-@OptIn(UnstableApi::class)
 @Composable
 fun BoxScope.SubtitleSelectorView(
     modifier: Modifier = Modifier,
     show: Boolean,
-    player: Player,
+    player: PlaybackController,
     onSelectSubtitleClick: () -> Unit,
     onDownloadOnlineSubtitleClick: () -> Unit = {},
     onEvent: (SubtitleOptionsEvent) -> Unit = {},
@@ -88,13 +86,15 @@ fun BoxScope.SubtitleSelectorView(
     onUpdatePlayerPreferences: ((PlayerPreferences) -> PlayerPreferences) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
-    val subtitleTracksState = rememberTracksState(player, C.TRACK_TYPE_TEXT)
+    val subtitleTracksState = rememberTracksState(player, PlayerTrackType.SUBTITLE)
     val subtitleOptionsState = rememberSubtitleOptionsState(player, onEvent)
 
     val selectedTrackIndex = subtitleTracksState.tracks.indexOfFirst { it.isSelected }
     val activeTrackName = if (selectedTrackIndex != -1) {
-        subtitleTracksState.tracks[selectedTrackIndex].mediaTrackGroup.getName(C.TRACK_TYPE_TEXT, selectedTrackIndex)
-    } else null
+        subtitleTracksState.tracks[selectedTrackIndex].displayName(selectedTrackIndex)
+    } else {
+        null
+    }
 
     var selectedTabIndex by remember { mutableIntStateOf(0) }
 
@@ -300,9 +300,8 @@ fun BoxScope.SubtitleSelectorView(
                         } else {
                             subtitleTracksState.tracks.forEachIndexed { index, track ->
                                 val isSelected = track.isSelected
-                                val trackName = track.mediaTrackGroup.getName(C.TRACK_TYPE_TEXT, index)
-                                val trackFormat = (0 until track.mediaTrackGroup.length).map { track.mediaTrackGroup.getFormat(it) }.firstOrNull()
-                                val mimeStr = trackFormat?.sampleMimeType?.substringAfter("/")?.uppercase() ?: "TEXT"
+                                val trackName = track.displayName(index)
+                                val mimeStr = track.codec?.uppercase() ?: "TEXT"
 
                                 Card(
                                     onClick = {

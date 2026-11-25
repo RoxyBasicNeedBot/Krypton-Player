@@ -5,7 +5,7 @@
 =================================================================
 GitHub     : https://github.com/RoxyBasicNeedBot/Krypton-Player
 Telegram   : https://t.me/KryptonPlayer
-License    : GNU General Public License v3.0
+License    : GNU Affero General Public License v3.0
 (C) 2026 RoxyBasicNeedBot. All Rights Reserved.
 =================================================================
 -->
@@ -26,7 +26,7 @@ License    : GNU General Public License v3.0
 
   <p>
     <b>Pure AMOLED 4K HDR Cinema Player for Android</b><br />
-    <sub>Open-Source &bull; Zero Ads &bull; Zero Tracking &bull; Media3 + FFmpeg &bull; Floating Synced Lyrics &bull; Telegram Cloud Cinema &bull; TMDB Discovery</sub>
+    <sub>Open-Source &bull; Zero Ads &bull; Zero Tracking &bull; libmpv + FFmpeg &bull; Floating Synced Lyrics &bull; Telegram Cloud Cinema &bull; TMDB Discovery</sub>
   </p>
 
   <p align="center">
@@ -61,7 +61,7 @@ License    : GNU General Public License v3.0
       <img src="https://img.shields.io/badge/Telegram-@KryptonPlayer-23242B?style=flat-square&logo=telegram&logoColor=38BDF8&labelColor=0B0B0D" alt="Telegram Community" />
     </a>
     <a href="https://github.com/RoxyBasicNeedBot/Krypton-Player/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/RoxyBasicNeedBot/Krypton-Player?style=flat-square&label=License&color=23242B&labelColor=0B0B0D" alt="License GPL-3.0" />
+      <img src="https://img.shields.io/github/license/RoxyBasicNeedBot/Krypton-Player?style=flat-square&label=License&color=23242B&labelColor=0B0B0D" alt="License AGPL-3.0" />
     </a>
   </p>
 
@@ -449,9 +449,9 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
 ### Open-Source Credits & Acknowledgments
 Krypton Player stands on the shoulders of incredible open-source projects:
 - **[Next Player](https://github.com/anilbeesetti/nextplayer)** by **[Anil Beesetti](https://github.com/anilbeesetti)** — The foundational Kotlin & Compose Android video player architecture.
-- **[mpv-android](https://github.com/mpv-android/mpv-android)** & **[mpvKt](https://github.com/anilbeesetti/mpvKt)** — Native media decoding engine and Kotlin bindings.
-- **[AndroidX Media3 / ExoPlayer](https://github.com/androidx/media)** — Google's modern Android media playback framework.
-- **[FFmpeg](https://ffmpeg.org/)** — Industry-standard multimedia decoding and demuxing libraries.
+- **[mpvRx](https://github.com/Riteshp2001/mpvRx)** & **[mpvlibAndroid](https://github.com/Riteshp2001/mpvlibAndroid)** — `libmpv` Android engine architecture, Vulkan/OpenGL pipeline, HDR/Anime4K shaders, and native bindings.
+- **[mpv-android](https://github.com/mpv-android/mpv-android)** — Native `libmpv` Android build and Kotlin JNI layer.
+- **[FFmpeg](https://ffmpeg.org/)** & **[libass](https://github.com/libass/libass)** — Industry-standard multimedia decoding, demuxing, and styled ASS/SSA subtitle rendering.
 
 <br />
 
@@ -480,13 +480,13 @@ Krypton Player stands on the shoulders of incredible open-source projects:
 
 ## <img src="assets/icons/license.svg" width="22" height="22" valign="middle" alt="" /> License
 
-Krypton Player is free and open-source software licensed under the **GNU General Public License v3.0 ([GPL-3.0](LICENSE))**.
+Krypton Player is free and open-source software licensed under the **GNU Affero General Public License v3.0 ([AGPL-3.0](LICENSE))**.
 
 ```text
 Copyright (C) 2026 RoxyBasicNeedBot
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
+it under the terms of the GNU Affero General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
 (at your option) any later version.
 ```

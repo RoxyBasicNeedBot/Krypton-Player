@@ -37,9 +37,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.media3.common.Player
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 
-val LocalMediaController = staticCompositionLocalOf<Player?> { null }
+val LocalPlaybackController = staticCompositionLocalOf<PlaybackController?> { null }
 
 val ExpressiveShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),

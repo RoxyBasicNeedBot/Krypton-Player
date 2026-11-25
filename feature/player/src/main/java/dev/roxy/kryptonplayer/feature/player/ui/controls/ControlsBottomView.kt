@@ -87,8 +87,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.model.VideoContentScale
 import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.extensions.copy
@@ -119,11 +118,10 @@ import dev.roxy.kryptonplayer.feature.player.state.pendingPositionFormatted
 import dev.roxy.kryptonplayer.feature.player.state.positionFormatted
 import kotlinx.coroutines.launch
 
-@OptIn(UnstableApi::class)
 @Composable
 fun ControlsBottomView(
     modifier: Modifier = Modifier,
-    player: Player,
+    player: PlaybackController,
     mediaPresentationState: MediaPresentationState,
     controlsAlignment: Alignment.Horizontal,
     videoContentScale: VideoContentScale,

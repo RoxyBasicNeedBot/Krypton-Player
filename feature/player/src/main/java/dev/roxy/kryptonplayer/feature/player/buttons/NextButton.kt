@@ -3,27 +3,26 @@ package dev.roxy.kryptonplayer.feature.player.buttons
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.ui.compose.state.rememberNextButtonState
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.ui.R as coreUiR
 import dev.roxy.kryptonplayer.feature.player.LocalControlsVisibilityState
 
-@OptIn(UnstableApi::class)
 @Composable
-internal fun NextButton(player: Player, modifier: Modifier = Modifier) {
-    val state = rememberNextButtonState(player)
+internal fun NextButton(player: PlaybackController, modifier: Modifier = Modifier) {
+    val state by player.state.collectAsState()
     val controlsVisibilityState = LocalControlsVisibilityState.current
 
     PlayerButton(
         modifier = modifier.size(46.dp),
-        isEnabled = state.isEnabled,
+        isEnabled = state.hasNext,
         onClick = {
-            state.onClick()
+            player.seekToNext()
             controlsVisibilityState?.showControls()
         },
     ) {

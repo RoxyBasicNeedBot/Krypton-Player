@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.unit.dp
 import dagger.hilt.android.AndroidEntryPoint
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
 import dev.roxy.kryptonplayer.feature.player.model.ReelItem
 import kotlinx.serialization.json.Json
@@ -28,6 +29,9 @@ import dev.roxy.kryptonplayer.core.data.tdlib.TdlibMediaResolver
 
 @AndroidEntryPoint
 class ReelsActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var playbackController: PlaybackController
 
     @Inject
     lateinit var tdlibManager: TdlibManager
@@ -95,6 +99,7 @@ class ReelsActivity : ComponentActivity() {
                             ReelsScreen(
                                 playlist = playlist,
                                 startIndex = startIndex,
+                                playbackController = playbackController,
                                 tdlibManager = tdlibManager,
                                 tdlibMediaResolver = tdlibMediaResolver,
                                 telegramRepository = telegramRepository,

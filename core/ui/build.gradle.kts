@@ -35,7 +35,7 @@ dependencies {
 
     implementation(project(":core:model"))
     implementation(project(":core:data"))
-    implementation(libs.androidx.media3.common)
+    implementation(project(":core:common"))
     implementation(libs.kotlinx.serialization.json)
 
     implementation(libs.androidx.core.ktx)

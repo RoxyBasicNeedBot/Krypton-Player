@@ -1,11 +1,13 @@
 @file:kotlin.OptIn(
     androidx.compose.material3.ExperimentalMaterial3Api::class,
-    androidx.media3.common.util.UnstableApi::class,
-    androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class
+    androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class,
 )
 
 package dev.roxy.kryptonplayer.feature.player.ui.controls
 
+import android.content.Context
+import android.content.res.Configuration
+import android.os.BatteryManager
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -13,7 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.rounded.BatteryChargingFull
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,31 +25,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.media3.common.util.UnstableApi
-import android.content.Context
-import android.content.res.Configuration
-import android.os.BatteryManager
-import androidx.compose.material.icons.rounded.BatteryChargingFull
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
+import dev.roxy.kryptonplayer.core.ui.R
+import dev.roxy.kryptonplayer.core.ui.components.LottieHeartLikeButton
+import dev.roxy.kryptonplayer.core.ui.components.LottieLyricsIcon
+import dev.roxy.kryptonplayer.core.ui.components.WatchPartyPulseIndicator
+import dev.roxy.kryptonplayer.core.ui.extensions.copy
+import dev.roxy.kryptonplayer.feature.player.buttons.PlayerButton
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import dev.roxy.kryptonplayer.core.ui.R
-import dev.roxy.kryptonplayer.core.ui.extensions.copy
-import dev.roxy.kryptonplayer.feature.player.buttons.PlayerButton
-import dev.roxy.kryptonplayer.core.ui.components.LottieHeartLikeButton
-import dev.roxy.kryptonplayer.core.ui.components.LottieLyricsIcon
-import dev.roxy.kryptonplayer.core.ui.components.WatchPartyPulseIndicator
 
-@OptIn(UnstableApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ControlsTopView(
     modifier: Modifier = Modifier,

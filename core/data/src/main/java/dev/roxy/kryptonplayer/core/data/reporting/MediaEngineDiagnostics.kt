@@ -61,7 +61,7 @@ object MediaDiagnosticsTracker {
     private var mimeType: String = "unknown"
 
     @Volatile
-    private var videoCodec: String = "Hardware / ExoPlayer Decoder"
+    private var videoCodec: String = "Hardware / libmpv Decoder"
 
     @Volatile
     private var videoResolution: String = "N/A"
@@ -70,7 +70,7 @@ object MediaDiagnosticsTracker {
     private var frameRate: Float = 0f
 
     @Volatile
-    private var audioCodec: String = "Default AudioTrack"
+    private var audioCodec: String = "mpv AudioTrack"
 
     @Volatile
     private var audioChannels: Int = 0

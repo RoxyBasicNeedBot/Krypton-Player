@@ -110,11 +110,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.model.ApplicationPreferences
 import dev.roxy.kryptonplayer.core.model.ControlButtonsPosition
 import dev.roxy.kryptonplayer.core.model.DoubleTapGesture
@@ -135,12 +136,11 @@ import kotlinx.coroutines.launch
 
 private const val SPEED_STEP = 0.05f
 
-@OptIn(UnstableApi::class)
 @Composable
 fun BoxScope.QuickToolsSelectorView(
     modifier: Modifier = Modifier,
     show: Boolean,
-    player: Player? = null,
+    player: PlaybackController? = null,
     playerPreferences: PlayerPreferences,
     appPreferences: ApplicationPreferences,
     onUpdatePlayerPreferences: ((PlayerPreferences) -> PlayerPreferences) -> Unit = {},
@@ -924,28 +924,29 @@ private fun AutomationBehaviourTab(
 
 @OptIn(UnstableApi::class)
 @Composable
-private fun MediaInformationTab(player: Player?) {
+@Composable
+private fun MediaInformationTab(player: PlaybackController?) {
     val clipboardManager = LocalClipboardManager.current
     val hapticFeedback = LocalHapticFeedback.current
+    val snapshot = player?.state?.value
 
-    val title = player?.currentMediaItem?.mediaMetadata?.title?.toString()
-        ?: player?.currentMediaItem?.localConfiguration?.uri?.lastPathSegment
+    val title = snapshot?.currentItem?.title?.takeIf { it.isNotBlank() }
+        ?: snapshot?.currentItem?.uri?.lastPathSegment
         ?: "Video"
-    val uri = player?.currentMediaItem?.localConfiguration?.uri?.toString() ?: ""
+    val uri = snapshot?.currentItem?.uri?.toString() ?: ""
 
-    val exoPlayer = player as? ExoPlayer
-    val videoFormat = exoPlayer?.videoFormat
-    val audioFormat = exoPlayer?.audioFormat
-    val videoSize = player?.videoSize
+    val videoTrack = snapshot?.videoTracks?.firstOrNull { it.isSelected } ?: snapshot?.videoTracks?.firstOrNull()
+    val audioTrack = snapshot?.audioTracks?.firstOrNull { it.isSelected } ?: snapshot?.audioTracks?.firstOrNull()
 
-    val width = videoFormat?.width ?: videoSize?.width ?: 0
-    val height = videoFormat?.height ?: videoSize?.height ?: 0
-    val fps = videoFormat?.frameRate ?: 0f
-    val videoCodec = videoFormat?.sampleMimeType ?: videoFormat?.codecs ?: "Standard Video Stream"
-    val videoBitrate = videoFormat?.bitrate?.takeIf { it > 0 }?.let { "${it / 1000} kbps" }
+    val width = snapshot?.videoWidth?.takeIf { it > 0 } ?: videoTrack?.width ?: 0
+    val height = snapshot?.videoHeight?.takeIf { it > 0 } ?: videoTrack?.height ?: 0
+    val fps = snapshot?.containerFps?.takeIf { it > 0f } ?: videoTrack?.fps ?: 0f
+    val videoCodec = snapshot?.videoCodec ?: videoTrack?.codec ?: "Standard Video Stream"
+    val rawVideoBitrate = snapshot?.videoBitrate?.takeIf { it > 0 } ?: videoTrack?.bitrate ?: 0
+    val videoBitrate = rawVideoBitrate.takeIf { it > 0 }?.let { "${it / 1000} kbps" }
 
-    val audioCodec = audioFormat?.sampleMimeType ?: audioFormat?.codecs ?: "Standard Audio"
-    val channelCount = audioFormat?.channelCount ?: 0
+    val audioCodec = snapshot?.audioCodec ?: audioTrack?.codec ?: "Standard Audio"
+    val channelCount = snapshot?.audioChannels?.takeIf { it > 0 } ?: audioTrack?.channels ?: 0
     val channelLabel = when (channelCount) {
         1 -> "Mono (1 ch)"
         2 -> "Stereo (2 ch)"
@@ -953,10 +954,12 @@ private fun MediaInformationTab(player: Player?) {
         8 -> "7.1 Surround (8 ch)"
         else -> if (channelCount > 0) "$channelCount ch" else "Stereo"
     }
-    val sampleRate = audioFormat?.sampleRate?.takeIf { it > 0 }?.let { "$it Hz" }
-    val audioBitrate = audioFormat?.bitrate?.takeIf { it > 0 }?.let { "${it / 1000} kbps" }
+    val rawSampleRate = snapshot?.audioSampleRate?.takeIf { it > 0 } ?: audioTrack?.sampleRate ?: 0
+    val sampleRate = rawSampleRate.takeIf { it > 0 }?.let { "$it Hz" }
+    val rawAudioBitrate = snapshot?.audioBitrate?.takeIf { it > 0 } ?: audioTrack?.bitrate ?: 0
+    val audioBitrate = rawAudioBitrate.takeIf { it > 0 }?.let { "${it / 1000} kbps" }
 
-    val durationMs = player?.duration?.coerceAtLeast(0L) ?: 0L
+    val durationMs = snapshot?.durationMs?.coerceAtLeast(0L) ?: 0L
     val seconds = (durationMs / 1000) % 60
     val minutes = (durationMs / (1000 * 60)) % 60
     val hours = durationMs / (1000 * 60 * 60)
@@ -1146,10 +1149,9 @@ private fun MediaInformationTab(player: Player?) {
 
 // ---------------- TAB 5: SPEED & QUICK TOOLS ----------------
 
-@OptIn(UnstableApi::class)
 @Composable
 private fun SpeedAndToolsTab(
-    player: Player?,
+    player: PlaybackController?,
     onDismiss: () -> Unit,
     onPlaybackSpeedClick: () -> Unit,
     onLyricsClick: () -> Unit,
@@ -1177,6 +1179,35 @@ private fun SpeedAndToolsTab(
                     onPlaybackSpeedClick()
                 }
             )
+        }
+
+        SheetSectionLabel("mpv Video Engine (Anime4K & HDR)")
+        if (player != null) {
+            val snapState by player.state.collectAsState()
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf("OFF", "A", "B", "C", "A_PLUS", "ARTCNN").forEach { mode ->
+                    FilterChip(
+                        selected = snapState.anime4kMode == mode,
+                        onClick = { player.setAnime4KMode(mode) },
+                        label = { Text("Anime4K: $mode") },
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf("OFF", "PQ", "HLG", "BT2390", "REINHARD").forEach { hdr ->
+                    FilterChip(
+                        selected = snapState.hdrMode == hdr,
+                        onClick = { player.setHdrMode(hdr) },
+                        label = { Text("HDR: $hdr") },
+                    )
+                }
+            }
         }
 
         SheetSectionLabel("Creative & Power Tools")
@@ -1292,9 +1323,8 @@ private fun SpeedAndToolsTab(
 
 // ---------------- SPEED SUBCOMPONENT ----------------
 
-@OptIn(UnstableApi::class)
 @Composable
-private fun SpeedSheetContent(player: Player) {
+private fun SpeedSheetContent(player: PlaybackController) {
     val hapticFeedback = LocalHapticFeedback.current
     val playbackParametersState = rememberPlaybackParametersState(player)
     val currentSpeed = playbackParametersState.speed

@@ -1,12 +1,20 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package dev.roxy.kryptonplayer
 
+import android.Manifest
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Color
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
@@ -14,83 +22,62 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import dev.roxy.kryptonplayer.core.ui.components.MochyMotion
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import android.Manifest
-import android.content.Context
-import android.os.Build
-import dev.roxy.kryptonplayer.core.ui.components.AppPermissionBottomSheet
-import dev.roxy.kryptonplayer.core.ui.components.AppPermissionType
-import android.content.ComponentName
-import android.content.Intent
-import android.net.Uri
-import androidx.media3.common.Player
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
-import com.google.common.util.concurrent.ListenableFuture
-import dev.roxy.kryptonplayer.core.ui.theme.LocalMediaController
-import dev.roxy.kryptonplayer.feature.player.service.PlayerService
-import dev.roxy.kryptonplayer.feature.player.PlayerActivity
-import dev.roxy.kryptonplayer.feature.videopicker.composables.MiniPlayer
-import dev.roxy.kryptonplayer.feature.videopicker.composables.rememberPlayerState
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import dev.roxy.kryptonplayer.crash.CrashBreadcrumbs
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.isGranted
-import com.google.accompanist.permissions.rememberPermissionState
 import dagger.hilt.android.AndroidEntryPoint
 import dev.roxy.kryptonplayer.core.common.hasMediaAccessPermission
-import dev.roxy.kryptonplayer.core.common.storagePermission
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.common.storagePermissions
-import dev.roxy.kryptonplayer.core.media.services.MediaService
-import dev.roxy.kryptonplayer.core.media.sync.MediaSynchronizer
-import dev.roxy.kryptonplayer.core.model.ThemeConfig
-import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
-import dev.roxy.kryptonplayer.feature.videopicker.navigation.MediaPickerRoute
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import android.content.pm.PackageManager
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import dev.roxy.kryptonplayer.navigation.MediaRootRoute
-import dev.roxy.kryptonplayer.navigation.mediaNavGraph
-import dev.roxy.kryptonplayer.navigation.settingsNavGraph
-import dev.roxy.kryptonplayer.settings.navigation.settingsNavigationRoute
-import javax.inject.Inject
-import kotlinx.coroutines.flow.MutableStateFlow
 import dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo
 import dev.roxy.kryptonplayer.core.data.update.AppUpdateManager
 import dev.roxy.kryptonplayer.core.data.update.UpdateState
+import dev.roxy.kryptonplayer.core.media.services.MediaService
+import dev.roxy.kryptonplayer.core.media.sync.MediaSynchronizer
+import dev.roxy.kryptonplayer.core.ui.components.AppPermissionBottomSheet
+import dev.roxy.kryptonplayer.core.ui.components.AppPermissionType
 import dev.roxy.kryptonplayer.core.ui.components.AppUpdateSheet
+import dev.roxy.kryptonplayer.core.ui.components.MochyMotion
+import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
+import dev.roxy.kryptonplayer.core.ui.theme.LocalPlaybackController
+import dev.roxy.kryptonplayer.crash.CrashBreadcrumbs
+import dev.roxy.kryptonplayer.feature.player.PlayerActivity
+import dev.roxy.kryptonplayer.feature.videopicker.composables.MiniPlayer
+import dev.roxy.kryptonplayer.navigation.MediaRootRoute
+import dev.roxy.kryptonplayer.navigation.mediaNavGraph
+import dev.roxy.kryptonplayer.navigation.settingsNavGraph
 import dev.roxy.kryptonplayer.onboarding.KryptonOnboardingFlow
 import dev.roxy.kryptonplayer.onboarding.KryptonOnboardingSheetShell
+import dev.roxy.kryptonplayer.settings.navigation.settingsNavigationRoute
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -103,6 +90,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var appUpdateManager: AppUpdateManager
+
+    @Inject
+    lateinit var playbackController: PlaybackController
 
     private val viewModel: MainViewModel by viewModels()
 
@@ -196,37 +186,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            var mediaController by remember { mutableStateOf<MediaController?>(null) }
-            var controllerFuture by remember { mutableStateOf<ListenableFuture<MediaController>?>(null) }
-
-            DisposableEffect(Unit) {
-                val sessionToken = SessionToken(
-                    applicationContext,
-                    ComponentName(applicationContext, PlayerService::class.java)
-                )
-                val future = MediaController.Builder(applicationContext, sessionToken).buildAsync()
-                controllerFuture = future
-
-                future.addListener(
-                    {
-                        try {
-                            mediaController = future.get()
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    },
-                    ContextCompat.getMainExecutor(applicationContext)
-                )
-
-                onDispose {
-                    controllerFuture?.run {
-                        MediaController.releaseFuture(this)
-                    }
-                    mediaController = null
-                    controllerFuture = null
-                }
-            }
-
             LaunchedEffect(shouldUseDarkTheme) {
                 enableEdgeToEdge(
                     statusBarStyle = SystemBarStyle.auto(
@@ -308,7 +267,7 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                CompositionLocalProvider(LocalMediaController provides mediaController) {
+                CompositionLocalProvider(LocalPlaybackController provides playbackController) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.surface,
@@ -553,36 +512,35 @@ class MainActivity : ComponentActivity() {
                                 settingsNavGraph(navController = mainNavController)
                             }
 
-                            mediaController?.let { controller ->
-                                val playerState = rememberPlayerState(controller)
-                                val showMiniPlayer = playerState.currentMediaItem != null && playerState.playbackState != Player.STATE_IDLE
-                                if (showMiniPlayer) {
-                                    val currentBackStackEntry by mainNavController.currentBackStackEntryAsState()
-                                    val currentRoute = currentBackStackEntry?.destination?.route
-                                    val isSettingsRoot = currentRoute == settingsNavigationRoute
-                                    val isBottomNavVisible = currentRoute == null ||
-                                            isSettingsRoot ||
-                                            (!currentRoute.contains("Preferences", ignoreCase = true) &&
-                                             !currentRoute.contains("Stats", ignoreCase = true) &&
-                                             !currentRoute.contains("Backup", ignoreCase = true) &&
-                                             !currentRoute.contains("Storage", ignoreCase = true))
+                            val playbackState by playbackController.state.collectAsStateWithLifecycle()
+                            val showMiniPlayer = playbackState.currentItem != null && !playbackState.isIdle
+                            if (showMiniPlayer) {
+                                val currentBackStackEntry by mainNavController.currentBackStackEntryAsState()
+                                val currentRoute = currentBackStackEntry?.destination?.route
+                                val isSettingsRoot = currentRoute == settingsNavigationRoute
+                                val isBottomNavVisible = currentRoute == null ||
+                                    isSettingsRoot ||
+                                    (!currentRoute.contains("Preferences", ignoreCase = true) &&
+                                        !currentRoute.contains("Stats", ignoreCase = true) &&
+                                        !currentRoute.contains("Backup", ignoreCase = true) &&
+                                        !currentRoute.contains("Storage", ignoreCase = true))
 
-                                    MiniPlayer(
-                                        player = controller,
-                                        onMiniPlayerClick = {
-                                            val context = this@MainActivity
-                                            val intent = Intent(context, PlayerActivity::class.java).apply {
-                                                action = Intent.ACTION_VIEW
-                                                data = controller.currentMediaItem?.localConfiguration?.uri
-                                            }
-                                            context.startActivity(intent)
-                                        },
-                                        modifier = Modifier
-                                            .align(Alignment.BottomCenter)
-                                            .navigationBarsPadding()
-                                            .padding(bottom = if (isBottomNavVisible) 88.dp else 12.dp)
-                                    )
-                                }
+                                MiniPlayer(
+                                    playbackController = playbackController,
+                                    playbackState = playbackState,
+                                    onMiniPlayerClick = {
+                                        val context = this@MainActivity
+                                        val intent = Intent(context, PlayerActivity::class.java).apply {
+                                            action = Intent.ACTION_VIEW
+                                            data = playbackState.currentItem?.uri
+                                        }
+                                        context.startActivity(intent)
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .navigationBarsPadding()
+                                        .padding(bottom = if (isBottomNavVisible) 88.dp else 12.dp),
+                                )
                             }
                         }
                         }

@@ -132,12 +132,17 @@ object CrashAnalyzer {
                     "Enable android:largeHeap, downscale bitmaps on decode, and ensure caches are bounded.",
                 )
             }
-            fullStack.contains("PlaybackException") || fullStack.contains("MediaCodec") || fullStack.contains("ExoPlayer") -> {
+            fullStack.contains("PlaybackFailure") ||
+                fullStack.contains("MPV_PLAYBACK_ERROR") ||
+                fullStack.contains("libmpv", ignoreCase = true) ||
+                fullStack.contains("is.xyz.mpv") ||
+                fullStack.contains("MPV") ||
+                fullStack.contains("MediaCodec") -> {
                 Quadruple(
                     "Media Playback / Codec Exception",
-                    "Audio/Video decoder failure or expired stream source",
-                    "Media Player & Codecs",
-                    "Check network stream URL validity and ensure hardware decoder handles video resolution.",
+                    "MPV/libmpv audio/video decoder failure or expired stream source",
+                    "Media Player & Codecs (libmpv)",
+                    "Check network stream URL validity and ensure MediaCodec hardware or libmpv software decoder handles video resolution.",
                 )
             }
             fullStack.contains("NullPointerException") -> {
@@ -309,8 +314,12 @@ object CrashAnalyzer {
                 "Telegram Downloads & Cache"
             culpritClass.contains("Tdlib", ignoreCase = true) || fullStack.contains("org.drinkless.tdlib") ->
                 "Telegram TDLib MTProto Engine"
-            culpritClass.contains("Player", ignoreCase = true) || culpritClass.contains("Media", ignoreCase = true) || fullStack.contains("androidx.media3") ->
-                "Media Player & ExoPlayer"
+            culpritClass.contains("Player", ignoreCase = true) ||
+                culpritClass.contains("Media", ignoreCase = true) ||
+                culpritClass.contains("Mpv", ignoreCase = true) ||
+                fullStack.contains("is.xyz.mpv") ||
+                fullStack.contains("libmpv", ignoreCase = true) ->
+                "Media Player & libmpv"
             culpritClass.contains("Channel", ignoreCase = true) || culpritClass.contains("TelegramScreen", ignoreCase = true) || culpritClass.contains("TelegramLibrary", ignoreCase = true) ->
                 "Telegram Channels & UI"
             culpritClass.contains("Navigation", ignoreCase = true) || culpritClass.contains("NavHost", ignoreCase = true) ->
@@ -802,7 +811,7 @@ object CrashAnalyzer {
                 "Settings Screen Liquid Glass & Styles"
             lastNav.contains("MediaPicker", ignoreCase = true) -> "MediaPicker / Folder Hero & Liquid Glass UI"
             lastNav.contains("Telegram", ignoreCase = true) -> "Telegram Cloud & Video Streams UI"
-            lastNav.contains("Player", ignoreCase = true) -> "ExoPlayer & Controls UI"
+            lastNav.contains("Player", ignoreCase = true) -> "MPV Player & Controls UI"
             lastNav.contains("Settings", ignoreCase = true) -> "Settings & Appearance UI"
             else -> "Jetpack Compose Modifier.Node Tree"
         }

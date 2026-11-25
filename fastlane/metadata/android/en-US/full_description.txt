@@ -10,7 +10,7 @@ Supported formats:
 Key Features:
 
  * Native Android app with modern Material 3 Expressive interface
- * Completely free and open source under GNU GPLv3
+ * Completely free and open source under GNU AGPLv3
  * Material 3 dynamic theming support
  * Audio/Subtitle track selection
  * Vertical swipe to change brightness (left) / volume (right)

@@ -44,14 +44,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.Player
 import coil3.compose.AsyncImage
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.data.lyrics.LyricsLine
 import dev.roxy.kryptonplayer.core.data.lyrics.LyricsParser
 import dev.roxy.kryptonplayer.core.data.lyrics.LyricsRepository
 import dev.roxy.kryptonplayer.core.data.lyrics.LyricsUiState
-import dev.roxy.kryptonplayer.core.ui.components.LottieLyricsIcon
 import dev.roxy.kryptonplayer.core.model.PlayerPreferences
+import dev.roxy.kryptonplayer.core.ui.components.LottieLyricsIcon
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
 import dev.roxy.kryptonplayer.feature.player.PlayerViewModel
 import kotlinx.coroutines.delay
@@ -60,12 +60,12 @@ import kotlinx.coroutines.isActive
 @Composable
 fun LiveLyricsBottomSheet(
     viewModel: PlayerViewModel,
-    player: Player,
+    player: PlaybackController,
     videoTitle: String? = null,
     artist: String? = null,
     artworkUri: Uri? = null,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val configuration = androidx.compose.ui.platform.LocalConfiguration.current
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
@@ -75,29 +75,21 @@ fun LiveLyricsBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val lyricsState by viewModel.lyricsState.collectAsStateWithLifecycle()
     val preferences by viewModel.playerPreferences.collectAsStateWithLifecycle()
+    val snapshot by player.state.collectAsState()
 
-    var currentPositionMs by remember { mutableLongStateOf(player.currentPosition) }
-    var durationMs by remember { mutableLongStateOf(player.duration.coerceAtLeast(0L)) }
-    var isPlaying by remember { mutableStateOf(player.isPlaying) }
+    val currentPositionMs = snapshot.currentPositionMs
+    val durationMs = snapshot.durationMs.coerceAtLeast(0L)
+    val isPlaying = snapshot.isPlaying
 
     var customSearchQuery by remember { mutableStateOf("") }
     var showSearchField by remember { mutableStateOf(false) }
     var showSyncControls by remember { mutableStateOf(false) }
 
-    LaunchedEffect(player) {
-        while (isActive) {
-            currentPositionMs = player.currentPosition
-            durationMs = player.duration.coerceAtLeast(0L)
-            isPlaying = player.isPlaying
-            delay(33L)
-        }
-    }
-
     LaunchedEffect(videoTitle, artist) {
         if (lyricsState is LyricsUiState.Idle && !videoTitle.isNullOrBlank()) {
             viewModel.checkAndLoadLyrics(
                 context = context,
-                videoUri = player.currentMediaItem?.localConfiguration?.uri,
+                videoUri = snapshot.currentItem?.uri,
                 mediaTitle = videoTitle,
                 artist = artist
             )

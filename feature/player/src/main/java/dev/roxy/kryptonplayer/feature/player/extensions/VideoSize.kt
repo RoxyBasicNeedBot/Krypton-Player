@@ -1,6 +1,13 @@
 package dev.roxy.kryptonplayer.feature.player.extensions
 
-import androidx.media3.common.VideoSize
+data class PlayerVideoSize(
+    val width: Int = 0,
+    val height: Int = 0,
+) {
+    val isPortrait: Boolean
+        get() = height > width
 
-val VideoSize.isPortrait: Boolean
-    get() = this.height > this.width
+    companion object {
+        val UNKNOWN = PlayerVideoSize(0, 0)
+    }
+}

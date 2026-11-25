@@ -17,13 +17,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.C
-import androidx.media3.common.Player
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.feature.player.LocalControlsVisibilityState
 
 @Composable
 fun SeekBackButton(
-    player: Player,
+    player: PlaybackController,
     modifier: Modifier = Modifier,
     seekDurationSeconds: Int = 10,
     onSeekAnimated: ((Long) -> Unit)? = null,
@@ -46,12 +45,12 @@ fun SeekBackButton(
             val basePos = if (now - lastClickTimestamp < 1000L && pendingTargetPosition >= 0L) {
                 pendingTargetPosition
             } else {
-                player.currentPosition
+                player.state.value.currentPositionMs
             }
             val target = (basePos + deltaMs).coerceAtLeast(0L)
             pendingTargetPosition = target
             lastClickTimestamp = now
-            player.seekTo(target)
+            player.seekTo(target, isUserSeek = true)
             onSeekAnimated?.invoke(deltaMs)
             controlsVisibilityState?.showControls()
         },
@@ -67,7 +66,7 @@ fun SeekBackButton(
 
 @Composable
 fun SeekForwardButton(
-    player: Player,
+    player: PlaybackController,
     modifier: Modifier = Modifier,
     seekDurationSeconds: Int = 10,
     onSeekAnimated: ((Long) -> Unit)? = null,
@@ -87,24 +86,24 @@ fun SeekForwardButton(
         onClick = {
             val now = System.currentTimeMillis()
             val deltaMs = seekDurationSeconds * 1000L
-            val duration = player.duration
-            val maxPos = if (duration != C.TIME_UNSET && duration > 0L) duration else Long.MAX_VALUE
+            val snapshot = player.state.value
+            val maxPos = if (snapshot.durationMs > 0L) snapshot.durationMs else Long.MAX_VALUE
             val basePos = if (now - lastClickTimestamp < 1000L && pendingTargetPosition >= 0L) {
                 pendingTargetPosition
             } else {
-                player.currentPosition
+                snapshot.currentPositionMs
             }
             val target = (basePos + deltaMs).coerceAtMost(maxPos)
             pendingTargetPosition = target
             lastClickTimestamp = now
-            player.seekTo(target)
+            player.seekTo(target, isUserSeek = true)
             onSeekAnimated?.invoke(deltaMs)
             controlsVisibilityState?.showControls()
         },
     ) {
         Icon(
             imageVector = icon,
-            contentDescription = "Forward ${seekDurationSeconds}s",
+            contentDescription = "Fast forward ${seekDurationSeconds}s",
             tint = Color.White,
             modifier = Modifier.size(26.dp),
         )

@@ -65,10 +65,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MimeTypes
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackFailure
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackMediaItem
 import dev.roxy.kryptonplayer.core.data.download.TelegramDownloadManager
 import java.io.File
 import java.text.SimpleDateFormat
@@ -77,25 +76,23 @@ import java.util.Locale
 
 @Composable
 fun PlayerErrorDiagnosticsDialog(
-    error: PlaybackException,
-    player: Player,
+    error: PlaybackFailure,
+    player: PlaybackController,
     onDismiss: () -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
 ) {
     val context = LocalContext.current
     var showDetailedLogs by remember { mutableStateOf(true) }
 
-    val currentMediaItem = player.currentMediaItem
-    val currentUri = currentMediaItem?.localConfiguration?.uri ?: Uri.EMPTY
+    val snapshot = player.state.value
+    val currentMediaItem = snapshot.currentItem
+    val currentUri = currentMediaItem?.uri ?: error.uri?.toUri() ?: Uri.EMPTY
     val uriString = currentUri.toString()
-    val mediaTitle = currentMediaItem?.mediaMetadata?.title?.toString()
+    val mediaTitle = currentMediaItem?.title?.ifBlank { null }
         ?: currentUri.lastPathSegment
         ?: "Current Video"
 
-    val httpException = generateSequence(error.cause) { it.cause }
-        .filterIsInstance<androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException>()
-        .firstOrNull()
-    val httpResponseCode = httpException?.responseCode ?: 0
+    val httpResponseCode = error.httpStatusCode ?: 0
     val isHttpExpiredOrBlocked = httpResponseCode in listOf(401, 403, 404, 410, 502, 503, 504)
 
     var showEnterNewUrlDialog by remember { mutableStateOf(false) }
@@ -133,9 +130,9 @@ fun PlayerErrorDiagnosticsDialog(
     }
 
     val errorCodeName = error.errorCodeName
-    val errorCodeNum = error.errorCode
-    val errorMessage = error.message ?: "Unknown source error"
-    val errorCause = error.cause?.toString() ?: "No root cause throwable"
+    val errorCodeNum = error.httpStatusCode ?: 0
+    val errorMessage = error.message
+    val errorCause = error.cause ?: "No root cause details"
 
     val timestamp = remember {
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
@@ -152,8 +149,6 @@ fun PlayerErrorDiagnosticsDialog(
             appendLine("Is Local File / Cache: $isOfflineMedia")
             appendLine("Local File Size: $offlineFileSize")
             appendLine("Root Cause: $errorCause")
-            appendLine("\n--- STACK TRACE ---")
-            appendLine(error.stackTraceToString().take(2000))
         }
     }
 
@@ -382,20 +377,20 @@ fun PlayerErrorDiagnosticsDialog(
                                 ?: (if (fileId.isNotEmpty()) dev.roxy.kryptonplayer.core.data.network.NetworkConfig.streamUrl(fileId) else null)
 
                             if (!fallback.isNullOrEmpty()) {
-                                val newMediaItem = MediaItem.Builder()
-                                    .setUri(fallback)
-                                    .setMediaId(fallback)
-                                    .setMimeType(MimeTypes.VIDEO_MP4)
-                                    .setMediaMetadata(currentMediaItem?.mediaMetadata ?: androidx.media3.common.MediaMetadata.EMPTY)
-                                    .build()
-                                player.setMediaItem(newMediaItem)
-                                player.prepare()
-                                player.play()
+                                val fallbackItem = PlaybackMediaItem(
+                                    mediaId = fallback,
+                                    uri = fallback.toUri(),
+                                    title = currentMediaItem?.title ?: mediaTitle,
+                                    artist = currentMediaItem?.artist,
+                                    artworkUri = currentMediaItem?.artworkUri,
+                                )
+                                player.setPlaylist(listOf(fallbackItem), startIndex = 0, playWhenReady = true)
                                 Toast.makeText(context, "Switching to live stream...", Toast.LENGTH_SHORT).show()
                                 onDismiss()
                             } else {
-                                player.prepare()
-                                player.play()
+                                currentMediaItem?.let {
+                                    player.setPlaylist(listOf(it), startIndex = 0, playWhenReady = true)
+                                }
                                 onDismiss()
                             }
                         },
@@ -414,8 +409,9 @@ fun PlayerErrorDiagnosticsDialog(
                 // Resilient local retry option
                 OutlinedButton(
                     onClick = {
-                        player.prepare()
-                        player.play()
+                        currentMediaItem?.let {
+                            player.setPlaylist(listOf(it), startIndex = 0, playWhenReady = true)
+                        }
                         onDismiss()
                     },
                     modifier = Modifier.fillMaxWidth(),
@@ -439,8 +435,9 @@ fun PlayerErrorDiagnosticsDialog(
                                 rawPath?.let { File(it) }?.takeIf { it.exists() }?.delete()
                                 Toast.makeText(context, "Corrupt cache cleared", Toast.LENGTH_SHORT).show()
                             } catch (_: Exception) {}
-                            player.prepare()
-                            player.play()
+                            currentMediaItem?.let {
+                                player.setPlaylist(listOf(it), startIndex = 0, playWhenReady = true)
+                            }
                             onDismiss()
                         },
                         modifier = Modifier.fillMaxWidth(),
@@ -456,7 +453,7 @@ fun PlayerErrorDiagnosticsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    if (player.hasNextMediaItem()) {
+                    if (snapshot.hasNext) {
                         TextButton(
                             onClick = {
                                 onDismiss()
@@ -520,17 +517,14 @@ fun PlayerErrorDiagnosticsDialog(
                         val cleanUrl = enteredStreamUrl.trim()
                         if (cleanUrl.isNotEmpty()) {
                             try {
-                                val newMediaItem = MediaItem.Builder()
-                                    .setUri(cleanUrl)
-                                    .setMediaId(cleanUrl)
-                                    .setMimeType(MimeTypes.VIDEO_MP4)
-                                    .setMediaMetadata(
-                                        currentMediaItem?.mediaMetadata ?: androidx.media3.common.MediaMetadata.EMPTY
-                                    )
-                                    .build()
-                                player.setMediaItem(newMediaItem)
-                                player.prepare()
-                                player.play()
+                                val newMediaItem = PlaybackMediaItem(
+                                    mediaId = cleanUrl,
+                                    uri = cleanUrl.toUri(),
+                                    title = currentMediaItem?.title ?: mediaTitle,
+                                    artist = currentMediaItem?.artist,
+                                    artworkUri = currentMediaItem?.artworkUri,
+                                )
+                                player.setPlaylist(listOf(newMediaItem), startIndex = 0, playWhenReady = true)
                                 Toast.makeText(context, "Playing new stream...", Toast.LENGTH_SHORT).show()
                                 showEnterNewUrlDialog = false
                                 onDismiss()

@@ -8,34 +8,29 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerInputChange
-import androidx.media3.common.C
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.feature.player.extensions.formatted
-import dev.roxy.kryptonplayer.feature.player.extensions.setIsScrubbingModeEnabled
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 
-@UnstableApi
 @Composable
 fun rememberSeekGestureState(
-    player: Player,
+    player: PlaybackController,
     sensitivity: Float = 0.5f,
     enableSeekGesture: Boolean,
 ): SeekGestureState {
-    val seekGestureState = remember(player, sensitivity, enableSeekGesture) {
+    return remember(player, sensitivity, enableSeekGesture) {
         SeekGestureState(
             player = player,
             sensitivity = sensitivity,
             enableSeekGesture = enableSeekGesture,
         )
     }
-    return seekGestureState
 }
 
 @Stable
 class SeekGestureState(
-    private val player: Player,
+    private val player: PlaybackController,
     private val enableSeekGesture: Boolean = true,
     private val sensitivity: Float = 0.5f,
 ) {
@@ -51,23 +46,19 @@ class SeekGestureState(
     private var seekStartX = 0f
 
     fun onSeek(value: Long) {
+        val snap = player.state.value
         if (!isSeeking) {
             isSeeking = true
-            seekStartPosition = player.currentPosition
-            player.setIsScrubbingModeEnabled(true)
+            seekStartPosition = snap.currentPositionMs
+            player.setScrubbingMode(true)
         }
-
-        val dur = if (player.duration != C.TIME_UNSET && player.duration > 0L) player.duration else Long.MAX_VALUE
-        seekAmount = (value - seekStartPosition!!).coerceIn(
-            minimumValue = 0 - seekStartPosition!!,
-            maximumValue = dur - seekStartPosition!!,
+        val startPos = seekStartPosition ?: snap.currentPositionMs
+        val dur = if (snap.durationMs > 0L) snap.durationMs else Long.MAX_VALUE
+        seekAmount = (value - startPos).coerceIn(
+            minimumValue = 0L - startPos,
+            maximumValue = dur - startPos,
         )
-
-        if (value > player.currentPosition) {
-            player.seekTo(value.coerceAtMost(dur))
-        } else {
-            player.seekTo(value.coerceAtLeast(0L))
-        }
+        player.seekTo(value.coerceIn(0L, dur), isUserSeek = true)
     }
 
     fun onSeekEnd() {
@@ -76,29 +67,28 @@ class SeekGestureState(
 
     fun onDragStart(offset: Offset) {
         if (!enableSeekGesture) return
-        if (player.currentPosition == C.TIME_UNSET) return
+        val snap = player.state.value
+        if (snap.durationMs <= 0L && snap.currentPositionMs <= 0L) return
 
         isSeeking = true
         seekStartX = offset.x
-        seekStartPosition = player.currentPosition
-
-        player.setIsScrubbingModeEnabled(true)
+        seekStartPosition = snap.currentPositionMs
+        player.setScrubbingMode(true)
     }
 
-    @OptIn(UnstableApi::class)
     fun onDrag(change: PointerInputChange, dragAmount: Float) {
-        if (seekStartPosition == null) return
-        if (player.currentPosition <= 0L && dragAmount < 0) return
-        val dur = if (player.duration != C.TIME_UNSET && player.duration > 0L) player.duration else Long.MAX_VALUE
-        if (player.currentPosition >= dur && dragAmount > 0) return
+        val startPos = seekStartPosition ?: return
+        val snap = player.state.value
+        if (snap.currentPositionMs <= 0L && dragAmount < 0) return
+        val dur = if (snap.durationMs > 0L) snap.durationMs else Long.MAX_VALUE
+        if (snap.currentPositionMs >= dur && dragAmount > 0) return
 
-        val newPosition = seekStartPosition!! + ((change.position.x - seekStartX) * (sensitivity * 100)).toInt()
-        seekAmount = (newPosition - seekStartPosition!!).coerceIn(
-            minimumValue = 0 - seekStartPosition!!,
-            maximumValue = dur - seekStartPosition!!,
+        val newPosition = startPos + ((change.position.x - seekStartX) * (sensitivity * 100)).toInt()
+        seekAmount = (newPosition - startPos).coerceIn(
+            minimumValue = 0L - startPos,
+            maximumValue = dur - startPos,
         )
-
-        player.seekTo(newPosition.coerceIn(0L, dur))
+        player.seekTo(newPosition.coerceIn(0L, dur), isUserSeek = true)
     }
 
     fun onDragEnd() {
@@ -106,11 +96,10 @@ class SeekGestureState(
     }
 
     private fun reset() {
-        player.setIsScrubbingModeEnabled(false)
+        player.setScrubbingMode(false)
         isSeeking = false
         seekStartPosition = null
         seekAmount = null
-
         seekStartX = 0f
     }
 }

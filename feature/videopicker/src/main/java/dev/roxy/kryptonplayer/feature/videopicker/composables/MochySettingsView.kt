@@ -107,7 +107,7 @@ import kotlin.math.roundToInt
 private const val GITHUB_REPO_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player"
 private const val TELEGRAM_URL = "https://t.me/KryptonPlayer"
 private const val NEXT_PLAYER_REPO_URL = "https://github.com/anilbeesetti/nextplayer"
-private const val GPL_V3_URL = "https://www.gnu.org/licenses/gpl-3.0.html"
+private const val AGPL_V3_URL = "https://www.gnu.org/licenses/agpl-3.0.html"
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
@@ -859,7 +859,7 @@ fun MochySettingsView(
 
             SettingsRowItem(
                 title = "Open Source Licenses",
-                subtitle = "Licensed under GNU General Public License v3.0 (GPLv3)",
+                subtitle = "Licensed under GNU Affero General Public License v3.0 (AGPLv3)",
                 icon = Icons.Rounded.Description,
                 iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
                 iconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -1071,19 +1071,19 @@ fun MochySettingsView(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Krypton Player is free and open-source software licensed under the GNU General Public License v3.0 (GPLv3).",
+                        text = "Krypton Player is free and open-source software licensed under the GNU Affero General Public License v3.0 (AGPLv3).",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "You are free to run, copy, distribute, study, change and improve this application under the conditions of the GPLv3 license.",
+                        text = "You are free to run, copy, distribute, study, change and improve this application under the conditions of the AGPLv3 license.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             },
             dismissButton = {
-                TextButton(onClick = { openWebUrl(GPL_V3_URL) }) {
+                TextButton(onClick = { openWebUrl(AGPL_V3_URL) }) {
                     Text("View License (Web)")
                 }
             },

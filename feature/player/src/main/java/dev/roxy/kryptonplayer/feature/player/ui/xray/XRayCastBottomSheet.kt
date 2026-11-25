@@ -82,14 +82,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.C
-import androidx.media3.common.Player
 import coil3.compose.AsyncImage
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.data.network.models.TmdbCastMember
 import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
 import dev.roxy.kryptonplayer.feature.player.PlayerViewModel
 import dev.roxy.kryptonplayer.feature.player.XRayUiState
+import dev.roxy.kryptonplayer.feature.player.extensions.displayName
 import dev.roxy.kryptonplayer.feature.player.extensions.formatted
 import java.io.File
 import java.util.Locale
@@ -98,7 +98,7 @@ import kotlin.time.Duration.Companion.milliseconds
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun XRayCastBottomSheet(
-    player: Player? = null,
+    player: PlaybackController? = null,
     viewModel: PlayerViewModel,
     videoTitle: String,
     onDismiss: () -> Unit,
@@ -442,29 +442,19 @@ fun XRayCastBottomSheet(
 
 @Composable
 private fun MediaSpecificationsContent(
-    player: Player?,
+    player: PlaybackController?,
     videoTitle: String,
     context: Context,
 ) {
-    val videoFormat = player?.currentTracks?.groups
-        ?.firstOrNull { it.type == C.TRACK_TYPE_VIDEO && it.isSelected }
-        ?.getTrackFormat(0)
-        ?: player?.currentTracks?.groups
-            ?.firstOrNull { it.type == C.TRACK_TYPE_VIDEO }
-            ?.getTrackFormat(0)
+    val snapshot = player?.state?.collectAsState()?.value
+    val videoTrack = snapshot?.videoTracks?.firstOrNull { it.isSelected } ?: snapshot?.videoTracks?.firstOrNull()
+    val audioTrack = snapshot?.audioTracks?.firstOrNull { it.isSelected } ?: snapshot?.audioTracks?.firstOrNull()
 
-    val audioFormat = player?.currentTracks?.groups
-        ?.firstOrNull { it.type == C.TRACK_TYPE_AUDIO && it.isSelected }
-        ?.getTrackFormat(0)
-        ?: player?.currentTracks?.groups
-            ?.firstOrNull { it.type == C.TRACK_TYPE_AUDIO }
-            ?.getTrackFormat(0)
-
-    val durationMs = if (player != null && player.duration != C.TIME_UNSET && player.duration > 0L) player.duration else null
+    val durationMs = snapshot?.durationMs?.takeIf { it > 0L }
     val durationStr = durationMs?.milliseconds?.formatted() ?: "Live / Unknown"
 
-    val frameW = videoFormat?.width?.takeIf { it > 0 } ?: player?.videoSize?.width?.takeIf { it > 0 }
-    val frameH = videoFormat?.height?.takeIf { it > 0 } ?: player?.videoSize?.height?.takeIf { it > 0 }
+    val frameW = snapshot?.videoWidth?.takeIf { it > 0 } ?: videoTrack?.width?.takeIf { it > 0 }
+    val frameH = snapshot?.videoHeight?.takeIf { it > 0 } ?: videoTrack?.height?.takeIf { it > 0 }
 
     val resolutionStr = if (frameW != null && frameH != null && frameW > 0 && frameH > 0) {
         "$frameW x $frameH"
@@ -480,35 +470,39 @@ private fun MediaSpecificationsContent(
         }
     } else "HD"
 
-    val fpsStr = if (videoFormat != null && videoFormat.frameRate > 0) {
-        if (videoFormat.frameRate % 1f == 0f) "${videoFormat.frameRate.toInt()} fps"
-        else String.format(Locale.US, "%.2f fps", videoFormat.frameRate)
+    val fpsVal = snapshot?.containerFps?.takeIf { it > 0f } ?: videoTrack?.fps ?: 0f
+    val fpsStr = if (fpsVal > 0f) {
+        if (fpsVal % 1f == 0f) "${fpsVal.toInt()} fps"
+        else String.format(Locale.US, "%.2f fps", fpsVal)
     } else "Unknown"
 
-    val videoMimeStr = videoFormat?.sampleMimeType ?: "Unknown"
-    val videoCodecStr = videoFormat?.codecs ?: videoFormat?.sampleMimeType?.substringAfter("/")?.uppercase() ?: "Unknown"
+    val videoMimeStr = snapshot?.videoCodec ?: videoTrack?.codec ?: "Unknown"
+    val videoCodecStr = videoMimeStr.uppercase()
 
-    val videoBitrateStr = if (videoFormat != null && videoFormat.bitrate > 0) {
-        if (videoFormat.bitrate >= 1_000_000) String.format(Locale.US, "%.2f Mbps", videoFormat.bitrate / 1_000_000f)
-        else "${videoFormat.bitrate / 1000} kbps"
+    val videoBitrate = snapshot?.videoBitrate?.takeIf { it > 0 } ?: videoTrack?.bitrate ?: 0
+    val videoBitrateStr = if (videoBitrate > 0) {
+        if (videoBitrate >= 1_000_000) String.format(Locale.US, "%.2f Mbps", videoBitrate / 1_000_000f)
+        else "${videoBitrate / 1000} kbps"
     } else "Unknown"
 
-    val audioMimeStr = audioFormat?.sampleMimeType ?: "Unknown"
-    val audioCodecStr = audioFormat?.codecs ?: audioFormat?.sampleMimeType?.substringAfter("/")?.uppercase() ?: "Unknown"
+    val audioMimeStr = snapshot?.audioCodec ?: audioTrack?.codec ?: "Unknown"
+    val audioCodecStr = audioMimeStr.uppercase()
 
-    val audioChannelsStr = when (audioFormat?.channelCount) {
+    val channelCount = snapshot?.audioChannels?.takeIf { it > 0 } ?: audioTrack?.channels ?: 0
+    val audioChannelsStr = when (channelCount) {
         1 -> "Mono (1.0)"
         2 -> "Stereo (2.0)"
         6 -> "Surround (5.1)"
         8 -> "Surround (7.1)"
-        null -> "Unknown"
-        else -> "${audioFormat.channelCount} Channels"
+        0 -> "Unknown"
+        else -> "$channelCount Channels"
     }
 
-    val sampleRateStr = if (audioFormat != null && audioFormat.sampleRate > 0) "${audioFormat.sampleRate} Hz" else "Unknown"
-    val audioLanguageStr = audioFormat?.language?.ifBlank { "Default" } ?: "Default"
+    val sampleRate = snapshot?.audioSampleRate?.takeIf { it > 0 } ?: audioTrack?.sampleRate ?: 0
+    val sampleRateStr = if (sampleRate > 0) "$sampleRate Hz" else "Unknown"
+    val audioLanguageStr = audioTrack?.language?.ifBlank { "Default" } ?: "Default"
 
-    val uri = player?.currentMediaItem?.localConfiguration?.uri
+    val uri = snapshot?.currentItem?.uri
     val uriStr = uri?.toString() ?: ""
     val fileSizeStr = remember(uri) {
         if (uri == null) return@remember "Unknown"
@@ -737,9 +731,7 @@ private fun MediaSpecificationsContent(
         }
 
         // Subtitle & Stream Summary Card
-        val subtitleTracks = remember(player?.currentTracks) {
-            player?.currentTracks?.groups?.filter { it.type == C.TRACK_TYPE_TEXT } ?: emptyList()
-        }
+        val subtitleTracks = snapshot?.subtitleTracks.orEmpty()
         if (subtitleTracks.isNotEmpty()) {
             ElevatedCard(
                 shape = RoundedCornerShape(16.dp),
@@ -758,10 +750,9 @@ private fun MediaSpecificationsContent(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                     )
-                    subtitleTracks.forEachIndexed { idx, trackGroup ->
-                        val trackFormat = (0 until trackGroup.length).map { trackGroup.getTrackFormat(it) }.firstOrNull()
-                        val subName = trackFormat?.label ?: trackFormat?.language ?: "Track ${idx + 1}"
-                        val subMime = trackFormat?.sampleMimeType ?: "text"
+                    subtitleTracks.forEachIndexed { idx, track ->
+                        val subName = track.displayName(idx)
+                        val subMime = track.codec ?: "text"
                         InfoPropertyRow(
                             icon = Icons.Rounded.Subtitles,
                             label = "Subtitle ${idx + 1}",

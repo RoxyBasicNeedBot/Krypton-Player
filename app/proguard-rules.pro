@@ -19,10 +19,10 @@
 -keepclassmembers class org.drinkless.tdlib.** { *; }
 -dontwarn org.drinkless.tdlib.**
 
-## Media3 / ExoPlayer Protection Rules
--keep class androidx.media3.** { *; }
--keep interface androidx.media3.** { *; }
--dontwarn androidx.media3.**
+## libmpv JNI Protection Rules
+-keep,allowoptimization class is.xyz.mpv.** { public protected *; }
+
+## Guava Protection Rules
 -keep class com.google.common.** { *; }
 -keep class com.google.common.util.concurrent.** { *; }
 -keep class com.google.common.collect.** { *; }

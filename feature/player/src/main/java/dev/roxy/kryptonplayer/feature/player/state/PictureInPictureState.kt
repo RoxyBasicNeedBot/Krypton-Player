@@ -13,286 +13,216 @@ import android.graphics.Rect
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Process
-import android.provider.Settings
 import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.LocalActivity
 import androidx.annotation.DrawableRes
 import androidx.annotation.RequiresApi
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.DisposableEffectResult
-import androidx.compose.runtime.DisposableEffectScope
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.core.app.PictureInPictureModeChangedInfo
 import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.getSystemService
-import androidx.core.net.toUri
 import androidx.core.util.Consumer
-import androidx.media3.common.Player
-import androidx.media3.common.listen
-import dev.roxy.kryptonplayer.core.common.extensions.isPipFeatureSupported
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.ui.R as coreUiR
+import dev.roxy.kryptonplayer.feature.player.extensions.isPipFeatureSupported
+import dev.roxy.kryptonplayer.feature.player.extensions.seekBack
+import dev.roxy.kryptonplayer.feature.player.extensions.seekForward
+import dev.roxy.kryptonplayer.feature.player.mpv.PlaybackSession
 
 @Composable
 fun rememberPictureInPictureState(
-    player: Player,
+    player: PlaybackController,
     autoEnter: Boolean = true,
 ): PictureInPictureState {
-    val activity = LocalActivity.current
-    val pictureInPictureState = remember {
+    val activity = LocalActivity.current as ComponentActivity
+    val pipState = remember(activity, player, autoEnter) {
         PictureInPictureState(
+            activity = activity,
             player = player,
-            activity = activity as ComponentActivity,
             autoEnter = autoEnter,
         )
     }
-    DisposableEffect(activity) { pictureInPictureState.handleListeners(this) }
-    LaunchedEffect(player) { pictureInPictureState.observe() }
-    return pictureInPictureState
+    DisposableEffect(pipState, activity) {
+        pipState.registerReceiver()
+        onDispose { pipState.unregisterReceiver() }
+    }
+    LaunchedEffect(pipState) { pipState.observe() }
+    return pipState
 }
 
-@Stable
 class PictureInPictureState(
-    private val player: Player,
     private val activity: ComponentActivity,
+    private val player: PlaybackController,
     private val autoEnter: Boolean = true,
 ) {
-    companion object {
-        private const val PIP_INTENT_ACTION = "pip_action"
-        private const val PIP_INTENT_ACTION_CODE = "pip_action_code"
-        private const val PIP_ACTION_PLAY = 1
-        private const val PIP_ACTION_PAUSE = 2
-        private const val PIP_ACTION_NEXT = 3
-        private const val PIP_ACTION_PREVIOUS = 4
-    }
+    val isPipSupported: Boolean get() = activity.isPipFeatureSupported()
 
-    val isPipSupported: Boolean = activity.isPipFeatureSupported
-
-    val hasPipPermission: Boolean
-        get() = if (isPipSupported) {
-            val appOps = getSystemService(activity, AppOpsManager::class.java) ?: return true
-            appOps.checkOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, Process.myUid(), activity.packageName) == AppOpsManager.MODE_ALLOWED
-        } else {
-            true
-        }
-
-    var isInPictureInPictureMode: Boolean by mutableStateOf(false)
+    var isInPipMode: Boolean by mutableStateOf(false)
         private set
 
-    private var lastAppliedSourceRectHint: Rect? = null
-    private var lastAppliedAspectRatio: Rational? = null
-    private var lastAppliedAutoEnterEnabled: Boolean? = null
-    private var lastAppliedActionsPlaybackState: Boolean? = null
+    private var videoRect: Rect? = null
+    private var receiverRegistered = false
 
-    private val pictureInPictureParamsBuilder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        PictureInPictureParams.Builder().apply {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                setSeamlessResizeEnabled(true)
+    private val pipActionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != ACTION_PIP_CONTROL) return
+            when (intent.getIntExtra(EXTRA_CONTROL_TYPE, -1)) {
+                CONTROL_TYPE_PLAY -> player.play()
+                CONTROL_TYPE_PAUSE -> player.pause()
+                CONTROL_TYPE_NEXT -> player.seekToNext()
+                CONTROL_TYPE_PREVIOUS -> player.seekToPrevious()
+                CONTROL_TYPE_REWIND -> player.seekBack()
+                CONTROL_TYPE_FORWARD -> player.seekForward()
             }
         }
-    } else {
-        null
     }
 
-    fun setVideoViewRect(rect: Rect) {
-        if (pictureInPictureParamsBuilder == null) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        if (rect.width() <= 0 || rect.height() <= 0) return
-
-        val sourceRectHint = Rect(rect)
-        val aspectRatio = Rational(sourceRectHint.width(), sourceRectHint.height())
-            .takeIf { it.toFloat() in 0.5f..2.39f }
-
-        var pictureInPictureParamsChanged = false
-
-        if (aspectRatio != null && aspectRatio != lastAppliedAspectRatio) {
-            pictureInPictureParamsBuilder.setAspectRatio(aspectRatio)
-            lastAppliedAspectRatio = aspectRatio
-            pictureInPictureParamsChanged = true
-        }
-        if (sourceRectHint != lastAppliedSourceRectHint) {
-            pictureInPictureParamsBuilder.setSourceRectHint(sourceRectHint)
-            lastAppliedSourceRectHint = sourceRectHint
-            pictureInPictureParamsChanged = true
-        }
-
-        if (pictureInPictureParamsChanged) {
-            applyPictureInPictureParams()
+    private val onPipModeChangedListener = Consumer<androidx.core.app.PictureInPictureModeChangedInfo> { info ->
+        isInPipMode = info.isInPictureInPictureMode
+        if (!info.isInPictureInPictureMode && player.state.value.isPlaying) {
+            PlaybackSession.setPropertyString("vid", "auto")
         }
     }
 
-    fun enterPictureInPictureMode(): Boolean {
-        if (pictureInPictureParamsBuilder == null) return false
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
-        if (isInPictureInPictureMode) return false
-
-        return try {
-            activity.enterPictureInPictureMode(pictureInPictureParamsBuilder.build())
-        } catch (e: IllegalStateException) {
-            false
-        }
-    }
-
-    fun openPictureInPictureSettings() {
-        val intent = Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS").apply {
-            data = "package:${activity.packageName}".toUri()
-        }
-        runCatching {
-            activity.startActivity(intent)
-        }.recoverCatching {
-            activity.startActivity(
-                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                    data = "package:${activity.packageName}".toUri()
-                },
+    fun registerReceiver() {
+        if (!receiverRegistered) {
+            ContextCompat.registerReceiver(
+                activity,
+                pipActionReceiver,
+                IntentFilter(ACTION_PIP_CONTROL),
+                ContextCompat.RECEIVER_NOT_EXPORTED,
             )
+            activity.addOnPictureInPictureModeChangedListener(onPipModeChangedListener)
+            receiverRegistered = true
         }
     }
 
-    fun handleListeners(disposableEffectScope: DisposableEffectScope): DisposableEffectResult = with(disposableEffectScope) {
-        val pipBroadcastReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                if (intent == null || intent.action != PIP_INTENT_ACTION) return
-                when (intent.getIntExtra(PIP_INTENT_ACTION_CODE, 0)) {
-                    PIP_ACTION_PLAY -> player.play()
-                    PIP_ACTION_PAUSE -> player.pause()
-                    PIP_ACTION_NEXT -> player.seekToNext()
-                    PIP_ACTION_PREVIOUS -> player.seekToPrevious()
-                }
-            }
-        }
-
-        val pictureInPictureModeChangedListener: Consumer<PictureInPictureModeChangedInfo> = Consumer {
-            updateIsInPictureInPictureMode(pipBroadcastReceiver)
-        }
-
-        updateIsInPictureInPictureMode(pipBroadcastReceiver)
-        activity.addOnPictureInPictureModeChangedListener(pictureInPictureModeChangedListener)
-
-        return onDispose {
-            runCatching { activity.unregisterReceiver(pipBroadcastReceiver) }
-            activity.removeOnPictureInPictureModeChangedListener(pictureInPictureModeChangedListener)
+    fun unregisterReceiver() {
+        if (receiverRegistered) {
+            runCatching { activity.unregisterReceiver(pipActionReceiver) }
+            runCatching { activity.removeOnPictureInPictureModeChangedListener(onPipModeChangedListener) }
+            receiverRegistered = false
         }
     }
 
     suspend fun observe() {
-        updateAutoEnterEnabled()
-        updatePictureInPictureActions()
+        player.state.collect { snapshot ->
+            updatePictureInPictureParams(snapshot.isPlaying, snapshot.videoWidth, snapshot.videoHeight)
+        }
+    }
 
-        player.listen { events ->
-            if (events.contains(Player.EVENT_IS_PLAYING_CHANGED)) {
-                updateAutoEnterEnabled()
-                updatePictureInPictureActions()
+    fun setVideoViewRect(rect: Rect) {
+        videoRect = rect
+        val snap = player.state.value
+        updatePictureInPictureParams(snap.isPlaying, snap.videoWidth, snap.videoHeight)
+    }
+
+    fun openPictureInPicture(): Boolean {
+        if (!isPipSupported || !hasPipPermission()) return false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val snap = player.state.value
+            val params = buildPipParams(snap.isPlaying, snap.videoWidth, snap.videoHeight)
+            if (params != null) {
+                activity.enterPictureInPictureMode(params)
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    fun hasPipPermission(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false
+        val appOps = activity.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
+        val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            appOps.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, Process.myUid(), activity.packageName)
+        } else {
+            @Suppress("DEPRECATION")
+            appOps.checkOpNoThrow(AppOpsManager.OPSTR_PICTURE_IN_PICTURE, Process.myUid(), activity.packageName)
+        }
+        return mode == AppOpsManager.MODE_ALLOWED
+    }
+
+    private fun updatePictureInPictureParams(isPlaying: Boolean, width: Int, height: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isPipSupported && !activity.isFinishing) {
+            buildPipParams(isPlaying, width, height)?.let { params ->
+                runCatching { activity.setPictureInPictureParams(params) }
             }
         }
     }
 
-    private fun updateIsInPictureInPictureMode(pipBroadcastReceiver: BroadcastReceiver) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
-        isInPictureInPictureMode = activity.isInPictureInPictureMode
-        if (isInPictureInPictureMode) {
-            ContextCompat.registerReceiver(
-                activity,
-                pipBroadcastReceiver,
-                IntentFilter(PIP_INTENT_ACTION),
-                ContextCompat.RECEIVER_NOT_EXPORTED,
-            )
-        } else {
-            runCatching { activity.unregisterReceiver(pipBroadcastReceiver) }
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun buildPipParams(isPlaying: Boolean, width: Int, height: Int): PictureInPictureParams? {
+        if (!activity.packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return null
+        val builder = PictureInPictureParams.Builder()
+        if (width > 0 && height > 0) {
+            val ratio = (width.toFloat() / height.toFloat()).coerceIn(0.45f, 2.2f)
+            builder.setAspectRatio(Rational((ratio * 1000).toInt(), 1000))
         }
-    }
-
-    private fun updateAutoEnterEnabled() {
-        if (pictureInPictureParamsBuilder == null) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
-
-        val autoEnterEnabled = autoEnter && player.isPlaying
-        if (autoEnterEnabled == lastAppliedAutoEnterEnabled) return
-
-        pictureInPictureParamsBuilder.setAutoEnterEnabled(autoEnterEnabled)
-        lastAppliedAutoEnterEnabled = autoEnterEnabled
-        applyPictureInPictureParams()
-    }
-
-    private fun updatePictureInPictureActions() {
-        if (pictureInPictureParamsBuilder == null) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
-        val isPlaying = player.isPlaying
-        if (isPlaying == lastAppliedActionsPlaybackState) return
-
-        val actions = listOf(
-            createPipAction(
-                context = activity,
-                title = "skip to previous",
-                icon = coreUiR.drawable.ic_skip_prev,
-                actionCode = PIP_ACTION_PREVIOUS,
-            ),
-            if (isPlaying) {
-                createPipAction(
-                    context = activity,
-                    title = "pause",
-                    icon = coreUiR.drawable.ic_pause,
-                    actionCode = PIP_ACTION_PAUSE,
-                )
-            } else {
-                createPipAction(
-                    context = activity,
-                    title = "play",
-                    icon = coreUiR.drawable.ic_play,
-                    actionCode = PIP_ACTION_PLAY,
-                )
-            },
-            createPipAction(
-                context = activity,
-                title = "skip to next",
-                icon = coreUiR.drawable.ic_skip_next,
-                actionCode = PIP_ACTION_NEXT,
-            ),
-        )
-
-        pictureInPictureParamsBuilder.setActions(actions)
-        lastAppliedActionsPlaybackState = isPlaying
-        applyPictureInPictureParams()
-    }
-
-    private fun applyPictureInPictureParams() {
-        if (pictureInPictureParamsBuilder == null) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-
-        try {
-            activity.setPictureInPictureParams(pictureInPictureParamsBuilder.build())
-        } catch (e: IllegalStateException) {
-            e.printStackTrace()
+        videoRect?.let { builder.setSourceRectHint(it) }
+        builder.setActions(buildRemoteActions(isPlaying))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            builder.setAutoEnterEnabled(autoEnter && isPlaying)
+            builder.setSeamlessResizeEnabled(true)
         }
+        return builder.build()
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun createPipAction(
-        context: Context,
-        title: String,
-        @DrawableRes icon: Int,
-        actionCode: Int,
+    private fun buildRemoteActions(isPlaying: Boolean): List<RemoteAction> {
+        val snap = player.state.value
+        val actions = mutableListOf<RemoteAction>()
+        if (snap.hasPrevious) {
+            actions += createRemoteAction(coreUiR.drawable.ic_skip_prev, coreUiR.string.player_controls_previous, CONTROL_TYPE_PREVIOUS, 10)
+        } else {
+            actions += createRemoteAction(coreUiR.drawable.ic_skip_prev, coreUiR.string.player_controls_previous, CONTROL_TYPE_REWIND, 11)
+        }
+        if (isPlaying) {
+            actions += createRemoteAction(coreUiR.drawable.ic_pause, coreUiR.string.play_pause, CONTROL_TYPE_PAUSE, 12)
+        } else {
+            actions += createRemoteAction(coreUiR.drawable.ic_play, coreUiR.string.play_pause, CONTROL_TYPE_PLAY, 13)
+        }
+        if (snap.hasNext) {
+            actions += createRemoteAction(coreUiR.drawable.ic_skip_next, coreUiR.string.player_controls_next, CONTROL_TYPE_NEXT, 14)
+        } else {
+            actions += createRemoteAction(coreUiR.drawable.ic_skip_next, coreUiR.string.player_controls_next, CONTROL_TYPE_FORWARD, 15)
+        }
+        return actions
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun createRemoteAction(
+        @DrawableRes iconResId: Int,
+        @StringRes titleResId: Int,
+        controlType: Int,
+        requestCode: Int,
     ): RemoteAction {
-        return RemoteAction(
-            Icon.createWithResource(context, icon),
-            title,
-            title,
-            PendingIntent.getBroadcast(
-                context,
-                actionCode,
-                Intent(PIP_INTENT_ACTION).apply {
-                    putExtra(PIP_INTENT_ACTION_CODE, actionCode)
-                    setPackage(context.packageName)
-                },
-                PendingIntent.FLAG_IMMUTABLE,
-            ),
+        val title = activity.getString(titleResId)
+        val pendingIntent = PendingIntent.getBroadcast(
+            activity,
+            requestCode,
+            Intent(ACTION_PIP_CONTROL).setPackage(activity.packageName).putExtra(EXTRA_CONTROL_TYPE, controlType),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        return RemoteAction(Icon.createWithResource(activity, iconResId), title, title, pendingIntent)
+    }
+
+    companion object {
+        private const val ACTION_PIP_CONTROL = "dev.roxy.kryptonplayer.pip.CONTROL"
+        private const val EXTRA_CONTROL_TYPE = "control_type"
+        private const val CONTROL_TYPE_PLAY = 1
+        private const val CONTROL_TYPE_PAUSE = 2
+        private const val CONTROL_TYPE_NEXT = 3
+        private const val CONTROL_TYPE_PREVIOUS = 4
+        private const val CONTROL_TYPE_REWIND = 5
+        private const val CONTROL_TYPE_FORWARD = 6
     }
 }

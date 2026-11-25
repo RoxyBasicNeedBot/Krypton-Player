@@ -19,29 +19,26 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
-import androidx.media3.common.C
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.model.DoubleTapGesture
 import dev.roxy.kryptonplayer.feature.player.ui.SPEED_STEPS
-import kotlin.math.abs
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.time.Duration.Companion.milliseconds
 
-@UnstableApi
 @Composable
 fun rememberTapGestureState(
-    player: Player,
+    player: PlaybackController,
     doubleTapGesture: DoubleTapGesture,
     seekIncrementMillis: Long,
     useLongPressGesture: Boolean,
     longPressSpeed: Float,
 ): TapGestureState {
     val coroutineScope = rememberCoroutineScope()
-    val tapGestureState = remember(
+    return remember(
         player,
         doubleTapGesture,
         seekIncrementMillis,
@@ -57,12 +54,11 @@ fun rememberTapGestureState(
             coroutineScope = coroutineScope,
         )
     }
-    return tapGestureState
 }
 
 @Stable
 class TapGestureState(
-    private val player: Player,
+    private val player: PlaybackController,
     private val seekIncrementMillis: Long,
     private val useLongPressGesture: Boolean = true,
     private val coroutineScope: CoroutineScope,
@@ -77,7 +73,6 @@ class TapGestureState(
 
     private var pendingDoubleTapTargetPosition: Long = -1L
     private var resetJob: Job? = null
-    private var longPressBoostJob: Job? = null
     private var speedBeforeLongPress: Float = 1.0f
     private var currentSpeedIndex: Int = 4
     private var dragAccumulator: Float = 0f
@@ -85,35 +80,29 @@ class TapGestureState(
     fun handleDoubleTap(offset: Offset, size: IntSize) {
         val action = when (doubleTapGesture) {
             DoubleTapGesture.FAST_FORWARD_AND_REWIND -> {
-                val viewCenterX = size.width / 2
-                when {
-                    offset.x < viewCenterX -> DoubleTapAction.SEEK_BACKWARD
-                    else -> DoubleTapAction.SEEK_FORWARD
-                }
+                if (offset.x < size.width / 2f) DoubleTapAction.SEEK_BACKWARD else DoubleTapAction.SEEK_FORWARD
             }
-
             DoubleTapGesture.BOTH -> {
-                val eventPositionX = offset.x / size.width
+                val ratio = offset.x / size.width
                 when {
-                    eventPositionX < 0.42f -> DoubleTapAction.SEEK_BACKWARD
-                    eventPositionX > 0.58f -> DoubleTapAction.SEEK_FORWARD
+                    ratio < 0.42f -> DoubleTapAction.SEEK_BACKWARD
+                    ratio > 0.58f -> DoubleTapAction.SEEK_FORWARD
                     else -> DoubleTapAction.PLAY_PAUSE
                 }
             }
-
             DoubleTapGesture.PLAY_PAUSE -> DoubleTapAction.PLAY_PAUSE
-
             DoubleTapGesture.NONE -> return
         }
 
+        val snap = player.state.value
         when (action) {
             DoubleTapAction.SEEK_BACKWARD -> {
                 if (seekMillis >= 0L || pendingDoubleTapTargetPosition < 0L) {
-                    pendingDoubleTapTargetPosition = player.currentPosition
+                    pendingDoubleTapTargetPosition = snap.currentPositionMs
                     seekMillis = 0L
                 }
                 pendingDoubleTapTargetPosition = (pendingDoubleTapTargetPosition - seekIncrementMillis).coerceAtLeast(0L)
-                player.seekTo(pendingDoubleTapTargetPosition)
+                player.seekTo(pendingDoubleTapTargetPosition, isUserSeek = true)
                 seekMillis -= seekIncrementMillis
                 rippleTick++
                 val press = PressInteraction.Press(offset)
@@ -123,15 +112,14 @@ class TapGestureState(
                     interactionSource.emit(PressInteraction.Release(press))
                 }
             }
-
             DoubleTapAction.SEEK_FORWARD -> {
-                val duration = if (player.duration != C.TIME_UNSET && player.duration > 0L) player.duration else Long.MAX_VALUE
+                val dur = if (snap.durationMs > 0L) snap.durationMs else Long.MAX_VALUE
                 if (seekMillis <= 0L || pendingDoubleTapTargetPosition < 0L) {
-                    pendingDoubleTapTargetPosition = player.currentPosition
+                    pendingDoubleTapTargetPosition = snap.currentPositionMs
                     seekMillis = 0L
                 }
-                pendingDoubleTapTargetPosition = (pendingDoubleTapTargetPosition + seekIncrementMillis).coerceAtMost(duration)
-                player.seekTo(pendingDoubleTapTargetPosition)
+                pendingDoubleTapTargetPosition = (pendingDoubleTapTargetPosition + seekIncrementMillis).coerceAtMost(dur)
+                player.seekTo(pendingDoubleTapTargetPosition, isUserSeek = true)
                 seekMillis += seekIncrementMillis
                 rippleTick++
                 val press = PressInteraction.Press(offset)
@@ -141,28 +129,20 @@ class TapGestureState(
                     interactionSource.emit(PressInteraction.Release(press))
                 }
             }
-
-            DoubleTapAction.PLAY_PAUSE -> {
-                when (player.isPlaying) {
-                    true -> player.pause()
-                    false -> player.play()
-                }
-            }
+            DoubleTapAction.PLAY_PAUSE -> player.togglePlayPause()
         }
         resetDoubleTapSeekState()
     }
 
     fun handleLongPress(offset: Offset) {
         if (!useLongPressGesture) return
-        if (!player.isPlaying) {
+        val snap = player.state.value
+        if (!snap.isPlaying) {
             player.play()
         }
-
         isLongPressGestureInAction = true
-        speedBeforeLongPress = player.playbackParameters.speed
-        longPressBoostJob?.cancel()
+        speedBeforeLongPress = snap.playbackSpeed
 
-        // Find closest step to longPressSpeed
         val closestIndex = SPEED_STEPS.indexOfFirst { it == longPressSpeed }.let { idx ->
             if (idx != -1) idx else {
                 SPEED_STEPS.mapIndexed { i, v -> i to abs(v - longPressSpeed) }
@@ -176,23 +156,24 @@ class TapGestureState(
     }
 
     fun triggerButtonSeek(deltaMillis: Long, seekPlayer: Boolean = false) {
+        val snap = player.state.value
         if (seekPlayer) {
-            val dur = if (player.duration != C.TIME_UNSET && player.duration > 0L) player.duration else Long.MAX_VALUE
+            val dur = if (snap.durationMs > 0L) snap.durationMs else Long.MAX_VALUE
             if (deltaMillis > 0L) {
                 if (seekMillis <= 0L || pendingDoubleTapTargetPosition < 0L) {
-                    pendingDoubleTapTargetPosition = player.currentPosition
+                    pendingDoubleTapTargetPosition = snap.currentPositionMs
                     seekMillis = 0L
                 }
                 pendingDoubleTapTargetPosition = (pendingDoubleTapTargetPosition + deltaMillis).coerceAtMost(dur)
-                player.seekTo(pendingDoubleTapTargetPosition)
+                player.seekTo(pendingDoubleTapTargetPosition, isUserSeek = true)
                 seekMillis += deltaMillis
             } else {
                 if (seekMillis >= 0L || pendingDoubleTapTargetPosition < 0L) {
-                    pendingDoubleTapTargetPosition = player.currentPosition
+                    pendingDoubleTapTargetPosition = snap.currentPositionMs
                     seekMillis = 0L
                 }
                 pendingDoubleTapTargetPosition = (pendingDoubleTapTargetPosition + deltaMillis).coerceAtLeast(0L)
-                player.seekTo(pendingDoubleTapTargetPosition)
+                player.seekTo(pendingDoubleTapTargetPosition, isUserSeek = true)
                 seekMillis += deltaMillis
             }
         } else {
@@ -210,18 +191,14 @@ class TapGestureState(
 
     fun onHorizontalDrag(dragAmount: Float, context: Context?) {
         if (!isLongPressGestureInAction) return
-        longPressBoostJob?.cancel()
-        longPressBoostJob = null
         dragAccumulator += dragAmount
-
         val density = context?.resources?.displayMetrics?.density ?: 2.5f
-        val stepThresholdPx = 48f * density // 48dp per step for smooth, controllable scrubbing
+        val stepThresholdPx = 48f * density
 
         while (abs(dragAccumulator) >= stepThresholdPx) {
             val stepChange = if (dragAccumulator > 0f) 1 else -1
             val targetIndex = (currentSpeedIndex + stepChange).coerceIn(0, SPEED_STEPS.lastIndex)
             if (targetIndex == currentSpeedIndex) {
-                // At the limit (0.25x or 4.0x), reset accumulator so reverse drag responds immediately
                 dragAccumulator = 0f
                 break
             }
@@ -236,8 +213,6 @@ class TapGestureState(
     fun handleOnLongPressRelease() {
         if (isLongPressGestureInAction) {
             isLongPressGestureInAction = false
-            longPressBoostJob?.cancel()
-            longPressBoostJob = null
             player.setPlaybackSpeed(speedBeforeLongPress)
             dragAccumulator = 0f
         }
@@ -259,7 +234,8 @@ class TapGestureState(
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(30L)
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+        }
     }
 
     private fun resetDoubleTapSeekState() {

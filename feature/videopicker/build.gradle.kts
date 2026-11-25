@@ -42,11 +42,6 @@ dependencies {
     implementation(project(":core:media"))
     implementation(project(":core:model"))
 
-    // Media3 for video playback
-    implementation(libs.androidx.media3.common)
-    implementation(libs.androidx.media3.exoplayer)
-    implementation(libs.androidx.media3.ui)
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.google.android.material)

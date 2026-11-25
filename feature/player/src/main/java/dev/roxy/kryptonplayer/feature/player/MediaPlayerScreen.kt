@@ -14,7 +14,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.media3.common.C
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -69,8 +68,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackEvent
 import dev.roxy.kryptonplayer.core.model.ApplicationPreferences
 import dev.roxy.kryptonplayer.core.model.ControlButtonsPosition
 import dev.roxy.kryptonplayer.core.model.PlayerPreferences
@@ -105,7 +104,6 @@ import dev.roxy.kryptonplayer.feature.player.ui.OverlayShowView
 import dev.roxy.kryptonplayer.feature.player.ui.OverlayView
 import dev.roxy.kryptonplayer.feature.player.ui.SeekIndicatorOverlay
 import dev.roxy.kryptonplayer.feature.player.ui.SpeedSliderHUD
-import dev.roxy.kryptonplayer.feature.player.ui.SubtitleConfiguration
 import dev.roxy.kryptonplayer.feature.player.ui.VerticalProgressView
 import dev.roxy.kryptonplayer.feature.player.ui.controls.ControlsBottomView
 import dev.roxy.kryptonplayer.feature.player.ui.controls.ControlsTopView
@@ -137,10 +135,10 @@ import kotlinx.coroutines.delay
 
 val LocalControlsVisibilityState = compositionLocalOf<ControlsVisibilityState?> { null }
 
-@OptIn(UnstableApi::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MediaPlayerScreen(
-    player: Player?,
+    player: PlaybackController?,
     viewModel: PlayerViewModel,
     playerPreferences: PlayerPreferences,
     appPreferences: ApplicationPreferences,
@@ -254,46 +252,41 @@ fun MediaPlayerScreen(
     }
 
     // Track user-initiated actions vs remote sync actions
-    DisposableEffect(player, uiState.isConnectedToWatchParty) {
+    LaunchedEffect(player, uiState.isConnectedToWatchParty) {
         if (uiState.isConnectedToWatchParty) {
-            val listener = object : Player.Listener {
-                override fun onIsPlayingChanged(isPlaying: Boolean) {
-                    // Counter-based guard: if we're applying a remote event, don't echo back
-                    if (viewModel.isSyncGuardActive) return
-                    // Cooldown: don't echo within 5s of last remote event
-                    val timeSinceRemote = System.currentTimeMillis() - viewModel.lastRemoteEventTime
-                    if (timeSinceRemote < 3000L) return
-                    if (isPlaying) {
-                        viewModel.sendPlayToWatchParty(player.currentPosition)
-                    } else {
-                        // Only send pause if the player is not buffering
-                        if (player.playbackState != Player.STATE_BUFFERING) {
-                            viewModel.sendPauseToWatchParty(player.currentPosition)
+            player.events.collect { event ->
+                if (viewModel.isSyncGuardActive) return@collect
+                val timeSinceRemote = System.currentTimeMillis() - viewModel.lastRemoteEventTime
+                if (timeSinceRemote < 3000L) return@collect
+                val snap = player.state.value
+                when (event) {
+                    is PlaybackEvent.IsPlayingChanged -> {
+                        if (event.isPlaying) {
+                            viewModel.sendPlayToWatchParty(snap.currentPositionMs)
+                        } else if (!snap.isBuffering) {
+                            viewModel.sendPauseToWatchParty(snap.currentPositionMs)
                         }
                     }
-                }
-
-                override fun onPositionDiscontinuity(
-                    oldPosition: Player.PositionInfo,
-                    newPosition: Player.PositionInfo,
-                    reason: Int
-                ) {
-                    // Counter-based guard: if we're applying a remote event, don't echo back
-                    if (viewModel.isSyncGuardActive) return
-                    // Cooldown: don't echo within 5s of last remote event
-                    val timeSinceRemote = System.currentTimeMillis() - viewModel.lastRemoteEventTime
-                    if (timeSinceRemote < 3000L) return
-                    if (reason == Player.DISCONTINUITY_REASON_SEEK) {
-                        viewModel.sendSeekToWatchParty(newPosition.positionMs)
+                    is PlaybackEvent.SeekCompleted -> {
+                        if (event.userInitiated) {
+                            viewModel.sendSeekToWatchParty(event.positionMs)
+                        }
                     }
+                    else -> Unit
                 }
             }
-            player.addListener(listener)
-            onDispose {
-                player.removeListener(listener)
+        }
+    }
+
+    LaunchedEffect(player, uiState.isConnectedToWatchParty) {
+        if (uiState.isConnectedToWatchParty) {
+            while (true) {
+                kotlinx.coroutines.delay(500L)
+                val pos = player.state.value.currentPositionMs
+                if (pos >= 0L) {
+                    viewModel.updatePlayerPositionForSync(pos)
+                }
             }
-        } else {
-            onDispose {}
         }
     }
 
@@ -306,28 +299,25 @@ fun MediaPlayerScreen(
                 try {
                     when (command) {
                         is WatchPartyPlayerCommand.SeekAndPlay -> {
-                            player.seekTo(command.positionMs)
+                            player.seekTo(command.positionMs, isUserSeek = false)
                             player.play()
                         }
                         is WatchPartyPlayerCommand.SeekAndPause -> {
-                            player.seekTo(command.positionMs)
+                            player.seekTo(command.positionMs, isUserSeek = false)
                             player.pause()
                         }
                         is WatchPartyPlayerCommand.Seek -> {
-                            player.seekTo(command.positionMs)
+                            player.seekTo(command.positionMs, isUserSeek = false)
                         }
                         is WatchPartyPlayerCommand.HardSync -> {
-                            player.seekTo(command.positionMs)
+                            player.seekTo(command.positionMs, isUserSeek = false)
                         }
                         is WatchPartyPlayerCommand.AdjustSpeed -> {
-                            val params = player.playbackParameters
-                            if (params.speed != command.speed) {
-                                player.playbackParameters = params.withSpeed(command.speed)
+                            if (player.state.value.playbackSpeed != command.speed) {
+                                player.setPlaybackSpeed(command.speed)
                             }
                         }
                     }
-                    // Wait long enough for ExoPlayer to process the seek/play/pause
-                    // and fire its callbacks, so the guard catches them all
                     kotlinx.coroutines.delay(1500)
                 } finally {
                     viewModel.decrementSyncGuard()
@@ -431,8 +421,8 @@ fun MediaPlayerScreen(
                     )
                 }
 
-                // In-video Buffering & Initial Loading overlay (matching Nosved Player 1:1)
-                val isInitialLoading = (player?.playbackState == Player.STATE_BUFFERING || player?.playbackState == Player.STATE_IDLE) &&
+                // In-video Buffering & Initial Loading overlay
+                val isInitialLoading = (mediaPresentationState.isLoading || mediaPresentationState.isIdle) &&
                     mediaPresentationState.position == 0L &&
                     !mediaPresentationState.isPlaying
 
@@ -496,8 +486,8 @@ fun MediaPlayerScreen(
                         .align(Alignment.TopCenter)
                         .padding(top = 50.dp),
                 ) {
-                    val currentPos = if (player.currentPosition != C.TIME_UNSET) player.currentPosition else 0L
-                    val totalDur = if (player.duration != C.TIME_UNSET && player.duration > 0L) player.duration else 0L
+                    val currentPos = mediaPresentationState.position.coerceAtLeast(0L)
+                    val totalDur = mediaPresentationState.duration.coerceAtLeast(0L)
                     val deltaSec = ((seekGestureState.seekAmount ?: 0L) / 1000).toInt()
                     SeekIndicatorOverlay(
                         currentSeekPos = currentPos,
@@ -705,7 +695,7 @@ fun MediaPlayerScreen(
                 onUpdatePlayerPreferences = { viewModel.updatePlayerPreferences(it) },
                 onUpdateApplicationPreferences = { viewModel.updateApplicationPreferences(it) },
                 qualityUrls = uiState.qualityUrls,
-                currentQualityUrl = player.currentMediaItem?.localConfiguration?.uri?.toString() ?: "",
+                currentQualityUrl = mediaPresentationState.currentUri?.toString() ?: "",
                 onDismiss = { overlayView = null },
                 onSelectSubtitleClick = onSelectSubtitleClick,
                 onDownloadOnlineSubtitleClick = { showOnlineSubtitlesSheet = true },
@@ -715,16 +705,23 @@ fun MediaPlayerScreen(
                     controlsVisibilityState.lockControls()
                 },
                 onQualitySelected = { url ->
-                    val position = player.currentPosition
-                    val playWhenReady = player.playWhenReady
-                    val mediaItem = androidx.media3.common.MediaItem.Builder()
-                        .setUri(url)
-                        .setMediaId(url)
-                        .setMediaMetadata(player.mediaMetadata)
-                        .build()
-                    player.setMediaItem(mediaItem, position)
-                    player.playWhenReady = playWhenReady
-                    player.prepare()
+                    val snap = player.state.value
+                    val position = snap.currentPositionMs
+                    val isPlaying = snap.isPlaying
+                    val currentItem = snap.currentItem
+                    val updatedItem = dev.roxy.kryptonplayer.core.common.playback.PlaybackMediaItem(
+                        mediaId = url,
+                        uri = android.net.Uri.parse(url),
+                        title = currentItem?.title ?: metadataState.title ?: "",
+                        artist = currentItem?.artist,
+                        artworkUri = currentItem?.artworkUri,
+                    )
+                    player.setPlaylist(
+                        items = listOf(updatedItem),
+                        startIndex = 0,
+                        startPositionMs = position,
+                        playWhenReady = isPlaying,
+                    )
                 },
                 onRingtoneMakerClick = { showRingtoneMakerSheet = true },
                 onClipMakerClick = { showClipMakerSheet = true },
@@ -748,7 +745,7 @@ fun MediaPlayerScreen(
 
             if (showOnlineSubtitlesSheet) {
                 val currentTitle = metadataState.title?.takeIf { it.isNotBlank() }
-                    ?: player.currentMediaItem?.mediaMetadata?.title?.toString()
+                    ?: player.state.value.currentItem?.title?.takeIf { it.isNotBlank() }
                     ?: "Movie"
                 dev.roxy.kryptonplayer.feature.player.ui.OnlineSubtitleBottomSheet(
                     viewModel = viewModel,
@@ -762,7 +759,7 @@ fun MediaPlayerScreen(
 
             if (showUsbCastSheet) {
                 val currentTitle = metadataState.title?.takeIf { it.isNotBlank() }
-                    ?: player.currentMediaItem?.mediaMetadata?.title?.toString()
+                    ?: player.state.value.currentItem?.title?.takeIf { it.isNotBlank() }
                     ?: "Krypton Player Video"
                 dev.roxy.kryptonplayer.feature.player.ui.UsbCastBottomSheet(
                     viewModel = viewModel,
@@ -781,8 +778,7 @@ fun MediaPlayerScreen(
 
             if (showBookmarkSheet) {
                 val currentMediaUri = mediaPresentationState.currentUri?.toString()?.takeIf { it.isNotBlank() }
-                    ?: player.currentMediaItem?.mediaId?.takeIf { it.isNotBlank() }
-                    ?: player.currentMediaItem?.localConfiguration?.uri?.toString()
+                    ?: player.state.value.currentItem?.mediaId?.takeIf { it.isNotBlank() }
                     ?: metadataState.title?.takeIf { it.isNotBlank() }
                     ?: "current_media"
                 dev.roxy.kryptonplayer.feature.player.ui.BookmarkBottomSheet(
@@ -796,7 +792,7 @@ fun MediaPlayerScreen(
 
             if (showXRaySheet) {
                 val currentTitle = metadataState.title?.takeIf { it.isNotBlank() }
-                    ?: player.currentMediaItem?.mediaMetadata?.title?.toString()
+                    ?: player.state.value.currentItem?.title?.takeIf { it.isNotBlank() }
                     ?: "Movie"
                 dev.roxy.kryptonplayer.feature.player.ui.xray.XRayCastBottomSheet(
                     player = player,
@@ -807,12 +803,12 @@ fun MediaPlayerScreen(
             }
 
             if (showRingtoneMakerSheet) {
-        val uri = player.currentMediaItem?.localConfiguration?.uri
+        val uri = mediaPresentationState.currentUri
         if (uri != null) {
             RingtoneMakerBottomSheet(
                 sourceUri = uri,
-                currentPositionMs = player.currentPosition,
-                durationMs = player.duration,
+                currentPositionMs = mediaPresentationState.position,
+                durationMs = mediaPresentationState.duration,
                 mediaTitle = metadataState.title ?: "Ringtone",
                 onDismiss = { showRingtoneMakerSheet = false }
             )
@@ -820,12 +816,12 @@ fun MediaPlayerScreen(
     }
 
     if (showClipMakerSheet) {
-        val uri = player.currentMediaItem?.localConfiguration?.uri
+        val uri = mediaPresentationState.currentUri
         if (uri != null) {
             VideoClipMakerBottomSheet(
                 sourceUri = uri,
-                currentPositionMs = player.currentPosition,
-                durationMs = player.duration,
+                currentPositionMs = mediaPresentationState.position,
+                durationMs = mediaPresentationState.duration,
                 onDismiss = { showClipMakerSheet = false }
             )
         }
@@ -844,13 +840,13 @@ fun MediaPlayerScreen(
 
     if (showSoundtrackSheet) {
                 val currentTitle = metadataState.title?.takeIf { it.isNotBlank() }
-                    ?: player.currentMediaItem?.mediaMetadata?.title?.toString()
+                    ?: player.state.value.currentItem?.title?.takeIf { it.isNotBlank() }
                     ?: "Movie"
                 dev.roxy.kryptonplayer.feature.player.ui.soundtrack.SoundtrackFinderBottomSheet(
                     viewModel = viewModel,
                     videoTitle = currentTitle,
-                    videoUri = player.currentMediaItem?.localConfiguration?.uri,
-                    currentPositionMs = player.currentPosition,
+                    videoUri = mediaPresentationState.currentUri,
+                    currentPositionMs = mediaPresentationState.position,
                     onDismiss = { showSoundtrackSheet = false }
                 )
             }
@@ -1232,7 +1228,7 @@ fun InfoView(
 @Composable
 fun ControlsMiddleView(
     modifier: Modifier = Modifier,
-    player: Player,
+    player: PlaybackController,
     seekDurationSeconds: Int = 10,
     onSeekAnimated: ((Long) -> Unit)? = null,
 ) {

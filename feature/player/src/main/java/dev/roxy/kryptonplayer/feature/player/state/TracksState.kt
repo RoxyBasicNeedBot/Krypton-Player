@@ -2,50 +2,53 @@ package dev.roxy.kryptonplayer.feature.player.state
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.media3.common.C
-import androidx.media3.common.Player
-import androidx.media3.common.Tracks
-import androidx.media3.common.listen
-import androidx.media3.common.util.UnstableApi
-import dev.roxy.kryptonplayer.feature.player.extensions.switchTrack
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackTrack
 
-@UnstableApi
+enum class PlayerTrackType {
+    AUDIO,
+    SUBTITLE,
+    VIDEO,
+}
+
 @Composable
 fun rememberTracksState(
-    player: Player,
-    trackType: @C.TrackType Int,
+    player: PlaybackController,
+    trackType: PlayerTrackType,
 ): TracksState {
-    val tracksState = remember { TracksState(player, trackType) }
-    LaunchedEffect(player) { tracksState.observe() }
+    val tracksState = remember(player, trackType) { TracksState(player, trackType) }
+    LaunchedEffect(player, trackType) { tracksState.observe() }
     return tracksState
 }
 
+@Stable
 class TracksState(
-    private val player: Player,
-    private val trackType: @C.TrackType Int,
+    private val player: PlaybackController,
+    private val trackType: PlayerTrackType,
 ) {
-    var tracks: List<Tracks.Group> by mutableStateOf(emptyList())
+    var tracks: List<PlaybackTrack> by mutableStateOf(emptyList())
         private set
 
     fun switchTrack(index: Int) {
-        player.switchTrack(trackType, index)
-    }
-
-    suspend fun observe() {
-        updateTracks()
-
-        player.listen { events ->
-            if (events.contains(Player.EVENT_TRACKS_CHANGED)) {
-                updateTracks()
-            }
+        when (trackType) {
+            PlayerTrackType.AUDIO -> player.selectAudioTrack(index)
+            PlayerTrackType.SUBTITLE -> player.selectSubtitleTrack(index)
+            PlayerTrackType.VIDEO -> Unit
         }
     }
 
-    private fun updateTracks() {
-        tracks = player.currentTracks.groups.filter { it.type == trackType && it.isSupported }
+    suspend fun observe() {
+        player.state.collect { snapshot ->
+            tracks = when (trackType) {
+                PlayerTrackType.AUDIO -> snapshot.audioTracks
+                PlayerTrackType.SUBTITLE -> snapshot.subtitleTracks
+                PlayerTrackType.VIDEO -> snapshot.videoTracks
+            }
+        }
     }
 }

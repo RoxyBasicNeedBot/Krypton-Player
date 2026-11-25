@@ -9,28 +9,30 @@ import android.os.Build.VERSION.SDK_INT
 import androidx.core.graphics.applyCanvas
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.drawable.toDrawable
+import androidx.core.graphics.get
 import coil3.ImageLoader
 import coil3.annotation.ExperimentalCoilApi
 import coil3.asImage
 import coil3.decode.ContentMetadata
 import coil3.decode.DecodeResult
+import coil3.decode.DecodeUtils
 import coil3.decode.Decoder
 import coil3.decode.ImageSource
 import coil3.disk.DiskCache
 import coil3.fetch.SourceFetchResult
 import coil3.request.Options
-import coil3.toAndroidUri
-import okio.FileSystem
-import androidx.core.graphics.get
-import io.github.anilbeesetti.nextlib.mediainfo.MediaThumbnailRetriever
-import kotlin.math.abs
-import coil3.decode.DecodeUtils
 import coil3.request.maxBitmapSize
 import coil3.size.Precision
 import coil3.size.Size
 import coil3.size.pxOrElse
+import coil3.toAndroidUri
 import coil3.util.component1
 import coil3.util.component2
+import dev.roxy.kryptonplayer.core.common.playback.FrameThumbnailExtractor
+import io.github.anilbeesetti.nextlib.mediainfo.MediaThumbnailRetriever
+import kotlinx.coroutines.CancellationException
+import okio.FileSystem
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 class VideoThumbnailDecoder(
@@ -38,6 +40,7 @@ class VideoThumbnailDecoder(
     private val options: Options,
     private val strategy: ThumbnailStrategy,
     private val diskCache: Lazy<DiskCache?>,
+    private val frameThumbnailExtractor: FrameThumbnailExtractor? = null,
 ) : Decoder {
 
     private val diskCacheKey: String
@@ -50,7 +53,7 @@ class VideoThumbnailDecoder(
             }
         }
 
-    @OptIn(ExperimentalCoilApi::class, androidx.media3.common.util.UnstableApi::class)
+    @OptIn(ExperimentalCoilApi::class)
     override suspend fun decode(): DecodeResult {
         readFromDiskCache()?.use { snapshot ->
             val file = snapshot.data.toFile()
@@ -156,24 +159,27 @@ class VideoThumbnailDecoder(
                 }
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             val uri = when {
                 source.metadata is ContentMetadata -> (source.metadata as ContentMetadata).uri.toAndroidUri()
                 source.fileSystem === FileSystem.SYSTEM -> Uri.fromFile(source.file().toFile())
                 else -> null
             }
-            if (uri != null) {
-                try {
-                    val extractor = dev.roxy.kryptonplayer.feature.player.thumbnail.Media3FrameExtractor(options.context)
+            val extractor = frameThumbnailExtractor
+            if (uri != null && extractor != null) {
+                val extracted = try {
                     val timeMs = when (strategy) {
                         is ThumbnailStrategy.FirstFrame -> 0L
                         is ThumbnailStrategy.FrameAtPercentage -> 5000L
                         is ThumbnailStrategy.Hybrid -> 0L
                     }
-                    extractor.extractFrame(uri, timeMs) ?: throw e
+                    extractor.extractFrame(uri, timeMs)
                 } catch (ex: Exception) {
-                    android.util.Log.e("VideoThumbnailDecoder", "Media3FrameExtractor fallback failed", ex)
-                    throw e
+                    if (ex is CancellationException) throw ex
+                    android.util.Log.e("VideoThumbnailDecoder", "FrameThumbnailExtractor fallback failed", ex)
+                    null
                 }
+                extracted ?: throw e
             } else {
                 throw e
             }
@@ -312,6 +318,7 @@ class VideoThumbnailDecoder(
 
     class Factory(
         private val thumbnailStrategy: () -> ThumbnailStrategy,
+        private val frameThumbnailExtractor: FrameThumbnailExtractor? = null,
     ) : Decoder.Factory {
         override fun create(
             result: SourceFetchResult,
@@ -324,6 +331,7 @@ class VideoThumbnailDecoder(
                 options = options,
                 strategy = thumbnailStrategy(),
                 diskCache = lazy { imageLoader.diskCache },
+                frameThumbnailExtractor = frameThumbnailExtractor,
             )
         }
 

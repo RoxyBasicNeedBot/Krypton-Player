@@ -16,12 +16,12 @@ import javax.inject.Singleton
  * Smart prefetcher for MP4/MOV containers where supports_streaming == false.
  *
  * In non-faststart MP4 files, the crucial 'moov' atom (metadata, sample tables, audio/video track
- * indexing) is located at the trailing end of the file rather than the beginning. When ExoPlayer / Media3
+ * indexing) is located at the trailing end of the file rather than the beginning. When libmpv
  * attempts playback of such files, it reads the initial container header, detects no 'moov' atom, and
  * immediately seeks to the trailing megabytes of the file to parse the track headers.
  *
  * This prefetcher calculates the trailing tail range, pre-buffers the trailing atom chunks over TDLib
- * MTProto 2.0 with high priority (32), and ensures that by the time ExoPlayer requests the moov atom,
+ * MTProto 2.0 with high priority (32), and ensures that by the time libmpv requests the moov atom,
  * the bytes are already resident on disk or actively downloading—preventing playback stalls and timeouts.
  */
 @Singleton

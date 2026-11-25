@@ -1,1183 +1,466 @@
 package dev.roxy.kryptonplayer.feature.player.service
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.ContentResolver
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import android.content.IntentFilter
+import android.content.pm.ServiceInfo
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
+import android.support.v4.media.MediaBrowserCompat
+import android.support.v4.media.MediaDescriptionCompat
+import android.support.v4.media.MediaMetadataCompat
+import android.support.v4.media.session.MediaSessionCompat
+import android.support.v4.media.session.PlaybackStateCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.PlaybackParameters
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.Player.DISCONTINUITY_REASON_AUTO_TRANSITION
-import androidx.media3.common.Player.DISCONTINUITY_REASON_REMOVE
-import androidx.media3.common.Player.DISCONTINUITY_REASON_SEEK
-import androidx.media3.common.TrackSelectionParameters
-import androidx.media3.common.Tracks
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DataSource
-import androidx.media3.datasource.DataSpec
-import androidx.media3.datasource.TransferListener
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.datasource.HttpDataSource
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.exoplayer.DefaultRenderersFactory
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import androidx.media3.session.CommandButton
-import androidx.media3.session.CommandButton.ICON_UNDEFINED
-import androidx.media3.session.LibraryResult
-import androidx.media3.session.MediaLibraryService
-import androidx.media3.session.MediaLibraryService.MediaLibrarySession
-import androidx.media3.session.MediaSession
-import androidx.media3.session.SessionCommand
-import androidx.media3.session.SessionError
-import androidx.media3.session.SessionResult
-import coil3.ImageLoader
-import coil3.request.CachePolicy
-import coil3.request.ImageRequest
-import com.google.common.collect.ImmutableList
-import com.google.common.util.concurrent.Futures
-import com.google.common.util.concurrent.ListenableFuture
+import androidx.media.MediaBrowserServiceCompat
+import androidx.media.app.NotificationCompat.MediaStyle
+import androidx.media.session.MediaButtonReceiver
 import dagger.hilt.android.AndroidEntryPoint
-import dev.roxy.kryptonplayer.core.common.extensions.deleteFiles
-import dev.roxy.kryptonplayer.core.common.extensions.getFilenameFromUri
-import dev.roxy.kryptonplayer.core.common.extensions.getLocalSubtitles
-import dev.roxy.kryptonplayer.core.common.extensions.getPath
-import dev.roxy.kryptonplayer.core.common.extensions.subtitleCacheDir
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackLoopMode
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackMediaItem
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackStateSnapshot
 import dev.roxy.kryptonplayer.core.data.repository.MediaRepository
 import dev.roxy.kryptonplayer.core.data.repository.PreferencesRepository
-import dev.roxy.kryptonplayer.core.model.DecoderPriority
-import dev.roxy.kryptonplayer.core.model.LoopMode
-import dev.roxy.kryptonplayer.core.model.PlayerPreferences
-import dev.roxy.kryptonplayer.core.model.Resume
 import dev.roxy.kryptonplayer.core.ui.R as coreUiR
 import dev.roxy.kryptonplayer.feature.player.PlayerActivity
-import dev.roxy.kryptonplayer.feature.player.R
-import dev.roxy.kryptonplayer.feature.player.extensions.addAdditionalSubtitleConfiguration
-import dev.roxy.kryptonplayer.feature.player.extensions.audioTrackIndex
-import dev.roxy.kryptonplayer.feature.player.extensions.copy
-import dev.roxy.kryptonplayer.feature.player.extensions.getManuallySelectedTrackIndex
-import dev.roxy.kryptonplayer.feature.player.extensions.playbackSpeed
-import dev.roxy.kryptonplayer.feature.player.extensions.positionMs
-import dev.roxy.kryptonplayer.feature.player.extensions.setExtras
-import dev.roxy.kryptonplayer.feature.player.extensions.setIsScrubbingModeEnabled
-import dev.roxy.kryptonplayer.feature.player.extensions.subtitleDelayMilliseconds
-import dev.roxy.kryptonplayer.feature.player.extensions.subtitleSpeed
-import dev.roxy.kryptonplayer.feature.player.extensions.subtitleTrackIndex
-import dev.roxy.kryptonplayer.feature.player.extensions.switchTrack
-import dev.roxy.kryptonplayer.feature.player.extensions.uriToSubtitleConfiguration
-import dev.roxy.kryptonplayer.feature.player.extensions.videoZoom
-import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
-import io.github.anilbeesetti.nextlib.media3ext.renderer.subtitleDelayMilliseconds
-import io.github.anilbeesetti.nextlib.media3ext.renderer.subtitleSpeed
-import java.io.File
-import javax.inject.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.guava.future
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.withContext
+import java.io.File
+import javax.inject.Inject
 
-@OptIn(UnstableApi::class)
 @AndroidEntryPoint
-class PlayerService : MediaLibraryService() {
-
-    private val serviceScope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var mediaSession: MediaLibrarySession? = null
-    private var artworkLoadJob: Job? = null
-
+class PlayerService : MediaBrowserServiceCompat() {
     @Inject
-    lateinit var preferencesRepository: PreferencesRepository
+    lateinit var playbackController: PlaybackController
 
     @Inject
     lateinit var mediaRepository: MediaRepository
 
     @Inject
-    lateinit var imageLoader: ImageLoader
-
-    @Inject
-    lateinit var tdlibManager: dev.roxy.kryptonplayer.core.data.tdlib.TdlibManager
-
-    @Inject
-    lateinit var tdlibMediaResolver: dev.roxy.kryptonplayer.core.data.tdlib.TdlibMediaResolver
-
-    private val playerPreferences: PlayerPreferences
-        get() = preferencesRepository.playerPreferences.value
-
-    private val customCommands = CustomCommands.asSessionCommands()
-
-    private var isMediaItemReady = false
-
-    private val volumeBoostAudioProcessor = VolumeBoostAudioProcessor()
-    private var currentVolumeGain: Int = 0
-
-    private val playbackStateListener = object : Player.Listener {
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            super.onMediaItemTransition(mediaItem, reason)
-            if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) return
-            isMediaItemReady = false
-            loadArtworkForCurrentMediaItem()
-            setEnhancerTargetGain(currentVolumeGain)
-            mediaItem?.mediaMetadata?.let { metadata ->
-                mediaSession?.player?.run {
-                    setPlaybackSpeed(metadata.playbackSpeed ?: playerPreferences.defaultPlaybackSpeed)
-                    playerSpecificSubtitleDelayMilliseconds = metadata.subtitleDelayMilliseconds ?: 0L
-                    playerSpecificSubtitleSpeed = metadata.subtitleSpeed ?: 1f
-                }
-
-                metadata.positionMs?.takeIf { playerPreferences.resume == Resume.YES }?.let {
-                    mediaSession?.player?.seekTo(it)
-                }
-            }
-        }
-
-        override fun onPositionDiscontinuity(
-            oldPosition: Player.PositionInfo,
-            newPosition: Player.PositionInfo,
-            reason: Int,
-        ) {
-            super.onPositionDiscontinuity(oldPosition, newPosition, reason)
-            val oldMediaItem = oldPosition.mediaItem ?: return
-
-            when (reason) {
-                DISCONTINUITY_REASON_SEEK,
-                DISCONTINUITY_REASON_AUTO_TRANSITION,
-                -> {
-                    if (newPosition.mediaItem == null || oldMediaItem == newPosition.mediaItem) return
-
-                    val updatedPosition = oldPosition.positionMs.takeIf { reason == DISCONTINUITY_REASON_SEEK } ?: C.TIME_UNSET
-                    mediaSession?.player?.replaceMediaItem(
-                        oldPosition.mediaItemIndex,
-                        oldMediaItem.copy(positionMs = updatedPosition),
-                    )
-                    serviceScope.launch {
-                        mediaRepository.updateMediumPosition(
-                            uri = oldMediaItem.mediaId,
-                            position = updatedPosition,
-                        )
-                    }
-                }
-
-                DISCONTINUITY_REASON_REMOVE -> {
-                    serviceScope.launch {
-                        val durationMs = oldMediaItem.mediaMetadata.durationMs
-                        val isAtEnd = durationMs != null && oldPosition.positionMs >= durationMs - 1000
-                        mediaRepository.updateMediumPosition(
-                            uri = oldMediaItem.mediaId,
-                            position = if (isAtEnd) C.TIME_UNSET else oldPosition.positionMs,
-                        )
-                    }
-                }
-
-                else -> return
-            }
-        }
-
-        override fun onTracksChanged(tracks: Tracks) {
-            super.onTracksChanged(tracks)
-            if (!isMediaItemReady && tracks.groups.isNotEmpty()) {
-                isMediaItemReady = true
-
-                if (!playerPreferences.rememberSelections) return
-                mediaSession?.player?.mediaMetadata?.audioTrackIndex?.let {
-                    mediaSession?.player?.switchTrack(C.TRACK_TYPE_AUDIO, it)
-                }
-                mediaSession?.player?.mediaMetadata?.subtitleTrackIndex?.let {
-                    mediaSession?.player?.switchTrack(C.TRACK_TYPE_TEXT, it)
-                }
-            }
-        }
-
-        override fun onTrackSelectionParametersChanged(parameters: TrackSelectionParameters) {
-            super.onTrackSelectionParametersChanged(parameters)
-            val player = mediaSession?.player ?: return
-            val currentMediaItem = player.currentMediaItem ?: return
-
-            val audioTrackIndex = player.getManuallySelectedTrackIndex(C.TRACK_TYPE_AUDIO)
-            val subtitleTrackIndex = player.getManuallySelectedTrackIndex(C.TRACK_TYPE_TEXT)
-
-            if (audioTrackIndex != null) {
-                serviceScope.launch {
-                    mediaRepository.updateMediumAudioTrack(
-                        uri = currentMediaItem.mediaId,
-                        audioTrackIndex = audioTrackIndex,
-                    )
-                }
-            }
-
-            if (subtitleTrackIndex != null) {
-                serviceScope.launch {
-                    mediaRepository.updateMediumSubtitleTrack(
-                        uri = currentMediaItem.mediaId,
-                        subtitleTrackIndex = subtitleTrackIndex,
-                    )
-                }
-            }
-
-            player.replaceMediaItem(
-                player.currentMediaItemIndex,
-                currentMediaItem.copy(
-                    audioTrackIndex = audioTrackIndex,
-                    subtitleTrackIndex = subtitleTrackIndex,
-                ),
-            )
-        }
-
-        override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
-            super.onPlaybackParametersChanged(playbackParameters)
-            val player = mediaSession?.player ?: return
-            val currentMediaItem = player.currentMediaItem ?: return
-            val playbackSpeed = playbackParameters.speed
-
-            serviceScope.launch {
-                mediaRepository.updateMediumPlaybackSpeed(
-                    uri = currentMediaItem.mediaId,
-                    playbackSpeed = playbackSpeed,
-                )
-            }
-            player.replaceMediaItem(
-                player.currentMediaItemIndex,
-                currentMediaItem.copy(playbackSpeed = playbackSpeed),
-            )
-        }
-
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            super.onPlaybackStateChanged(playbackState)
-
-            if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) {
-                mediaSession?.player?.trackSelectionParameters = TrackSelectionParameters.DEFAULT
-                mediaSession?.player?.setPlaybackSpeed(playerPreferences.defaultPlaybackSpeed)
-            }
-
-            if (playbackState == Player.STATE_READY) {
-                mediaSession?.player?.let {
-                    serviceScope.launch {
-                        mediaRepository.updateMediumLastPlayedTime(
-                            uri = it.currentMediaItem?.mediaId ?: return@launch,
-                            lastPlayedTime = System.currentTimeMillis(),
-                        )
-                    }
-                }
-            }
-        }
-
-        override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-            super.onPlayWhenReadyChanged(playWhenReady, reason)
-
-            if (reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
-                if (mediaSession?.player?.repeatMode != Player.REPEAT_MODE_OFF) {
-                    mediaSession?.player?.seekTo(0)
-                    mediaSession?.player?.play()
-                    return
-                }
-                mediaSession?.run {
-                    player.clearMediaItems()
-                    player.stop()
-                }
-                stopSelf()
-            }
-        }
-
-        override fun onRenderedFirstFrame() {
-            super.onRenderedFirstFrame()
-            val player = mediaSession?.player ?: return
-            val currentMediaItem = player.currentMediaItem ?: return
-            // Update the media metadata duration so that it will be used later in position discontinuity handling
-            player.replaceMediaItem(
-                player.currentMediaItemIndex,
-                currentMediaItem.copy(durationMs = player.duration.coerceAtLeast(0))
-            )
-        }
-
-        override fun onIsPlayingChanged(isPlaying: Boolean) {
-            super.onIsPlayingChanged(isPlaying)
-            mediaSession?.run {
-                serviceScope.launch {
-                    mediaRepository.updateMediumPosition(
-                        uri = player.currentMediaItem?.mediaId ?: return@launch,
-                        position = player.currentPosition,
-                    )
-                }
-            }
-        }
-
-        override fun onRepeatModeChanged(repeatMode: Int) {
-            super.onRepeatModeChanged(repeatMode)
-            serviceScope.launch {
-                preferencesRepository.updatePlayerPreferences {
-                    it.copy(
-                        loopMode = when (repeatMode) {
-                            Player.REPEAT_MODE_OFF -> LoopMode.OFF
-                            Player.REPEAT_MODE_ONE -> LoopMode.ONE
-                            Player.REPEAT_MODE_ALL -> LoopMode.ALL
-                            else -> LoopMode.OFF
-                        },
-                    )
-                }
-            }
-        }
-
-        override fun onAudioSessionIdChanged(audioSessionId: Int) {
-            super.onAudioSessionIdChanged(audioSessionId)
-        }
-
-        override fun onPlayerError(error: PlaybackException) {
-            super.onPlayerError(error)
-            android.util.Log.e(
-                "PlayerService",
-                "Player error occurred: errorCode=${error.errorCodeName} (${error.errorCode}), message=${error.message}",
-                error
-            )
-        }
-    }
-
-    private fun setEnhancerTargetGain(gain: Int) {
-        currentVolumeGain = gain
-        if (gain <= 0 || !playerPreferences.enableVolumeBoost) {
-            volumeBoostAudioProcessor.volumeFactor = 1.0f
-        } else {
-            // Map gain millibels (0..2000 mB) to 1.0x .. 3.5x factor smoothly
-            val boostFraction = (gain.toFloat() / 2000f).coerceIn(0f, 1f)
-            volumeBoostAudioProcessor.volumeFactor = 1.0f + boostFraction * 2.5f
-        }
-    }
-
-    private val rootMediaItem: MediaItem by lazy {
-        MediaItem.Builder()
-            .setMediaId("krypton_root")
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle("Krypton Player")
-                    .setIsBrowsable(true)
-                    .setIsPlayable(false)
-                    .setFolderType(MediaMetadata.FOLDER_TYPE_MIXED)
-                    .build()
-            )
-            .build()
-    }
-
-    private val recentCategoryItem: MediaItem by lazy {
-        MediaItem.Builder()
-            .setMediaId("recent")
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(getString(coreUiR.string.recently_played))
-                    .setIsBrowsable(true)
-                    .setIsPlayable(false)
-                    .setFolderType(MediaMetadata.FOLDER_TYPE_MIXED)
-                    .build()
-            )
-            .build()
-    }
-
-    private val allMediaCategoryItem: MediaItem by lazy {
-        MediaItem.Builder()
-            .setMediaId("all_media")
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle("All Media")
-                    .setIsBrowsable(true)
-                    .setIsPlayable(false)
-                    .setFolderType(MediaMetadata.FOLDER_TYPE_MIXED)
-                    .build()
-            )
-            .build()
-    }
-
-    private fun videoToPlayableMediaItem(video: dev.roxy.kryptonplayer.core.model.Video): MediaItem {
-        val uri = if (video.uriString.isNotEmpty()) video.uriString.toUri() else File(video.path).toUri()
-        val mediaId = if (video.uriString.isNotEmpty()) video.uriString else video.path
-        val artworkUri = video.artworkUri?.toUri() ?: getDefaultArtworkUri()
-        val artist = video.parentPath.substringAfterLast(File.separatorChar).ifEmpty { "Krypton Player" }
-
-        return MediaItem.Builder()
-            .setMediaId(mediaId)
-            .setUri(uri)
-            .setRequestMetadata(
-                MediaItem.RequestMetadata.Builder()
-                    .setMediaUri(uri)
-                    .build()
-            )
-            .setMediaMetadata(
-                MediaMetadata.Builder()
-                    .setTitle(video.displayName)
-                    .setDisplayTitle(video.displayName)
-                    .setArtist(artist)
-                    .setArtworkUri(artworkUri)
-                    .setIsPlayable(true)
-                    .setIsBrowsable(false)
-                    .setFolderType(MediaMetadata.FOLDER_TYPE_NONE)
-                    .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
-                    .build()
-            )
-            .build()
-    }
-
-    private suspend fun resolveMediaItems(mediaItems: List<MediaItem>): List<MediaItem> {
-        val resolved = mutableListOf<MediaItem>()
-        for (item in mediaItems) {
-            when (item.mediaId) {
-                "krypton_root", "all_media" -> {
-                    val allVideos = mediaRepository.getVideosFlow().firstOrNull() ?: emptyList()
-                    resolved.addAll(allVideos.sortedBy { it.displayName }.map { videoToPlayableMediaItem(it) })
-                }
-                "recent" -> {
-                    val allVideos = mediaRepository.getVideosFlow().firstOrNull() ?: emptyList()
-                    val recentVideos = allVideos
-                        .filter { it.lastPlayedAt != null }
-                        .sortedByDescending { it.lastPlayedAt?.time ?: 0L }
-                        .ifEmpty { allVideos.sortedByDescending { it.dateModified } }
-                    resolved.addAll(recentVideos.map { videoToPlayableMediaItem(it) })
-                }
-                else -> {
-                    val video = mediaRepository.getVideoByUri(item.mediaId)
-                    if (video != null) {
-                        resolved.add(videoToPlayableMediaItem(video))
-                    } else {
-                        val uri = item.requestMetadata.mediaUri ?: item.mediaId.toUri()
-                        val builtItem = if (item.localConfiguration == null) {
-                            item.buildUpon().setUri(uri).build()
-                        } else {
-                            item
-                        }
-                        resolved.add(builtItem)
-                    }
-                }
-            }
-        }
-        return resolved
-    }
-
-    private val librarySessionCallback = object : MediaLibrarySession.Callback {
-        override fun onConnect(
-            session: MediaSession,
-            controller: MediaSession.ControllerInfo,
-        ): MediaSession.ConnectionResult {
-            val connectionResult = super.onConnect(session, controller)
-            return MediaSession.ConnectionResult.accept(
-                connectionResult.availableSessionCommands
-                    .buildUpon()
-                    .addSessionCommands(customCommands)
-                    .build(),
-                connectionResult.availablePlayerCommands,
-            )
-        }
-
-        override fun onGetLibraryRoot(
-            session: MediaLibrarySession,
-            browser: MediaSession.ControllerInfo,
-            params: MediaLibraryService.LibraryParams?,
-        ): ListenableFuture<LibraryResult<MediaItem>> {
-            return Futures.immediateFuture(LibraryResult.ofItem(rootMediaItem, params))
-        }
-
-        override fun onGetItem(
-            session: MediaLibrarySession,
-            browser: MediaSession.ControllerInfo,
-            mediaId: String,
-        ): ListenableFuture<LibraryResult<MediaItem>> = serviceScope.future(Dispatchers.IO) {
-            when (mediaId) {
-                "krypton_root" -> LibraryResult.ofItem(rootMediaItem, null)
-                "recent" -> LibraryResult.ofItem(recentCategoryItem, null)
-                "all_media" -> LibraryResult.ofItem(allMediaCategoryItem, null)
-                else -> {
-                    val video = mediaRepository.getVideoByUri(mediaId)
-                    if (video != null) {
-                        LibraryResult.ofItem(videoToPlayableMediaItem(video), null)
-                    } else {
-                        LibraryResult.ofError(SessionError.ERROR_BAD_VALUE)
-                    }
-                }
-            }
-        }
-
-        override fun onGetChildren(
-            session: MediaLibrarySession,
-            browser: MediaSession.ControllerInfo,
-            parentId: String,
-            page: Int,
-            pageSize: Int,
-            params: MediaLibraryService.LibraryParams?,
-        ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> = serviceScope.future(Dispatchers.IO) {
-            val children: List<MediaItem> = when (parentId) {
-                "krypton_root" -> listOf(recentCategoryItem, allMediaCategoryItem)
-                "recent" -> {
-                    val allVideos = mediaRepository.getVideosFlow().firstOrNull() ?: emptyList()
-                    val recentVideos = allVideos
-                        .filter { it.lastPlayedAt != null }
-                        .sortedByDescending { it.lastPlayedAt?.time ?: 0L }
-                        .ifEmpty { allVideos.sortedByDescending { it.dateModified } }
-                    recentVideos.map { videoToPlayableMediaItem(it) }
-                }
-                "all_media" -> {
-                    val allVideos = mediaRepository.getVideosFlow().firstOrNull() ?: emptyList()
-                    allVideos.sortedBy { it.displayName }.map { videoToPlayableMediaItem(it) }
-                }
-                else -> {
-                    return@future LibraryResult.ofError(SessionError.ERROR_BAD_VALUE, params)
-                }
-            }
-
-            val pagedChildren = if (page >= 0 && pageSize > 0) {
-                val fromIndex = page * pageSize
-                if (fromIndex < children.size) {
-                    val toIndex = minOf(fromIndex + pageSize, children.size)
-                    children.subList(fromIndex, toIndex)
-                } else {
-                    emptyList()
-                }
-            } else {
-                children
-            }
-
-            LibraryResult.ofItemList(ImmutableList.copyOf(pagedChildren), params)
-        }
-
-        override fun onSubscribe(
-            session: MediaLibrarySession,
-            browser: MediaSession.ControllerInfo,
-            parentId: String,
-            params: MediaLibraryService.LibraryParams?,
-        ): ListenableFuture<LibraryResult<Void>> {
-            return when (parentId) {
-                "krypton_root", "recent", "all_media" -> {
-                    Futures.immediateFuture(LibraryResult.ofVoid(params))
-                }
-                else -> super.onSubscribe(session, browser, parentId, params)
-            }
-        }
-
-        override fun onSetMediaItems(
-            mediaSession: MediaSession,
-            controller: MediaSession.ControllerInfo,
-            mediaItems: MutableList<MediaItem>,
-            startIndex: Int,
-            startPositionMs: Long,
-        ): ListenableFuture<MediaSession.MediaItemsWithStartPosition> = serviceScope.future(Dispatchers.Default) {
-            val resolvedItems = resolveMediaItems(mediaItems)
-            val updatedMediaItems = updatedMediaItemsWithMetadata(resolvedItems)
-            val resolvedStartIndex = startIndex.coerceIn(0, (updatedMediaItems.size - 1).coerceAtLeast(0))
-            val resolvedStartPositionMs = if (startPositionMs == C.TIME_UNSET && playerPreferences.resume == Resume.YES) {
-                updatedMediaItems.getOrNull(resolvedStartIndex)?.mediaMetadata?.positionMs ?: C.TIME_UNSET
-            } else {
-                startPositionMs
-            }
-            return@future MediaSession.MediaItemsWithStartPosition(updatedMediaItems, resolvedStartIndex, resolvedStartPositionMs)
-        }
-
-        override fun onAddMediaItems(
-            mediaSession: MediaSession,
-            controller: MediaSession.ControllerInfo,
-            mediaItems: MutableList<MediaItem>,
-        ): ListenableFuture<MutableList<MediaItem>> = serviceScope.future(Dispatchers.Default) {
-            val resolvedItems = resolveMediaItems(mediaItems)
-            val updatedMediaItems = updatedMediaItemsWithMetadata(resolvedItems)
-            return@future updatedMediaItems.toMutableList()
-        }
-
-        override fun onCustomCommand(
-            session: MediaSession,
-            controller: MediaSession.ControllerInfo,
-            customCommand: SessionCommand,
-            args: Bundle,
-        ): ListenableFuture<SessionResult> = serviceScope.future {
-            val command = CustomCommands.fromSessionCommand(customCommand)
-                ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)
-
-            when (command) {
-                CustomCommands.ADD_SUBTITLE_TRACK -> {
-                    val subtitleUri = args.getString(CustomCommands.SUBTITLE_TRACK_URI_KEY)?.toUri()
-                        ?: return@future SessionResult(SessionError.ERROR_BAD_VALUE)
-
-                    try {
-                        val newSubConfiguration = uriToSubtitleConfiguration(
-                            uri = subtitleUri,
-                            subtitleEncoding = playerPreferences.subtitleTextEncoding,
-                            isSelected = true,
-                        )
-                        mediaSession?.player?.let { player ->
-                            val currentMediaItem = player.currentMediaItem ?: return@let
-                            val textTracks = player.currentTracks.groups.filter {
-                                it.type == C.TRACK_TYPE_TEXT && it.isSupported
-                            }
-
-                            try {
-                                mediaRepository.updateMediumPosition(
-                                    uri = currentMediaItem.mediaId,
-                                    position = player.currentPosition,
-                                )
-                                mediaRepository.updateMediumSubtitleTrack(
-                                    uri = currentMediaItem.mediaId,
-                                    subtitleTrackIndex = textTracks.size,
-                                )
-                                mediaRepository.addExternalSubtitleToMedium(
-                                    uri = currentMediaItem.mediaId,
-                                    subtitleUri = subtitleUri,
-                                )
-                            } catch (dbEx: Exception) {
-                                android.util.Log.w("PlayerService", "Non-local media DB update skipped: ${dbEx.message}")
-                            }
-
-                            player.addAdditionalSubtitleConfiguration(newSubConfiguration)
-                        }
-                        return@future SessionResult(SessionResult.RESULT_SUCCESS)
-                    } catch (e: Exception) {
-                        android.util.Log.e("PlayerService", "Failed to apply subtitle track", e)
-                        return@future SessionResult(SessionError.ERROR_UNKNOWN)
-                    }
-                }
-
-                CustomCommands.SET_SKIP_SILENCE_ENABLED -> {
-                    val enabled = args.getBoolean(CustomCommands.SKIP_SILENCE_ENABLED_KEY)
-                    mediaSession?.player?.playerSpecificSkipSilenceEnabled = enabled
-                    mediaSession?.sessionExtras = Bundle().apply {
-                        putBoolean(CustomCommands.SKIP_SILENCE_ENABLED_KEY, enabled)
-                    }
-                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
-                }
-
-                CustomCommands.GET_SKIP_SILENCE_ENABLED -> {
-                    val enabled = mediaSession?.player?.playerSpecificSkipSilenceEnabled ?: false
-                    return@future SessionResult(
-                        SessionResult.RESULT_SUCCESS,
-                        Bundle().apply {
-                            putBoolean(CustomCommands.SKIP_SILENCE_ENABLED_KEY, enabled)
-                        },
-                    )
-                }
-
-                CustomCommands.SET_IS_SCRUBBING_MODE_ENABLED -> {
-                    val enabled = args.getBoolean(CustomCommands.IS_SCRUBBING_MODE_ENABLED_KEY)
-                    mediaSession?.player?.setIsScrubbingModeEnabled(enabled)
-                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
-                }
-
-                CustomCommands.IS_LOUDNESS_GAIN_SUPPORTED -> {
-                    val isSupported = playerPreferences.enableVolumeBoost
-                    return@future SessionResult(
-                        SessionResult.RESULT_SUCCESS,
-                        Bundle().apply {
-                            putBoolean(CustomCommands.IS_LOUDNESS_GAIN_SUPPORTED_KEY, isSupported)
-                        },
-                    )
-                }
-
-                CustomCommands.SET_LOUDNESS_GAIN -> {
-                    val gain = args.getInt(CustomCommands.LOUDNESS_GAIN_KEY, 0)
-                    setEnhancerTargetGain(gain)
-                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
-                }
-
-                CustomCommands.GET_LOUDNESS_GAIN -> {
-                    return@future SessionResult(
-                        SessionResult.RESULT_SUCCESS,
-                        Bundle().apply {
-                            putInt(CustomCommands.LOUDNESS_GAIN_KEY, currentVolumeGain)
-                        },
-                    )
-                }
-
-                CustomCommands.GET_SUBTITLE_DELAY -> {
-                    val subtitleDelay = mediaSession?.player?.playerSpecificSubtitleDelayMilliseconds ?: 0
-                    return@future SessionResult(
-                        SessionResult.RESULT_SUCCESS,
-                        Bundle().apply {
-                            putLong(CustomCommands.SUBTITLE_DELAY_KEY, subtitleDelay)
-                        },
-                    )
-                }
-
-                CustomCommands.SET_SUBTITLE_DELAY -> {
-                    val subtitleDelay = args.getLong(CustomCommands.SUBTITLE_DELAY_KEY)
-                    mediaSession?.player?.playerSpecificSubtitleDelayMilliseconds = subtitleDelay
-                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
-                }
-
-                CustomCommands.GET_SUBTITLE_SPEED -> {
-                    val subtitleSpeed = mediaSession?.player?.playerSpecificSubtitleSpeed ?: 0f
-                    return@future SessionResult(
-                        SessionResult.RESULT_SUCCESS,
-                        Bundle().apply {
-                            putFloat(CustomCommands.SUBTITLE_SPEED_KEY, subtitleSpeed)
-                        },
-                    )
-                }
-
-                CustomCommands.SET_SUBTITLE_SPEED -> {
-                    val subtitleSpeed = args.getFloat(CustomCommands.SUBTITLE_SPEED_KEY)
-                    mediaSession?.player?.playerSpecificSubtitleSpeed = subtitleSpeed
-                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
-                }
-
-                CustomCommands.STOP_PLAYER_SESSION -> {
-                    mediaSession?.run {
-                        val currentMediaItem = player.currentMediaItem
-                        if (currentMediaItem != null) {
-                            mediaRepository.updateMediumPosition(
-                                uri = currentMediaItem.mediaId,
-                                position = player.currentPosition,
-                            )
-                        }
-                    }
-                    mediaSession?.run {
-                        player.clearMediaItems()
-                        player.stop()
-                    }
-                    stopSelf()
-                    return@future SessionResult(SessionResult.RESULT_SUCCESS)
+    lateinit var preferencesRepository: PreferencesRepository
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private lateinit var mediaSession: MediaSessionCompat
+    private lateinit var audioManager: AudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
+    private var hasAudioFocus = false
+
+    private val noisyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                if (preferencesRepository.playerPreferences.value.pauseOnHeadsetDisconnect) {
+                    playbackController.pause()
                 }
             }
         }
     }
 
-    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? = mediaSession
+    private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
+        when (focusChange) {
+            AudioManager.AUDIOFOCUS_LOSS,
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
+            -> {
+                hasAudioFocus = false
+                if (preferencesRepository.playerPreferences.value.requireAudioFocus) {
+                    playbackController.pause()
+                }
+            }
+            AudioManager.AUDIOFOCUS_GAIN -> {
+                hasAudioFocus = true
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
-        val renderersFactory = object : NextRenderersFactory(applicationContext) {
-            override fun buildAudioSink(
-                context: android.content.Context,
-                enableFloatOutput: Boolean,
-                enableAudioTrackPlaybackParams: Boolean
-            ): androidx.media3.exoplayer.audio.AudioSink? {
-                return androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(context)
-                    .setEnableFloatOutput(enableFloatOutput)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .setAudioProcessors(arrayOf(volumeBoostAudioProcessor))
-                    .build()
+        audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        createNotificationChannel(this)
+
+        mediaSession = MediaSessionCompat(this, TAG).apply {
+            setCallback(sessionCallback)
+            isActive = true
+        }
+        sessionToken = mediaSession.sessionToken
+
+        val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
+        ContextCompat.registerReceiver(this, noisyReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+
+        serviceScope.launch {
+            playbackController.state.collect { snapshot ->
+                updateAudioFocus(snapshot.isPlaying)
+                updateMediaSessionState(snapshot)
+                updateNotification(snapshot)
             }
         }
-            .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(
-                when (playerPreferences.decoderPriority) {
-                    DecoderPriority.DEVICE_ONLY -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF
-                    DecoderPriority.PREFER_DEVICE -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON
-                    DecoderPriority.PREFER_APP -> DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER
-                },
-            )
+    }
 
-        val trackSelector = DefaultTrackSelector(
-            applicationContext,
-            BoundsSafeTrackSelectionFactory(),
-        ).apply {
-            setParameters(
-                buildUponParameters()
-                    .setPreferredAudioLanguage(playerPreferences.preferredAudioLanguage)
-                    .setPreferredTextLanguage(playerPreferences.preferredSubtitleLanguage),
-            )
-        }
-
-        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setAllocator(androidx.media3.exoplayer.upstream.DefaultAllocator(true, C.DEFAULT_BUFFER_SEGMENT_SIZE))
-            .setBufferDurationsMs(
-                /* minBufferMs = */ 15_000,
-                /* maxBufferMs = */ 30_000,
-                /* bufferForPlaybackMs = */ 250,
-                /* bufferForPlaybackAfterRebufferMs = */ 1_000
-            )
-            .setTargetBufferBytes(25 * 1024 * 1024)
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .setBackBuffer(/* backBufferDurationMs = */ 10_000, /* retainBackBufferFromKeyframe = */ true)
-            .build()
-
-        val defaultUserAgent = "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent(defaultUserAgent)
-            .setConnectTimeoutMs(15_000)
-            .setReadTimeoutMs(20_000)
-            .setAllowCrossProtocolRedirects(true)
-            .setDefaultRequestProperties(
-                mapOf(
-                    "User-Agent" to defaultUserAgent,
-                    "Accept" to "*/*",
-                    "Accept-Language" to "en-US,en;q=0.9",
-                    "Sec-Fetch-Mode" to "no-cors",
-                    "Sec-Fetch-Dest" to "video"
-                )
-            )
-
-        val dataSourceFactory = DataSource.Factory {
-            val baseDataSource = DefaultDataSource(applicationContext, httpDataSourceFactory.createDataSource())
-            val proxyDataSource = ProxyHeaderDataSource(baseDataSource)
-            dev.roxy.kryptonplayer.core.data.tdlib.SmartTelegramDataSource(
-                context = applicationContext,
-                httpDelegate = proxyDataSource,
-                tdlibManager = tdlibManager,
-                tdlibMediaResolver = tdlibMediaResolver,
-                preferencesRepository = preferencesRepository
-            )
-        }
-        
-        val extractorsFactory = dev.roxy.kryptonplayer.feature.player.extractor.ResilientExtractorsFactory()
-
-        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
-
-        val player = ExoPlayer.Builder(applicationContext)
-            .setRenderersFactory(renderersFactory)
-            .setTrackSelector(trackSelector)
-            .setLoadControl(loadControl)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                    .build(),
-                playerPreferences.requireAudioFocus,
-            )
-            .setHandleAudioBecomingNoisy(playerPreferences.pauseOnHeadsetDisconnect)
-            .build()
-            .also {
-                it.addListener(playbackStateListener)
-                it.pauseAtEndOfMediaItems = !playerPreferences.autoplay
-                it.repeatMode = when (playerPreferences.loopMode) {
-                    LoopMode.OFF -> Player.REPEAT_MODE_OFF
-                    LoopMode.ONE -> Player.REPEAT_MODE_ONE
-                    LoopMode.ALL -> Player.REPEAT_MODE_ALL
-                }
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        MediaButtonReceiver.handleIntent(mediaSession, intent)
+        when (intent?.action) {
+            ACTION_PLAY_PAUSE -> playbackController.togglePlayPause()
+            ACTION_NEXT -> playbackController.seekToNext()
+            ACTION_PREVIOUS -> playbackController.seekToPrevious()
+            ACTION_STOP -> {
+                playbackController.stop(clearPlaylist = true)
+                stopForegroundAndSelf()
+                return START_NOT_STICKY
             }
-
-        try {
-            mediaSession = MediaLibrarySession.Builder(this, player, librarySessionCallback).apply {
-                setSessionActivity(
-                    PendingIntent.getActivity(
-                        this@PlayerService,
-                        0,
-                        Intent(this@PlayerService, PlayerActivity::class.java),
-                        PendingIntent.FLAG_IMMUTABLE,
-                    ),
-                )
-                setCustomLayout(
-                    listOf(
-                        CommandButton.Builder(ICON_UNDEFINED)
-                            .setCustomIconResId(coreUiR.drawable.ic_close)
-                            .setDisplayName(getString(coreUiR.string.stop_player_session))
-                            .setSessionCommand(CustomCommands.STOP_PLAYER_SESSION.sessionCommand)
-                            .setEnabled(true)
-                            .build(),
-                    ),
-                )
-            }.build()
-            setMediaNotificationProvider(
-                androidx.media3.session.DefaultMediaNotificationProvider(this).apply {
-                    setSmallIcon(coreUiR.drawable.ic_launcher_monochrome)
-                }
-            )
-
-        } catch (e: Exception) {
-            e.printStackTrace()
         }
+        startForegroundWithType(buildNotification(playbackController.state.value))
+        return START_NOT_STICKY
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        val player = mediaSession?.player!!
-        if (!player.playWhenReady || player.mediaItemCount == 0 || player.playbackState == Player.STATE_ENDED) {
-            stopSelf()
+        if (!playbackController.state.value.isPlaying) {
+            playbackController.stop(clearPlaylist = true)
+            stopForegroundAndSelf()
         }
+        super.onTaskRemoved(rootIntent)
     }
 
     override fun onDestroy() {
-        super.onDestroy()
-        artworkLoadJob?.cancel()
-        mediaSession?.run {
-            player.clearMediaItems()
-            player.stop()
-            player.removeListener(playbackStateListener)
-            player.release()
-            release()
-            mediaSession = null
-        }
-        subtitleCacheDir.deleteFiles()
+        runCatching { unregisterReceiver(noisyReceiver) }
+        abandonAudioFocus()
+        mediaSession.isActive = false
+        mediaSession.release()
         serviceScope.cancel()
+        super.onDestroy()
     }
 
-    private suspend fun updatedMediaItemsWithMetadata(
-        mediaItems: List<MediaItem>,
-    ): List<MediaItem> = supervisorScope {
-        mediaItems.map { mediaItem ->
-            async {
-                val uri = mediaItem.mediaId.toUri()
-                val video = mediaRepository.getVideoByUri(uri = mediaItem.mediaId)
-                val videoState = mediaRepository.getVideoState(uri = mediaItem.mediaId)
+    override fun onGetRoot(
+        clientPackageName: String,
+        clientUid: Int,
+        rootHints: Bundle?,
+    ): BrowserRoot = BrowserRoot(ROOT_ID, null)
 
-                val externalSubs = videoState?.externalSubs ?: emptyList()
-                val localSubs = (videoState?.path ?: getPath(uri))?.let {
-                    File(it).getLocalSubtitles(
-                        context = this@PlayerService,
-                        excludeSubsList = externalSubs,
-                    )
-                } ?: emptyList()
-
-                val existingSubConfigurations = mediaItem.localConfiguration?.subtitleConfigurations ?: emptyList()
-                val subConfigurations = (localSubs + externalSubs).map { subtitleUri ->
-                    uriToSubtitleConfiguration(
-                        uri = subtitleUri,
-                        subtitleEncoding = playerPreferences.subtitleTextEncoding,
-                    )
+    override fun onLoadChildren(
+        parentId: String,
+        result: Result<MutableList<MediaBrowserCompat.MediaItem>>,
+    ) {
+        result.detach()
+        serviceScope.launch(Dispatchers.IO) {
+            val items = when (parentId) {
+                ROOT_ID -> mutableListOf(
+                    browsableItem(RECENT_ID, getString(coreUiR.string.recently_played)),
+                    browsableItem(ALL_MEDIA_ID, "All Media"),
+                )
+                RECENT_ID -> {
+                    val videos = mediaRepository.getVideosFlow().firstOrNull().orEmpty()
+                    videos
+                        .filter { it.lastPlayedAt != null }
+                        .sortedByDescending { it.lastPlayedAt?.time ?: 0L }
+                        .ifEmpty { videos.sortedByDescending { it.dateModified } }
+                        .map { video -> playableBrowserItem(video) }
+                        .toMutableList()
                 }
-
-                // Use placeholder artwork initially - actual artwork will be loaded in background
-                val artworkUri = getDefaultArtworkUri()
-
-                val queryTitle = uri.getQueryParameter("title")
-                    ?: uri.getQueryParameter("caption")
-                    ?: uri.getQueryParameter("name")
-                val title = queryTitle?.takeIf { it.isNotBlank() }
-                    ?: mediaItem.mediaMetadata.title?.takeIf { it.isNotBlank() && it.toString().lowercase() != "stream" && it.toString().lowercase() != "stream.m3u8" }
-                    ?: video?.nameWithExtension
-                    ?: getFilenameFromUri(uri)
-                val positionMs = mediaItem.mediaMetadata.positionMs ?: videoState?.position
-                val videoScale = mediaItem.mediaMetadata.videoZoom ?: videoState?.videoScale
-                val playbackSpeed = mediaItem.mediaMetadata.playbackSpeed ?: videoState?.playbackSpeed
-                val audioTrackIndex = mediaItem.mediaMetadata.audioTrackIndex ?: videoState?.audioTrackIndex
-                val subtitleTrackIndex = mediaItem.mediaMetadata.subtitleTrackIndex ?: videoState?.subtitleTrackIndex
-                val subtitleDelay = mediaItem.mediaMetadata.subtitleDelayMilliseconds ?: videoState?.subtitleDelayMilliseconds
-                val subtitleSpeed = mediaItem.mediaMetadata.subtitleSpeed ?: videoState?.subtitleSpeed
-
-                mediaItem.buildUpon().apply {
-                    if (mediaItem.localConfiguration == null) {
-                        setUri(uri)
-                    }
-                    if (mediaItem.mediaId.startsWith("tdlib://") || mediaItem.mediaId.contains("/api/stream/")) {
-                        setMimeType(androidx.media3.common.MimeTypes.VIDEO_MP4)
-                    }
-                    setSubtitleConfigurations(existingSubConfigurations + subConfigurations)
-                    setMediaMetadata(
-                        MediaMetadata.Builder().apply {
-                            setTitle(title)
-                            setArtworkUri(artworkUri)
-                            setIsPlayable(mediaItem.mediaMetadata.isPlayable ?: true)
-                            setIsBrowsable(mediaItem.mediaMetadata.isBrowsable ?: false)
-                            setExtras(
-                                positionMs = positionMs,
-                                videoScale = videoScale,
-                                playbackSpeed = playbackSpeed,
-                                audioTrackIndex = audioTrackIndex,
-                                subtitleTrackIndex = subtitleTrackIndex,
-                                subtitleDelayMilliseconds = subtitleDelay,
-                                subtitleSpeed = subtitleSpeed,
-                            )
-                        }.build(),
-                    )
-                }.build()
+                ALL_MEDIA_ID -> {
+                    mediaRepository.getVideosFlow().firstOrNull().orEmpty()
+                        .sortedBy { it.displayName }
+                        .map { video -> playableBrowserItem(video) }
+                        .toMutableList()
+                }
+                else -> mutableListOf()
             }
-        }.awaitAll()
+            result.sendResult(items)
+        }
     }
-    
-    private fun getDefaultArtworkUri(): Uri = Uri.Builder().apply {
-        val defaultArtwork = R.drawable.artwork_default
-        scheme(ContentResolver.SCHEME_ANDROID_RESOURCE)
-        authority(resources.getResourcePackageName(defaultArtwork))
-        appendPath(resources.getResourceTypeName(defaultArtwork))
-        appendPath(resources.getResourceEntryName(defaultArtwork))
-    }.build()
 
-    private fun loadArtworkForCurrentMediaItem() {
-        artworkLoadJob?.cancel()
-        artworkLoadJob = serviceScope.launch(Dispatchers.Main) {
-            val player = mediaSession?.player ?: return@launch
-            val currentMediaItem = player.currentMediaItem ?: return@launch
-            if (currentMediaItem.mediaMetadata.artworkData != null) return@launch
+    private val sessionCallback = object : MediaSessionCompat.Callback() {
+        override fun onPlay() = playbackController.play()
+        override fun onPause() = playbackController.pause()
+        override fun onStop() {
+            playbackController.stop(clearPlaylist = true)
+            stopForegroundAndSelf()
+        }
 
-            val artworkUri = loadArtworkForMediaItem(currentMediaItem) ?: return@launch
+        override fun onSeekTo(pos: Long) = playbackController.seekTo(pos, isUserSeek = true)
+        override fun onSkipToNext() = playbackController.seekToNext()
+        override fun onSkipToPrevious() = playbackController.seekToPrevious()
+        override fun onSetPlaybackSpeed(speed: Float) = playbackController.setPlaybackSpeed(speed)
 
-            val updatedPlayer = mediaSession?.player ?: return@launch
-            val updatedMediaItem = updatedPlayer.currentMediaItem ?: return@launch
-            if (updatedMediaItem.mediaId != currentMediaItem.mediaId) return@launch
+        override fun onSetRepeatMode(repeatMode: Int) {
+            val mode = when (repeatMode) {
+                PlaybackStateCompat.REPEAT_MODE_ONE -> PlaybackLoopMode.ONE
+                PlaybackStateCompat.REPEAT_MODE_ALL -> PlaybackLoopMode.ALL
+                else -> PlaybackLoopMode.OFF
+            }
+            playbackController.setRepeatMode(mode)
+        }
 
-            updatedPlayer.replaceMediaItem(
-                updatedPlayer.currentMediaItemIndex,
-                updatedMediaItem.withArtwork(artworkUri),
+        override fun onSetShuffleMode(shuffleMode: Int) {
+            playbackController.setShuffleEnabled(shuffleMode != PlaybackStateCompat.SHUFFLE_MODE_NONE)
+        }
+
+        override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) {
+            if (mediaId.isNullOrBlank()) return
+            serviceScope.launch(Dispatchers.IO) {
+                val items = when (mediaId) {
+                    ROOT_ID, ALL_MEDIA_ID -> mediaRepository.getVideosFlow().firstOrNull().orEmpty()
+                        .sortedBy { it.displayName }
+                        .map { it.toPlaybackMediaItem() }
+                    RECENT_ID -> {
+                        val all = mediaRepository.getVideosFlow().firstOrNull().orEmpty()
+                        all.filter { it.lastPlayedAt != null }
+                            .sortedByDescending { it.lastPlayedAt?.time ?: 0L }
+                            .ifEmpty { all.sortedByDescending { it.dateModified } }
+                            .map { it.toPlaybackMediaItem() }
+                    }
+                    else -> {
+                        val video = mediaRepository.getVideoByUri(mediaId)
+                        listOf(
+                            video?.toPlaybackMediaItem() ?: PlaybackMediaItem(
+                                mediaId = mediaId,
+                                uri = mediaId.toUri(),
+                                title = mediaId.toUri().lastPathSegment ?: mediaId,
+                            ),
+                        )
+                    }
+                }
+                if (items.isNotEmpty()) {
+                    serviceScope.launch(Dispatchers.Main.immediate) {
+                        playbackController.setPlaylist(items, startIndex = 0, playWhenReady = true)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun updateMediaSessionState(snapshot: PlaybackStateSnapshot) {
+        val currentItem = snapshot.currentItem
+        val metadata = MediaMetadataCompat.Builder()
+            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, currentItem?.title?.ifBlank { "Krypton Player" } ?: "Krypton Player")
+            .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, currentItem?.artist ?: "Krypton Player")
+            .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, snapshot.durationMs)
+            .build()
+        mediaSession.setMetadata(metadata)
+
+        val pbState = when {
+            snapshot.isLoading || snapshot.isBuffering -> PlaybackStateCompat.STATE_BUFFERING
+            snapshot.isPlaying -> PlaybackStateCompat.STATE_PLAYING
+            snapshot.error != null -> PlaybackStateCompat.STATE_ERROR
+            snapshot.isIdle && snapshot.playlist.isEmpty() -> PlaybackStateCompat.STATE_STOPPED
+            else -> PlaybackStateCompat.STATE_PAUSED
+        }
+        val stateBuilder = PlaybackStateCompat.Builder()
+            .setActions(
+                PlaybackStateCompat.ACTION_PLAY or
+                    PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE or
+                    PlaybackStateCompat.ACTION_STOP or
+                    PlaybackStateCompat.ACTION_SEEK_TO or
+                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT or
+                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS or
+                    PlaybackStateCompat.ACTION_SET_PLAYBACK_SPEED or
+                    PlaybackStateCompat.ACTION_SET_REPEAT_MODE or
+                    PlaybackStateCompat.ACTION_SET_SHUFFLE_MODE,
+            )
+            .setState(pbState, snapshot.currentPositionMs, snapshot.playbackSpeed)
+        snapshot.error?.let { err ->
+            stateBuilder.setErrorMessage(PlaybackStateCompat.ERROR_CODE_APP_ERROR, err.message)
+        }
+        mediaSession.setPlaybackState(stateBuilder.build())
+    }
+
+    private fun updateNotification(snapshot: PlaybackStateSnapshot) {
+        if (snapshot.isIdle && snapshot.playlist.isEmpty()) return
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, buildNotification(snapshot))
+    }
+
+    private fun buildNotification(snapshot: PlaybackStateSnapshot): Notification {
+        val item = snapshot.currentItem
+        val contentIntent = PendingIntent.getActivity(
+            this,
+            0,
+            Intent(this, PlayerActivity::class.java).apply {
+                item?.uri?.let { data = it }
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+        val playPauseAction = if (snapshot.isPlaying) {
+            NotificationCompat.Action(
+                coreUiR.drawable.ic_pause,
+                "Pause",
+                serviceActionIntent(ACTION_PLAY_PAUSE, 1),
+            )
+        } else {
+            NotificationCompat.Action(
+                coreUiR.drawable.ic_play,
+                "Play",
+                serviceActionIntent(ACTION_PLAY_PAUSE, 1),
             )
         }
-    }
-    private suspend fun loadArtworkForMediaItem(mediaItem: MediaItem): Uri? = withContext(Dispatchers.IO) {
-        val uriString = mediaItem.mediaId
-        if (uriString.startsWith("http://") || uriString.startsWith("https://")) {
-            val video = mediaRepository.getVideoByUri(uri = uriString)
-            val artworkUrl = video?.artworkUri
-            if (!artworkUrl.isNullOrEmpty()) {
-                return@withContext try {
-                    val request = ImageRequest.Builder(this@PlayerService)
-                        .data(artworkUrl)
-                        .size(512, 512)
-                        .build()
-                    imageLoader.execute(request)
-                    val diskCache = imageLoader.diskCache ?: return@withContext null
-                    diskCache.openSnapshot(artworkUrl)?.use { snapshot ->
-                        snapshot.data.toFile().toUri()
-                    }
-                } catch (e: Throwable) {
-                    android.util.Log.e("PlayerService", "Failed to load remote artwork for $artworkUrl: ${e.localizedMessage}", e)
-                    null
-                }
-            }
-            return@withContext null
-        }
-        val uri = uriString.toUri()
-        return@withContext try {
-            val request = ImageRequest.Builder(this@PlayerService)
-                .data(uri)
-                .size(512, 512)
-                .build()
-            imageLoader.execute(request)
-            val diskCache = imageLoader.diskCache ?: return@withContext null
-            return@withContext diskCache.openSnapshot(uri.toString())?.use { snapshot ->
-                snapshot.data.toFile().toUri()
-            }
-        } catch (e: Throwable) {
-            android.util.Log.e("PlayerService", "Failed to extract local video frame for $uriString: ${e.localizedMessage}", e)
-            null
-        }
-    }
-    private fun MediaItem.withArtwork(uri: Uri): MediaItem = buildUpon()
-        .setMediaMetadata(
-            mediaMetadata.buildUpon()
-                .setArtworkUri(uri)
-                .build(),
-        )
-        .build()
-}
 
-@get:UnstableApi
-@set:UnstableApi
-private var Player.playerSpecificSkipSilenceEnabled: Boolean
-    @OptIn(UnstableApi::class)
-    get() = when (this) {
-        is ExoPlayer -> this.skipSilenceEnabled
-        else -> false
-    }
-    set(value) {
-        when (this) {
-            is ExoPlayer -> this.skipSilenceEnabled = value
-        }
-    }
-
-@get:UnstableApi
-@set:UnstableApi
-private var Player.playerSpecificSubtitleDelayMilliseconds: Long
-    @OptIn(UnstableApi::class)
-    get() = when (this) {
-        is ExoPlayer -> this.subtitleDelayMilliseconds
-        else -> 0L
-    }
-    set(value) {
-        when (this) {
-            is ExoPlayer -> this.subtitleDelayMilliseconds = value
-        }
-    }
-
-@get:UnstableApi
-@set:UnstableApi
-private var Player.playerSpecificSubtitleSpeed: Float
-    @OptIn(UnstableApi::class)
-    get() = when (this) {
-        is ExoPlayer -> this.subtitleSpeed
-        else -> 0f
-    }
-    set(value) {
-        when (this) {
-            is ExoPlayer -> this.subtitleSpeed = value
-        }
-    }
-
-@UnstableApi
-private class ProxyHeaderDataSource(
-    private val delegate: DataSource
-) : DataSource {
-    override fun addTransferListener(transferListener: TransferListener) {
-        delegate.addTransferListener(transferListener)
-    }
-
-    override fun open(dataSpec: DataSpec): Long {
-        val uri = dataSpec.uri
-        val uriString = uri.toString()
-        val headers = dataSpec.httpRequestHeaders.toMutableMap()
-
-        if (uriString.contains("/proxy/stream")) {
-            headers["x-api-key"] = "ok223377"
-        }
-
-        if (uri.scheme == "http" || uri.scheme == "https") {
-            if (!headers.containsKey("User-Agent")) {
-                headers["User-Agent"] = "Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36"
-            }
-            if (!headers.containsKey("Accept")) {
-                headers["Accept"] = "*/*"
-            }
-            if (!headers.containsKey("Accept-Language")) {
-                headers["Accept-Language"] = "en-US,en;q=0.9"
-            }
-            if (!headers.containsKey("Sec-Fetch-Mode")) {
-                headers["Sec-Fetch-Mode"] = "no-cors"
-            }
-            if (!headers.containsKey("Sec-Fetch-Dest")) {
-                headers["Sec-Fetch-Dest"] = "video"
-            }
-
-            if (!headers.containsKey("Referer")) {
-                val host = uri.host ?: ""
-                when {
-                    host.contains("scdn.st") || host.contains("streamtape") -> {
-                        headers["Referer"] = "https://streamtape.com/"
-                    }
-                    host.isNotEmpty() -> {
-                        headers["Referer"] = "${uri.scheme}://$host/"
-                    }
-                }
-            }
-        }
-
-        val updatedDataSpec = dataSpec.buildUpon()
-            .setHttpRequestHeaders(headers)
+        return NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(coreUiR.drawable.ic_launcher_monochrome)
+            .setContentTitle(item?.title?.ifBlank { "Krypton Player" } ?: "Krypton Player")
+            .setContentText(item?.artist ?: "libmpv Playback")
+            .setContentIntent(contentIntent)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOnlyAlertOnce(true)
+            .setOngoing(snapshot.isPlaying)
+            .addAction(coreUiR.drawable.ic_skip_prev, "Previous", serviceActionIntent(ACTION_PREVIOUS, 2))
+            .addAction(playPauseAction)
+            .addAction(coreUiR.drawable.ic_skip_next, "Next", serviceActionIntent(ACTION_NEXT, 3))
+            .addAction(coreUiR.drawable.ic_close, "Stop", serviceActionIntent(ACTION_STOP, 4))
+            .setStyle(
+                MediaStyle()
+                    .setMediaSession(mediaSession.sessionToken)
+                    .setShowActionsInCompactView(0, 1, 2),
+            )
             .build()
+    }
 
-        return try {
-            delegate.open(updatedDataSpec)
-        } catch (e: HttpDataSource.InvalidResponseCodeException) {
-            if (e.responseCode == 503 || e.responseCode == 403) {
-                val fallbackHeaders = headers.toMutableMap()
-                fallbackHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
-                val host = uri.host ?: ""
-                if (host.isNotEmpty()) {
-                    fallbackHeaders["Origin"] = "${uri.scheme}://$host"
-                    if (host.contains("scdn.st") || host.contains("streamtape")) {
-                        fallbackHeaders["Referer"] = "https://streamtape.com/"
-                    } else {
-                        fallbackHeaders["Referer"] = "${uri.scheme}://$host/"
-                    }
-                }
-                val retryDataSpec = dataSpec.buildUpon()
-                    .setHttpRequestHeaders(fallbackHeaders)
-                    .build()
-                delegate.open(retryDataSpec)
-            } else {
-                throw e
-            }
+    private fun serviceActionIntent(action: String, requestCode: Int): PendingIntent =
+        PendingIntent.getService(
+            this,
+            requestCode,
+            Intent(this, PlayerService::class.java).setAction(action),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    private fun startForegroundWithType(notification: Notification) {
+        val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+        } else {
+            0
+        }
+        ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, type)
+    }
+
+    private fun stopForegroundAndSelf() {
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private fun updateAudioFocus(isPlaying: Boolean) {
+        if (!preferencesRepository.playerPreferences.value.requireAudioFocus) {
+            if (hasAudioFocus) abandonAudioFocus()
+            return
+        }
+        if (isPlaying && !hasAudioFocus) {
+            requestAudioFocus()
+        } else if (!isPlaying && hasAudioFocus) {
+            abandonAudioFocus()
         }
     }
 
-    override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-        return delegate.read(buffer, offset, length)
+    @Suppress("DEPRECATION")
+    private fun requestAudioFocus() {
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val request = audioFocusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
+                        .build(),
+                )
+                .setOnAudioFocusChangeListener(audioFocusListener)
+                .build()
+                .also { audioFocusRequest = it }
+            audioManager.requestAudioFocus(request) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            audioManager.requestAudioFocus(
+                audioFocusListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN,
+            ) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+        hasAudioFocus = granted
     }
 
-    override fun getUri(): Uri? {
-        return delegate.getUri()
+    @Suppress("DEPRECATION")
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            audioFocusRequest?.let { audioManager.abandonAudioFocusRequest(it) }
+        } else {
+            audioManager.abandonAudioFocus(audioFocusListener)
+        }
+        hasAudioFocus = false
     }
 
-    override fun close() {
-        delegate.close()
+    private fun browsableItem(id: String, title: String): MediaBrowserCompat.MediaItem {
+        val desc = MediaDescriptionCompat.Builder()
+            .setMediaId(id)
+            .setTitle(title)
+            .build()
+        return MediaBrowserCompat.MediaItem(desc, MediaBrowserCompat.MediaItem.FLAG_BROWSABLE)
+    }
+
+    private fun playableBrowserItem(video: dev.roxy.kryptonplayer.core.model.Video): MediaBrowserCompat.MediaItem {
+        val uri = if (video.uriString.isNotEmpty()) video.uriString.toUri() else File(video.path).toUri()
+        val id = if (video.uriString.isNotEmpty()) video.uriString else video.path
+        val desc = MediaDescriptionCompat.Builder()
+            .setMediaId(id)
+            .setTitle(video.displayName)
+            .setMediaUri(uri)
+            .build()
+        return MediaBrowserCompat.MediaItem(desc, MediaBrowserCompat.MediaItem.FLAG_PLAYABLE)
+    }
+
+    private fun dev.roxy.kryptonplayer.core.model.Video.toPlaybackMediaItem(): PlaybackMediaItem {
+        val uri = if (uriString.isNotEmpty()) uriString.toUri() else File(path).toUri()
+        val id = if (uriString.isNotEmpty()) uriString else path
+        return PlaybackMediaItem(
+            mediaId = id,
+            uri = uri,
+            title = displayName,
+            durationMs = duration,
+            positionMs = playbackPosition,
+        )
+    }
+
+    companion object {
+        private const val TAG = "PlayerService"
+        private const val NOTIFICATION_ID = 1001
+        private const val NOTIFICATION_CHANNEL_ID = "krypton_playback_channel"
+        private const val ROOT_ID = "krypton_root"
+        private const val RECENT_ID = "recent"
+        private const val ALL_MEDIA_ID = "all_media"
+        private const val ACTION_PLAY_PAUSE = "dev.roxy.kryptonplayer.action.PLAY_PAUSE"
+        private const val ACTION_NEXT = "dev.roxy.kryptonplayer.action.NEXT"
+        private const val ACTION_PREVIOUS = "dev.roxy.kryptonplayer.action.PREVIOUS"
+        private const val ACTION_STOP = "dev.roxy.kryptonplayer.action.STOP"
+
+        fun start(context: Context) {
+            val intent = Intent(context, PlayerService::class.java)
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun stop(context: Context) {
+            context.stopService(Intent(context, PlayerService::class.java))
+        }
+
+        fun createNotificationChannel(context: Context) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+            val channel = NotificationChannel(
+                NOTIFICATION_CHANNEL_ID,
+                "Media Playback",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "Active media playback controls"
+                setShowBadge(false)
+            }
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.createNotificationChannel(channel)
+        }
     }
 }

@@ -6,23 +6,20 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.media3.common.PlaybackException
-import androidx.media3.common.Player
-import androidx.media3.common.listen
-import androidx.media3.common.util.UnstableApi
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackFailure
 
-@UnstableApi
 @Composable
-fun rememberErrorState(player: Player): ErrorState {
-    val errorState = remember { ErrorState(player) }
+fun rememberErrorState(player: PlaybackController): ErrorState {
+    val errorState = remember(player) { ErrorState(player) }
     LaunchedEffect(player) { errorState.observe() }
     return errorState
 }
 
 class ErrorState(
-    private val player: Player,
+    private val player: PlaybackController,
 ) {
-    var error: PlaybackException? by mutableStateOf(null)
+    var error: PlaybackFailure? by mutableStateOf(null)
         private set
 
     fun dismiss() {
@@ -30,11 +27,8 @@ class ErrorState(
     }
 
     suspend fun observe() {
-        error = player.playerError
-        player.listen { events ->
-            if (events.contains(Player.EVENT_PLAYER_ERROR)) {
-                error = player.playerError
-            }
+        player.state.collect { snapshot ->
+            error = snapshot.error
         }
     }
 }

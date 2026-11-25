@@ -101,9 +101,9 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
 
-    // Media3
-    implementation(libs.androidx.media3.common)
-    implementation(libs.androidx.media3.datasource)
+    // HTTP Streaming Proxy
+    implementation(libs.nanohttpd)
+    implementation(libs.okhttp)
 
     // Hilt
     implementation(libs.retrofit)

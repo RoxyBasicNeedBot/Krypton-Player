@@ -42,13 +42,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import dev.roxy.kryptonplayer.core.common.Utils
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackMediaItem
 import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.components.NextSegmentedListItem
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
@@ -58,12 +57,11 @@ import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import sh.calvin.reorderable.rememberReorderableLazyListState
 
-@OptIn(UnstableApi::class)
 @Composable
 fun BoxScope.PlaylistView(
     modifier: Modifier = Modifier,
     show: Boolean,
-    player: Player,
+    player: PlaybackController,
 ) {
     val hapticFeedback = LocalHapticFeedback.current
     val playlistState = rememberPlaylistState(player)
@@ -126,7 +124,7 @@ fun BoxScope.PlaylistView(
 @kotlin.OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReorderableCollectionItemScope.PlaylistItemView(
-    mediaItem: MediaItem,
+    mediaItem: PlaybackMediaItem,
     isFirstItem: Boolean = false,
     isLastItem: Boolean = false,
     isCurrentItem: Boolean,
@@ -187,7 +185,7 @@ private fun ReorderableCollectionItemScope.PlaylistItemView(
         },
         content = {
             Text(
-                text = mediaItem.mediaMetadata.title?.toString() ?: stringResource(R.string.unknown),
+                text = mediaItem.title.ifBlank { stringResource(R.string.unknown) },
                 maxLines = 2,
                 style = MaterialTheme.typography.titleSmall,
                 overflow = TextOverflow.Ellipsis,
@@ -210,7 +208,7 @@ private fun ReorderableCollectionItemScope.PlaylistItemView(
 @Composable
 private fun ThumbnailView(
     modifier: Modifier = Modifier,
-    mediaItem: MediaItem,
+    mediaItem: PlaybackMediaItem,
 ) {
     val context = LocalContext.current
     Box(
@@ -219,7 +217,6 @@ private fun ThumbnailView(
             .background(MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp))
             .aspectRatio(16f / 10f),
     ) {
-        // Fallback icon
         Icon(
             imageVector = NextIcons.Video,
             contentDescription = null,
@@ -229,7 +226,6 @@ private fun ThumbnailView(
                 .fillMaxSize(0.5f),
         )
 
-        // Thumbnail image
         AsyncImage(
             model = ImageRequest.Builder(context)
                 .data(mediaItem.mediaId)
@@ -241,21 +237,19 @@ private fun ThumbnailView(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Duration overlay
-        mediaItem.mediaMetadata.durationMs?.let { durationMs ->
-            if (durationMs > 0) {
-                Text(
-                    text = Utils.formatDurationMillis(durationMs),
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Normal),
-                    color = Color.White,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(4.dp)
-                        .clip(MaterialTheme.shapes.extraSmall)
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .padding(vertical = 1.dp, horizontal = 3.dp),
-                )
-            }
+        val durationMs = mediaItem.durationMs
+        if (durationMs > 0L) {
+            Text(
+                text = Utils.formatDurationMillis(durationMs),
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Normal),
+                color = Color.White,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+                    .clip(MaterialTheme.shapes.extraSmall)
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .padding(vertical = 1.dp, horizontal = 3.dp),
+            )
         }
     }
 }

@@ -185,9 +185,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import dev.roxy.kryptonplayer.core.ui.theme.LocalMediaController
-import dev.roxy.kryptonplayer.feature.videopicker.composables.rememberPlayerState
-import androidx.media3.common.Player
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackMediaItem
+import dev.roxy.kryptonplayer.core.ui.theme.LocalPlaybackController
 
 import androidx.hilt.navigation.compose.hiltViewModel
 import dev.roxy.kryptonplayer.feature.videopicker.composables.CenterCircularProgressBar
@@ -315,11 +314,11 @@ internal fun MediaPickerScreen(
     onSkipUpdateVersion: (String) -> Unit = {},
 ) {
     val selectionManager = rememberSelectionManager()
-    val mediaController = LocalMediaController.current
-    val isMiniPlayerVisible = mediaController?.let { controller ->
-        val playerState = rememberPlayerState(controller)
-        playerState.currentMediaItem != null && playerState.playbackState != Player.STATE_IDLE
-    } ?: false
+    val playbackController = LocalPlaybackController.current
+    val playbackState = playbackController?.state?.collectAsStateWithLifecycle()?.value
+    val isMiniPlayerVisible = playbackState != null &&
+        playbackState.currentItem != null &&
+        !playbackState.isIdle
 
     var showUpdateSheet by rememberSaveable { mutableStateOf(false) }
     var discoveredUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
@@ -1431,14 +1430,21 @@ internal fun MediaPickerScreen(
                                             },
                                             onMoreClick = { showMoreMenu = !showMoreMenu },
                                             onPlayNext = { video ->
-                                                mediaController?.let { controller ->
-                                                    val mediaItem = androidx.media3.common.MediaItem.Builder()
-                                                        .setUri(video.uriString.toUri())
-                                                        .setMediaId(video.uriString)
-                                                        .build()
-                                                    val insertIndex = (controller.currentMediaItemIndex + 1).coerceAtMost(controller.mediaItemCount)
+                                                val controller = playbackController
+                                                val snapshot = controller?.state?.value
+                                                if (controller != null && snapshot != null && !snapshot.isIdle && snapshot.currentItem != null) {
+                                                    val mediaItem = PlaybackMediaItem(
+                                                        mediaId = video.uriString,
+                                                        uri = video.uriString.toUri(),
+                                                        title = video.displayName.ifBlank { video.nameWithExtension },
+                                                        artworkUri = video.artworkUri?.takeIf { it.isNotBlank() }?.toUri(),
+                                                        durationMs = video.duration.coerceAtLeast(0L),
+                                                    )
+                                                    val insertIndex = (snapshot.currentIndex + 1).coerceIn(0, snapshot.playlist.size)
                                                     controller.addMediaItem(insertIndex, mediaItem)
-                                                } ?: onPlayVideo(video.uriString.toUri())
+                                                } else {
+                                                    onPlayVideo(video.uriString.toUri())
+                                                }
                                             },
                                             onShareVideo = { video ->
                                                 onEvent(MediaPickerUiEvent.ShareVideos(listOf(video.uriString)))

@@ -80,36 +80,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
-import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.ui.compose.PlayerSurface
-import androidx.media3.ui.compose.SURFACE_TYPE_SURFACE_VIEW
-import androidx.media3.ui.compose.modifiers.resizeWithContentScale
-import androidx.media3.ui.compose.state.rememberPresentationState
 import coil3.compose.AsyncImage
-import dev.roxy.kryptonplayer.feature.player.model.ReelItem
-import dev.roxy.kryptonplayer.core.ui.components.LottieHeartLikeButton
-import dev.roxy.kryptonplayer.core.ui.components.LottieTelegramDelete
-import dev.roxy.kryptonplayer.core.data.tdlib.SmartTelegramDataSource
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackLoopMode
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackMediaItem
 import dev.roxy.kryptonplayer.core.data.tdlib.TdlibManager
 import dev.roxy.kryptonplayer.core.data.tdlib.TdlibMediaResolver
-import androidx.media3.datasource.DataSource
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
-import dev.roxy.kryptonplayer.feature.player.service.BoundsSafeTrackSelectionFactory
+import dev.roxy.kryptonplayer.core.ui.components.LottieHeartLikeButton
+import dev.roxy.kryptonplayer.core.ui.components.LottieTelegramDelete
+import dev.roxy.kryptonplayer.feature.player.model.ReelItem
+import dev.roxy.kryptonplayer.feature.player.mpv.MPVView
 import kotlinx.coroutines.delay
 
-@OptIn(ExperimentalFoundationApi::class, UnstableApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ReelsScreen(
     playlist: List<ReelItem>,
     startIndex: Int,
+    playbackController: PlaybackController,
     tdlibManager: TdlibManager? = null,
     tdlibMediaResolver: TdlibMediaResolver? = null,
     telegramRepository: dev.roxy.kryptonplayer.core.data.repository.TelegramRepository? = null,
@@ -160,53 +151,16 @@ fun ReelsScreen(
         )
     }
 
-    // Initialize ExoPlayer with SmartTelegramDataSource for Telegram Cloud MTProto + HTTP streaming
-    val player = remember {
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(15000)
-            .setReadTimeoutMs(15000)
+    val playerState by playbackController.state.collectAsState()
+    val playerPrefs by (preferencesRepository?.playerPreferences?.collectAsState()
+        ?: remember { mutableStateOf(dev.roxy.kryptonplayer.core.model.PlayerPreferences()) })
 
-        val dataSourceFactory = DataSource.Factory {
-            val baseDataSource = DefaultDataSource(context.applicationContext, httpDataSourceFactory.createDataSource())
-            if (tdlibManager != null && tdlibMediaResolver != null) {
-                SmartTelegramDataSource(
-                    context = context.applicationContext,
-                    httpDelegate = baseDataSource,
-                    tdlibManager = tdlibManager,
-                    tdlibMediaResolver = tdlibMediaResolver,
-                    preferencesRepository = preferencesRepository
-                )
-            } else {
-                baseDataSource
-            }
-        }
-
-        val extractorsFactory = dev.roxy.kryptonplayer.feature.player.extractor.ResilientExtractorsFactory()
-
-        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory, extractorsFactory)
-
-        val trackSelector = DefaultTrackSelector(context, BoundsSafeTrackSelectionFactory())
-
-        ExoPlayer.Builder(context)
-            .setTrackSelector(trackSelector)
-            .setMediaSourceFactory(mediaSourceFactory)
-            .build().apply {
-                repeatMode = Player.REPEAT_MODE_ONE
-            }
-    }
-
-    DisposableEffect(player) {
-        onDispose {
-            player.release()
-        }
-    }
-
-    DisposableEffect(playlistKey, isDialogActive) {
+    DisposableEffect(playbackController) {
+        val previousLoop = playbackController.state.value.repeatMode
+        playbackController.setRepeatMode(PlaybackLoopMode.ONE)
         onDispose {
             if (playlistKey.isNotEmpty() && !isDialogActive) {
-                val currentPos = try { player.currentPosition } catch (e: Exception) { 0L }
+                val currentPos = playbackController.state.value.currentPositionMs
                 if (currentPos > 0L) {
                     sharedPrefs.edit()
                         .putInt(savedIndexKey, pagerState.currentPage)
@@ -214,32 +168,25 @@ fun ReelsScreen(
                         .apply()
                 }
             }
+            playbackController.setRepeatMode(previousLoop)
+            playbackController.stop(clearPlaylist = true)
         }
     }
 
     var isPlaying by remember { mutableStateOf(true) }
 
-    // Sync player play/pause state back to UI
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) {
-                isPlaying = playing
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-        }
+    LaunchedEffect(playerState.isPlaying) {
+        isPlaying = playerState.isPlaying
     }
 
     // Standard Android Lifecycle handling
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
-        player.pause()
+        playbackController.pause()
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         if (isPlaying && !isDialogActive) {
-            player.play()
+            playbackController.play()
         }
     }
 
@@ -250,26 +197,16 @@ fun ReelsScreen(
     var isSeeking by remember { mutableStateOf(false) }
     var seekProgress by remember { mutableStateOf(0f) }
 
-    // Monitor buffering state
-    DisposableEffect(player) {
-        val listener = object : Player.Listener {
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                isBuffering = playbackState == Player.STATE_BUFFERING
-            }
-        }
-        player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-        }
+    LaunchedEffect(playerState.isBuffering, playerState.isLoading) {
+        isBuffering = playerState.isBuffering || playerState.isLoading
     }
 
     // Monitor progress and save history periodically (handling both videos and photos)
-    LaunchedEffect(player, isPlaying, pagerState.currentPage, isDialogActive, isSeeking) {
+    LaunchedEffect(playbackController, isPlaying, pagerState.currentPage, isDialogActive, isSeeking) {
         var lastSaveTime = 0L
         val activeItem = if (playlist.isNotEmpty() && pagerState.currentPage in playlist.indices) playlist[pagerState.currentPage] else null
-        
+
         if (activeItem != null && activeItem.isImage) {
-            // 5-second slide timer for photos with smooth progress
             val totalPhotoDurationMs = 5000L
             var elapsedMs = 0L
             durationText = "00:05"
@@ -286,9 +223,10 @@ fun ReelsScreen(
             }
         } else {
             while (true) {
-                val duration = player.duration
+                val snap = playbackController.state.value
+                val duration = snap.durationMs
                 if (duration > 0 && !isSeeking) {
-                    val currentPos = player.currentPosition
+                    val currentPos = snap.currentPositionMs
                     currentProgress = currentPos.toFloat() / duration
                     currentPositionText = formatTime(currentPos)
                     durationText = formatTime(duration)
@@ -310,10 +248,9 @@ fun ReelsScreen(
     // Load active video when page changes
     LaunchedEffect(pagerState.currentPage, isDialogActive) {
         if (isDialogActive) {
-            player.stop()
+            playbackController.pause()
             return@LaunchedEffect
         }
-        player.stop()
         val activeItem = if (currentPlaylist.isNotEmpty() && pagerState.currentPage in currentPlaylist.indices) currentPlaylist[pagerState.currentPage] else null
         if (activeItem != null && !activeItem.isImage) {
             val rawUri = activeItem.uri
@@ -322,22 +259,22 @@ fun ReelsScreen(
                 rawUri.startsWith("http://") || rawUri.startsWith("https://") || rawUri.startsWith("content://") || rawUri.startsWith("file://") -> Uri.parse(rawUri)
                 else -> Uri.fromFile(java.io.File(rawUri))
             }
-            val mediaItem = MediaItem.Builder()
-                .setUri(resolvedUri)
-                .setMediaId(rawUri)
-                .apply {
-                    if (rawUri.startsWith("tdlib://") || rawUri.contains("/api/stream/")) {
-                        setMimeType(androidx.media3.common.MimeTypes.VIDEO_MP4)
-                    }
-                }
-                .build()
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            if (initialPositionToShow > 0L) {
-                player.seekTo(initialPositionToShow)
-                initialPositionToShow = 0L // reset so we don't seek again on page swipes
-            }
-            player.playWhenReady = true
+            val startPos = if (initialPositionToShow > 0L) initialPositionToShow.also { initialPositionToShow = 0L } else 0L
+            playbackController.setPlaylist(
+                items = listOf(
+                    PlaybackMediaItem(
+                        mediaId = rawUri,
+                        uri = resolvedUri,
+                        title = activeItem.title,
+                    ),
+                ),
+                startIndex = 0,
+                startPositionMs = startPos,
+                playWhenReady = true,
+            )
+            playbackController.setRepeatMode(PlaybackLoopMode.ONE)
+        } else {
+            playbackController.stop(clearPlaylist = true)
         }
     }
 
@@ -419,11 +356,11 @@ fun ReelsScreen(
                                 indication = null
                             ) {
                                 if (isActive) {
-                                    if (player.isPlaying) {
-                                        player.pause()
+                                    if (playbackController.state.value.isPlaying) {
+                                        playbackController.pause()
                                         showPlayPauseIcon = false
                                     } else {
-                                        player.play()
+                                        playbackController.play()
                                         showPlayPauseIcon = true
                                     }
                                     iconTrigger++
@@ -463,21 +400,18 @@ fun ReelsScreen(
                         contentScale = ContentScale.Fit
                     )
                 } else if (isActive) {
-                    val presentationState = rememberPresentationState(player)
-                    PlayerSurface(
-                        player = player,
-                        surfaceType = SURFACE_TYPE_SURFACE_VIEW,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .resizeWithContentScale(
-                                contentScale = ContentScale.Fit,
-                                sourceSizeDp = presentationState.videoSizeDp?.let { size ->
-                                    size.copy(
-                                        width = with(LocalDensity.current) { size.width.toDp().value },
-                                        height = with(LocalDensity.current) { size.height.toDp().value },
-                                    )
-                                }
-                            )
+                    AndroidView(
+                        modifier = Modifier.fillMaxSize(),
+                        factory = { ctx ->
+                            MPVView.create(ctx).apply {
+                                initializeSession(playerPrefs)
+                            }
+                        },
+                        update = { view ->
+                            if (!view.isSurfaceReady) {
+                                view.rebindCurrentSurface()
+                            }
+                        },
                     )
 
                     // Loading indicator when buffering
@@ -700,16 +634,16 @@ fun ReelsScreen(
                     onValueChange = {
                         isSeeking = true
                         seekProgress = it
-                        val duration = player.duration
+                        val duration = playerState.durationMs
                         if (duration > 0) {
                             currentPositionText = formatTime((it * duration).toLong())
                         }
                     },
                     onValueChangeFinished = {
-                        val duration = player.duration
+                        val duration = playerState.durationMs
                         if (duration > 0) {
                             val targetPosition = (seekProgress * duration).toLong()
-                            player.seekTo(targetPosition)
+                            playbackController.seekTo(targetPosition)
                         }
                         isSeeking = false
                     },

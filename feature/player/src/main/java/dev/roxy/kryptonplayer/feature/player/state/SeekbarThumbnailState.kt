@@ -12,21 +12,34 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
+import dev.roxy.kryptonplayer.core.common.playback.FrameThumbnailExtractor
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
+import java.util.Collections
+import java.util.WeakHashMap
 
-@androidx.media3.common.util.UnstableApi
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+internal interface SeekbarThumbnailExtractorEntryPoint {
+    fun frameThumbnailExtractor(): FrameThumbnailExtractor
+}
+
 class SeekbarThumbnailState(
     private val context: Context,
+    private val frameExtractor: FrameThumbnailExtractor? = null,
 ) {
     companion object {
-        private val activeInstances = java.util.Collections.newSetFromMap(
-            java.util.WeakHashMap<SeekbarThumbnailState, Boolean>()
+        private val activeInstances = Collections.newSetFromMap(
+            WeakHashMap<SeekbarThumbnailState, Boolean>(),
         )
 
         fun clearAllCaches() {
@@ -43,201 +56,93 @@ class SeekbarThumbnailState(
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var retriever: MediaMetadataRetriever? = null
-    private var media3Extractor: dev.roxy.kryptonplayer.feature.player.thumbnail.Media3SessionExtractor? = null
-    // Max 10MB memory cache for seekbar thumbnail frames with active recycling
     private val maxCacheSizeBytes = 10 * 1024 * 1024
     private val cache = object : LruCache<Long, Bitmap>(maxCacheSizeBytes) {
-        override fun sizeOf(key: Long, value: Bitmap): Int {
-            return value.byteCount
-        }
+        override fun sizeOf(key: Long, value: Bitmap): Int = value.byteCount
 
         override fun entryRemoved(evicted: Boolean, key: Long, oldValue: Bitmap, newValue: Bitmap?) {
             if (evicted && oldValue != thumbnail && !oldValue.isRecycled) {
-                try {
-                    oldValue.recycle()
-                } catch (_: Exception) {}
+                runCatching { oldValue.recycle() }
             }
         }
     }
+    private var retriever: MediaMetadataRetriever? = null
     private var currentUri: Uri? = null
-    private var isInitialized = false
     private val mutex = Mutex()
-    private var media3ExtractorFailed = false
 
     var thumbnail by mutableStateOf<Bitmap?>(null)
         private set
 
     suspend fun setVideoUri(uri: Uri?) = withContext(Dispatchers.IO) {
         mutex.withLock {
-            if (uri == currentUri && isInitialized) return@withLock
+            if (uri == currentUri && (retriever != null || frameExtractor != null)) return@withLock
             releaseInternal()
             currentUri = uri
             if (uri == null) return@withLock
+            if (frameExtractor != null) return@withLock
 
-            try {
+            runCatching {
                 val mmr = MediaMetadataRetriever()
                 val uriString = uri.toString()
-
-                when {
-                    // HTTP/HTTPS streaming URLs (Telegram Cloud, Watch Party, etc.)
-                    uriString.startsWith("http://") || uriString.startsWith("https://") -> {
-                        val headers = HashMap<String, String>()
-                        if (uriString.contains("/proxy/stream")) {
-                            headers["x-api-key"] = "ok223377"
-                        }
-                        headers["User-Agent"] = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36"
-                        mmr.setDataSource(uriString, headers)
-                    }
-                    // Content URIs (local files via content provider)
-                    uriString.startsWith("content://") -> {
-                        mmr.setDataSource(context, uri)
-                    }
-                    // File URIs and direct paths
-                    else -> {
-                        mmr.setDataSource(context, uri)
-                    }
+                if (uriString.startsWith("http://") || uriString.startsWith("https://")) {
+                    mmr.setDataSource(uriString, emptyMap())
+                } else {
+                    mmr.setDataSource(context, uri)
                 }
-
-                // Verify it can actually extract frames by checking duration
-                val durationStr = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                if (durationStr != null) {
+                if (mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION) != null) {
                     retriever = mmr
-                    isInitialized = true
                 } else {
                     mmr.release()
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("SeekbarThumbnailState", "Failed to initialize retriever for $uri", e)
-                retriever = null
-            }
-
-            if (retriever == null) {
-                try {
-                    val extractor = dev.roxy.kryptonplayer.feature.player.thumbnail.Media3SessionExtractor(context, uri)
-                    extractor.initialize()
-                    media3Extractor = extractor
-                    isInitialized = true
-                } catch (e: Exception) {
-                    android.util.Log.e("SeekbarThumbnailState", "Failed to initialize Media3SessionExtractor for $uri", e)
-                    media3Extractor = null
-                    isInitialized = false
                 }
             }
         }
     }
 
     suspend fun requestThumbnail(positionMs: Long) {
-        // Round to nearest second for cache efficiency
-        val roundedSec = positionMs / 1000L
-
-        // Check cache first (fast path)
-        val cachedBitmap = cache.get(roundedSec)
-        if (cachedBitmap != null) {
-            thumbnail = cachedBitmap
+        val roundedSec = (positionMs / 1000L).coerceAtLeast(0L)
+        cache.get(roundedSec)?.let { cached ->
+            thumbnail = cached
             return
         }
 
-        // Use mutex to prevent concurrent MediaMetadataRetriever/Media3Extractor access
-        mutex.withLock {
-            val ret = retriever
-            var m3Ext = media3Extractor
-            if (ret == null && m3Ext == null) return@withLock
-
+        val activeUri = currentUri ?: return
+        val extracted = frameExtractor?.extractFrame(
+            uri = activeUri,
+            positionMs = roundedSec * 1000L,
+            width = 320,
+            height = 180,
+        ) ?: mutex.withLock {
             withContext(Dispatchers.IO) {
-                try {
-                    val timeUs = roundedSec * 1_000_000L
-                    var frame = kotlinx.coroutines.withTimeoutOrNull(2000L) {
-                        if (ret != null) {
-                            try {
-                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
-                                    try {
-                                        ret.getScaledFrameAtTime(
-                                            timeUs,
-                                            MediaMetadataRetriever.OPTION_CLOSEST_SYNC,
-                                            320,
-                                            180
-                                        )
-                                    } catch (_: Exception) {
-                                        ret.getFrameAtTime(
-                                            timeUs,
-                                            MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-                                        )
-                                    }
-                                } else {
-                                    ret.getFrameAtTime(
-                                        timeUs,
-                                        MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-                                    )
-                                }
-                            } catch (_: Exception) {
-                                null
-                            }
-                        } else {
-                            null
-                        }
-                    }
-
-                    if (frame == null) {
-                        // If retriever failed to get a frame, release it and null it out to avoid using it again for this video
-                        if (ret != null) {
-                            try {
-                                ret.release()
-                            } catch (_: Exception) {}
-                            if (retriever == ret) {
-                                retriever = null
-                            }
-                        }
-
-                        // Fallback to Media3SessionExtractor
-                        if (m3Ext == null && currentUri != null && !media3ExtractorFailed) {
-                            try {
-                                val extractor = dev.roxy.kryptonplayer.feature.player.thumbnail.Media3SessionExtractor(context, currentUri!!)
-                                extractor.initialize()
-                                media3Extractor = extractor
-                                m3Ext = extractor
-                            } catch (e: Exception) {
-                                android.util.Log.e("SeekbarThumbnailState", "Failed to initialize Media3SessionExtractor lazily for $currentUri", e)
-                                media3ExtractorFailed = true
-                            }
-                        }
-
-                        frame = m3Ext?.getFrameAtTime(positionMs)
-                    }
-
-                    if (frame == null) return@withContext
-
-                    // Keep frame if already within 320x180, otherwise scale down
-                    val scaled = if (frame.width <= 320 && frame.height <= 180) {
-                        frame
+                val ret = retriever ?: return@withContext null
+                val timeUs = roundedSec * 1_000_000L
+                runCatching {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+                        ret.getScaledFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 320, 180)
                     } else {
-                        val aspectRatio = frame.width.toFloat() / frame.height.toFloat()
-                        val targetWidth: Int
-                        val targetHeight: Int
-                        if (aspectRatio >= 1f) {
-                            targetWidth = 320
-                            targetHeight = (320 / aspectRatio).toInt().coerceAtLeast(1)
-                        } else {
-                            targetHeight = 180
-                            targetWidth = (180 * aspectRatio).toInt().coerceAtLeast(1)
-                        }
-
-                        val s = Bitmap.createScaledBitmap(frame, targetWidth, targetHeight, true)
-                        if (s != frame) frame.recycle()
-                        s
+                        ret.getFrameAtTime(timeUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC)
                     }
-
-                    cache.put(roundedSec, scaled)
-                    
-                    // State updates must be on Main Thread
-                    withContext(Dispatchers.Main) {
-                        thumbnail = scaled
-                    }
-                } catch (_: Exception) {
-                    // Silently handle - some formats/streams may not support frame extraction
-                }
+                }.getOrNull()
             }
+        } ?: return
+
+        val scaled = scaleBitmap(extracted)
+        cache.put(roundedSec, scaled)
+        withContext(Dispatchers.Main) {
+            thumbnail = scaled
         }
+    }
+
+    private fun scaleBitmap(frame: Bitmap): Bitmap {
+        if (frame.width <= 320 && frame.height <= 180) return frame
+        val aspectRatio = frame.width.toFloat() / frame.height.toFloat().coerceAtLeast(1f)
+        val (w, h) = if (aspectRatio >= 1f) {
+            320 to (320 / aspectRatio).toInt().coerceAtLeast(1)
+        } else {
+            (180 * aspectRatio).toInt().coerceAtLeast(1) to 180
+        }
+        val scaled = Bitmap.createScaledBitmap(frame, w, h, true)
+        if (scaled != frame) frame.recycle()
+        return scaled
     }
 
     fun clearCache() {
@@ -252,23 +157,12 @@ class SeekbarThumbnailState(
     private fun releaseInternal() {
         val oldRetriever = retriever
         retriever = null
-        val oldMedia3Extractor = media3Extractor
-        media3Extractor = null
-        isInitialized = false
         cache.evictAll()
         thumbnail = null
         currentUri = null
-        media3ExtractorFailed = false
-
         if (oldRetriever != null) {
-            scope.launch {
-                try {
-                    oldRetriever.release()
-                } catch (_: Exception) {}
-            }
+            scope.launch { runCatching { oldRetriever.release() } }
         }
-
-        oldMedia3Extractor?.release()
     }
 
     fun release() {
@@ -276,12 +170,19 @@ class SeekbarThumbnailState(
     }
 }
 
-@kotlin.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun rememberSeekbarThumbnailState(): SeekbarThumbnailState {
     val context = LocalContext.current
-    val state = remember { SeekbarThumbnailState(context) }
-    DisposableEffect(Unit) {
+    val extractor = remember(context) {
+        runCatching {
+            EntryPointAccessors.fromApplication(
+                context.applicationContext,
+                SeekbarThumbnailExtractorEntryPoint::class.java,
+            ).frameThumbnailExtractor()
+        }.getOrNull()
+    }
+    val state = remember(context, extractor) { SeekbarThumbnailState(context, extractor) }
+    DisposableEffect(state) {
         onDispose { state.release() }
     }
     return state

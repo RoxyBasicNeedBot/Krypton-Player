@@ -996,7 +996,7 @@ private fun HubContributorsBottomSheetContent(
                     }
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = "@RoxyBasicNeedBot • Core Engine, AMOLED UI, Telegram Cloud & Media3 Architecture",
+                        text = "@RoxyBasicNeedBot • Core Engine, AMOLED UI, Telegram Cloud & libmpv Architecture",
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.76f),
                     )
@@ -1033,12 +1033,12 @@ private fun HubContributorsBottomSheetContent(
                     )
                 }
                 ContributorCreditRow(
-                    name = "AndroidX Media3 & ExoPlayer",
-                    role = "Hardware-accelerated 4K HDR video & audio pipeline",
+                    name = "libmpv & mpvRx Engine",
+                    role = "Hardware/Vulkan 4K HDR pipeline, GLSL shaders & libass subtitles",
                 )
                 ContributorCreditRow(
-                    name = "Next Player & FFmpeg Decoder",
-                    role = "Multi-format software/hardware decoding & subtitle rendering",
+                    name = "FFmpeg & Next Player UI",
+                    role = "Multi-format software/hardware decoding & Compose player shell",
                 )
                 ContributorCreditRow(
                     name = "TDLib (Telegram Database Library)",

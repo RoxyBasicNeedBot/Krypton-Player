@@ -524,7 +524,7 @@ fun AboutScreen(
                                 ),
                                 AboutRowItem(
                                     title = "Open-Source Ecosystem",
-                                    subtitle = "Built with Media3, FFmpeg, Next Player & Mochi UI craft",
+                                    subtitle = "Built with libmpv, mpvRx, FFmpeg, Next Player & Mochi UI craft",
                                     iconVector = Icons.Rounded.Code,
                                     testTag = "about_ecosystem_credits",
                                     onClick = onLibrariesClick,

@@ -2,47 +2,45 @@ package dev.roxy.kryptonplayer.feature.player.utils
 
 import android.content.Intent
 import android.net.Uri
-import androidx.media3.common.C
+import android.os.Bundle
 import dev.roxy.kryptonplayer.feature.player.PlayerActivity
 import dev.roxy.kryptonplayer.feature.player.extensions.getParcelableUriArray
-import dev.roxy.kryptonplayer.feature.player.model.Subtitle
 
 class PlayerApi(val activity: PlayerActivity) {
+    private val extras: Bundle? = activity.intent.extras
 
-    private val extras = activity.intent.extras
     val isApiAccess: Boolean get() = extras != null
     val hasPosition: Boolean get() = extras?.containsKey(API_POSITION) == true
-    val hasTitle: Boolean get() = extras?.containsKey(API_TITLE) == true || !activity.intent.data?.getQueryParameter(API_TITLE).isNullOrBlank()
+    val hasTitle: Boolean get() = extras?.containsKey(API_TITLE) == true
     val shouldReturnResult: Boolean get() = extras?.containsKey(API_RETURN_RESULT) == true
-    val position: Int? get() = if (hasPosition) extras?.getInt(API_POSITION) else null
-    val title: String? get() = extras?.getString(API_TITLE) ?: activity.intent.data?.getQueryParameter(API_TITLE)
 
-    fun getSubs(): List<Subtitle> {
+    val title: String?
+        get() = if (hasTitle) extras?.getString(API_TITLE) else null
+
+    val position: Int?
+        get() = if (hasPosition) extras?.getInt(API_POSITION) else null
+
+    fun getSubs(): List<Sub> {
         if (extras == null) return emptyList()
         if (!extras.containsKey(API_SUBS)) return emptyList()
 
         val subs = extras.getParcelableUriArray(API_SUBS) ?: return emptyList()
         val subsName = extras.getStringArray(API_SUBS_NAME)
-
         val subsEnable = extras.getParcelableUriArray(API_SUBS_ENABLE)
-        val defaultSub = if (!subsEnable.isNullOrEmpty()) subsEnable[0] as Uri else null
+        val selectedSubUri = subsEnable?.firstOrNull() as? Uri
 
-        return subs.mapIndexed { index, parcelable ->
-            val subtitleUri = parcelable as Uri
-            val subtitleName = subsName?.let { if (it.size > index) it[index] else null }
-            Subtitle(
-                name = subtitleName,
-                uri = subtitleUri,
-                isSelected = subtitleUri == defaultSub,
-            )
+        return subs.mapIndexedNotNull { index, parcelable ->
+            val subUri = parcelable as? Uri ?: return@mapIndexedNotNull null
+            val subName = subsName?.getOrNull(index)
+            val isSelected = selectedSubUri != null && selectedSubUri == subUri
+            Sub(name = subName, uri = subUri, isSelected = isSelected)
         }
     }
 
     fun getPlaylist(): List<String> {
         if (extras == null) return emptyList()
-        if (!extras.containsKey(API_PLAYLIST)) return emptyList()
-        val playlist = extras.getParcelableUriArray(API_PLAYLIST) ?: return emptyList()
-        return playlist.map { (it as Uri).toString() }
+        val videoList = extras.getParcelableUriArray(API_VIDEO_LIST) ?: return emptyList()
+        return videoList.map { it.toString() }
     }
 
     fun getResult(isPlaybackFinished: Boolean, duration: Long, position: Long): Intent {
@@ -51,26 +49,30 @@ class PlayerApi(val activity: PlayerActivity) {
                 putExtra(API_END_BY, API_END_BY_COMPLETION)
             } else {
                 putExtra(API_END_BY, API_END_BY_USER)
-                if (duration != C.TIME_UNSET) putExtra(API_DURATION, duration.toInt())
-                if (position != C.TIME_UNSET) putExtra(API_POSITION, position.toInt())
+                if (duration > 0L) putExtra(API_DURATION, duration.toInt())
+                if (position >= 0L) putExtra(API_POSITION, position.toInt())
             }
         }
     }
 
+    data class Sub(
+        val name: String?,
+        val uri: Uri,
+        val isSelected: Boolean,
+    )
+
     companion object {
-        const val API_TITLE = "title"
-        const val API_POSITION = "position"
-        const val API_DURATION = "duration"
-        const val API_RETURN_RESULT = "return_result"
-        const val API_END_BY = "end_by"
-        const val API_SUBS = "subs"
-        const val API_SUBS_ENABLE = "subs.enable"
-        const val API_SUBS_NAME = "subs.name"
-        const val API_PLAYLIST = "video_list"
-
-        const val API_RESULT_INTENT = "com.mxtech.intent.result.VIEW"
-
-        private const val API_END_BY_USER = "user"
+        private const val API_TITLE = "title"
+        private const val API_POSITION = "position"
+        private const val API_DURATION = "duration"
+        private const val API_RETURN_RESULT = "return_result"
+        private const val API_END_BY = "end_by"
         private const val API_END_BY_COMPLETION = "playback_completion"
+        private const val API_END_BY_USER = "user"
+        private const val API_SUBS = "subs"
+        private const val API_SUBS_ENABLE = "subs.enable"
+        private const val API_SUBS_NAME = "subs.name"
+        private const val API_VIDEO_LIST = "video_list"
+        private const val API_RESULT_INTENT = "com.mxtech.intent.result.VIEW"
     }
 }

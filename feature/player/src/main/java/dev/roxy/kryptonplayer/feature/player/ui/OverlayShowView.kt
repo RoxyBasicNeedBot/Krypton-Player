@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.media3.common.Player
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.model.ApplicationPreferences
 import dev.roxy.kryptonplayer.core.model.PlayerPreferences
 import dev.roxy.kryptonplayer.core.model.VideoContentScale
@@ -14,7 +14,7 @@ import dev.roxy.kryptonplayer.feature.player.state.SubtitleOptionsEvent
 
 @Composable
 fun BoxScope.OverlayShowView(
-    player: Player,
+    player: PlaybackController,
     overlayView: OverlayView?,
     videoContentScale: VideoContentScale,
     playerPreferences: PlayerPreferences = PlayerPreferences(),

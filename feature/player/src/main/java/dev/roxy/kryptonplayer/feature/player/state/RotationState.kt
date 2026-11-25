@@ -15,20 +15,17 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.core.util.Consumer
-import androidx.media3.common.Player
-import androidx.media3.common.listen
-import androidx.media3.common.util.UnstableApi
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackEvent
 import dev.roxy.kryptonplayer.core.model.ScreenOrientation
-import dev.roxy.kryptonplayer.feature.player.extensions.isPortrait
 
-@UnstableApi
 @Composable
 fun rememberRotationState(
-    player: Player,
+    player: PlaybackController,
     screenOrientation: ScreenOrientation,
 ): RotationState {
     val activity = LocalActivity.current as ComponentActivity
-    val rotationState = remember {
+    val rotationState = remember(activity, player, screenOrientation) {
         RotationState(
             activity = activity,
             player = player,
@@ -38,14 +35,14 @@ fun rememberRotationState(
     DisposableEffect(activity) {
         rotationState.handleListeners(this)
     }
-    LaunchedEffect(player) { rotationState.observe() }
+    LaunchedEffect(player, screenOrientation) { rotationState.observe() }
     return rotationState
 }
 
 @Stable
 class RotationState(
     private val activity: ComponentActivity,
-    private val player: Player,
+    private val player: PlaybackController,
     private val screenOrientation: ScreenOrientation,
 ) {
     var currentRequestedOrientation: Int by mutableIntStateOf(activity.requestedOrientation)
@@ -62,9 +59,7 @@ class RotationState(
         val configurationChangedListener: Consumer<Configuration> = Consumer {
             currentRequestedOrientation = activity.requestedOrientation
         }
-
         activity.addOnConfigurationChangedListener(configurationChangedListener)
-
         onDispose {
             activity.removeOnConfigurationChangedListener(configurationChangedListener)
         }
@@ -72,31 +67,30 @@ class RotationState(
 
     suspend fun observe() {
         setOrientation()
-        player.listen { events ->
-            if (events.contains(Player.EVENT_VIDEO_SIZE_CHANGED)) {
-                if (screenOrientation == ScreenOrientation.VIDEO_ORIENTATION) {
-                    activity.requestedOrientation = getVideoBasedOrientation()
-                }
+        player.events.collect { event ->
+            if (event is PlaybackEvent.VideoSizeChanged && screenOrientation == ScreenOrientation.VIDEO_ORIENTATION) {
+                activity.requestedOrientation = getVideoBasedOrientation(event.width, event.height)
             }
         }
     }
 
     private fun setOrientation() {
         if (activity.requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+            val snap = player.state.value
             activity.requestedOrientation = when (screenOrientation) {
                 ScreenOrientation.AUTOMATIC -> ActivityInfo.SCREEN_ORIENTATION_SENSOR
                 ScreenOrientation.LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
                 ScreenOrientation.LANDSCAPE_REVERSE -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
                 ScreenOrientation.LANDSCAPE_AUTO -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
                 ScreenOrientation.PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                ScreenOrientation.VIDEO_ORIENTATION -> getVideoBasedOrientation()
+                ScreenOrientation.VIDEO_ORIENTATION -> getVideoBasedOrientation(snap.videoWidth, snap.videoHeight)
             }
         }
     }
 
-    private fun getVideoBasedOrientation() = when {
-        player.videoSize.width == 0 || player.videoSize.height == 0 -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        player.videoSize.isPortrait -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+    private fun getVideoBasedOrientation(width: Int, height: Int) = when {
+        width == 0 || height == 0 -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        height > width -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
         else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
     }
 }

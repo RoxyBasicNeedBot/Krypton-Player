@@ -52,7 +52,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.common.Player
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
 import dev.roxy.kryptonplayer.feature.player.PlayerViewModel
 
@@ -60,9 +60,9 @@ import dev.roxy.kryptonplayer.feature.player.PlayerViewModel
 @Composable
 fun UsbCastBottomSheet(
     viewModel: PlayerViewModel,
-    player: Player,
+    player: PlaybackController,
     videoTitle: String,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
@@ -347,15 +347,13 @@ fun UsbCastBottomSheet(
                         .fillMaxWidth()
                         .height(48.dp),
                     onClick = {
-                        val currentMedia = player.currentMediaItem
+                        val snap = player.state.value
+                        val currentMedia = snap.currentItem
                         if (currentMedia != null) {
-                            val uriStr = currentMedia.localConfiguration?.uri?.toString()
-                                ?: currentMedia.mediaId
-                            val uri = android.net.Uri.parse(uriStr)
                             viewModel.startUsbStreaming(
-                                videoUri = uri,
+                                videoUri = currentMedia.uri,
                                 title = videoTitle,
-                                initialPositionMs = player.currentPosition
+                                initialPositionMs = snap.currentPositionMs,
                             )
                         }
                     },

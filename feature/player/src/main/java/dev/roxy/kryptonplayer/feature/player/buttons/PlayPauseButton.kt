@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,25 +21,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
-import androidx.media3.ui.compose.state.rememberPlayPauseButtonState
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.ui.R as coreUiR
 
-@OptIn(UnstableApi::class)
 @Composable
-fun PlayPauseButton(player: Player, modifier: Modifier = Modifier) {
-    val state = rememberPlayPauseButtonState(player)
-    val icon = when (state.showPlay) {
-        true -> painterResource(coreUiR.drawable.ic_play)
-        false -> painterResource(coreUiR.drawable.ic_pause)
-    }
+fun PlayPauseButton(player: PlaybackController, modifier: Modifier = Modifier) {
+    val state by player.state.collectAsState()
+    val showPlay = !state.isPlaying
+    val isEnabled = state.currentItem != null
+    val icon = if (showPlay) painterResource(coreUiR.drawable.ic_play) else painterResource(coreUiR.drawable.ic_pause)
     val contentDescription = stringResource(coreUiR.string.play_pause)
 
     val playScale by animateFloatAsState(
-        targetValue = if (state.showPlay) 1.05f else 1.0f,
+        targetValue = if (showPlay) 1.05f else 1.0f,
         animationSpec = spring(dampingRatio = 0.7f, stiffness = 400f),
-        label = "PlayPauseScale"
+        label = "PlayPauseScale",
     )
 
     Box(
@@ -48,12 +45,12 @@ fun PlayPauseButton(player: Player, modifier: Modifier = Modifier) {
             .clip(CircleShape)
             .background(
                 Brush.radialGradient(
-                    colors = listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.06f))
-                )
+                    colors = listOf(Color.White.copy(alpha = 0.18f), Color.White.copy(alpha = 0.06f)),
+                ),
             )
             .border(1.dp, Color.White.copy(alpha = 0.28f), CircleShape)
-            .clickable(enabled = state.isEnabled) { state.onClick() },
-        contentAlignment = Alignment.Center
+            .clickable(enabled = isEnabled) { player.togglePlayPause() },
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             painter = icon,

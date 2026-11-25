@@ -3,9 +3,8 @@
 package dev.roxy.kryptonplayer.feature.videopicker.screens.telegram
 
 import android.net.Uri
-import dev.roxy.kryptonplayer.core.ui.theme.LocalMediaController
-import dev.roxy.kryptonplayer.feature.videopicker.composables.rememberPlayerState
-import androidx.media3.common.Player
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.roxy.kryptonplayer.core.ui.theme.LocalPlaybackController
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -765,11 +764,11 @@ internal fun TelegramScreen(
     val listBottomPadding = 24.dp
     val cloudLazyListState = rememberLazyListState()
     val channelLazyListState = rememberLazyListState()
-    val mediaController = LocalMediaController.current
-    val isMiniPlayerVisible = mediaController?.let { controller ->
-        val playerState = rememberPlayerState(controller)
-        playerState.currentMediaItem != null && playerState.playbackState != Player.STATE_IDLE
-    } ?: false
+    val playbackController = LocalPlaybackController.current
+    val playbackState = playbackController?.state?.collectAsStateWithLifecycle()?.value
+    val isMiniPlayerVisible = playbackState != null &&
+        playbackState.currentItem != null &&
+        !playbackState.isIdle
 
     // Search and navigation states
     var searchUiMode by rememberSaveable { mutableStateOf(SearchUiMode.NONE) }

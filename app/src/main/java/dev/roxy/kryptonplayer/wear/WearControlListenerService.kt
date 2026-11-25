@@ -1,21 +1,23 @@
 package dev.roxy.kryptonplayer.wear
 
-import android.content.ComponentName
 import android.content.Context
 import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.core.content.ContextCompat
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
-import dev.roxy.kryptonplayer.feature.player.service.PlayerService
+import dagger.hilt.android.AndroidEntryPoint
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import org.json.JSONObject
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class WearControlListenerService : WearableListenerService() {
+
+    @Inject
+    lateinit var playbackController: PlaybackController
 
     companion object {
         private const val TAG = "WearControlService"
@@ -33,7 +35,7 @@ class WearControlListenerService : WearableListenerService() {
             title: String,
             isPlaying: Boolean,
             positionMs: Long = 0L,
-            durationMs: Long = 0L
+            durationMs: Long = 0L,
         ) {
             try {
                 val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -68,11 +70,11 @@ class WearControlListenerService : WearableListenerService() {
         when (path) {
             PATH_VOLUME_UP -> {
                 adjustVolume(AudioManager.ADJUST_RAISE)
-                requestStatusAndReply(sourceNodeId)
+                sendStatusReply(sourceNodeId)
             }
             PATH_VOLUME_DOWN -> {
                 adjustVolume(AudioManager.ADJUST_LOWER)
-                requestStatusAndReply(sourceNodeId)
+                sendStatusReply(sourceNodeId)
             }
             PATH_PLAY_PAUSE, PATH_NEXT, PATH_PREV, PATH_GET_STATUS -> {
                 handlePlayerCommand(path, sourceNodeId)
@@ -88,96 +90,59 @@ class WearControlListenerService : WearableListenerService() {
         audioManager.adjustStreamVolume(
             AudioManager.STREAM_MUSIC,
             direction,
-            AudioManager.FLAG_SHOW_UI
+            AudioManager.FLAG_SHOW_UI,
         )
     }
 
     private fun handlePlayerCommand(path: String, sourceNodeId: String) {
         Handler(Looper.getMainLooper()).post {
             try {
-                val sessionToken = SessionToken(
-                    applicationContext,
-                    ComponentName(applicationContext, PlayerService::class.java)
-                )
-                val controllerFuture = MediaController.Builder(applicationContext, sessionToken).buildAsync()
-                controllerFuture.addListener({
-                    try {
-                        val controller = controllerFuture.get()
-                        when (path) {
-                            PATH_PLAY_PAUSE -> {
-                                if (controller.isPlaying) {
-                                    controller.pause()
-                                } else {
-                                    controller.play()
-                                }
-                            }
-                            PATH_NEXT -> {
-                                if (controller.hasNextMediaItem()) {
-                                    controller.seekToNextMediaItem()
-                                }
-                            }
-                            PATH_PREV -> {
-                                if (controller.hasPreviousMediaItem()) {
-                                    controller.seekToPreviousMediaItem()
-                                } else {
-                                    controller.seekTo(0L)
-                                }
-                            }
-                            PATH_GET_STATUS -> {
-                                // Query status and return current playback state
+                if (::playbackController.isInitialized) {
+                    val snapshot = playbackController.state.value
+                    when (path) {
+                        PATH_PLAY_PAUSE -> playbackController.togglePlayPause()
+                        PATH_NEXT -> {
+                            if (snapshot.hasNext) {
+                                playbackController.seekToNext()
                             }
                         }
-                        sendStatusReply(controller, sourceNodeId)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Error executing player command on MediaController: ${e.message}")
-                        sendStatusReply(null, sourceNodeId)
-                    } finally {
-                        MediaController.releaseFuture(controllerFuture)
+                        PATH_PREV -> {
+                            if (snapshot.hasPrevious) {
+                                playbackController.seekToPrevious()
+                            } else {
+                                playbackController.seekTo(0L)
+                            }
+                        }
+                        PATH_GET_STATUS -> {
+                            // Query status and return current playback state
+                        }
                     }
-                }, ContextCompat.getMainExecutor(applicationContext))
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Error binding MediaController: ${e.message}")
-                sendStatusReply(null, sourceNodeId)
+                Log.w(TAG, "Error executing player command on PlaybackController: ${e.message}")
             }
+            sendStatusReply(sourceNodeId)
         }
     }
 
-    private fun requestStatusAndReply(sourceNodeId: String) {
-        Handler(Looper.getMainLooper()).post {
-            try {
-                val sessionToken = SessionToken(
-                    applicationContext,
-                    ComponentName(applicationContext, PlayerService::class.java)
-                )
-                val controllerFuture = MediaController.Builder(applicationContext, sessionToken).buildAsync()
-                controllerFuture.addListener({
-                    try {
-                        val controller = controllerFuture.get()
-                        sendStatusReply(controller, sourceNodeId)
-                    } catch (e: Exception) {
-                        sendStatusReply(null, sourceNodeId)
-                    } finally {
-                        MediaController.releaseFuture(controllerFuture)
-                    }
-                }, ContextCompat.getMainExecutor(applicationContext))
-            } catch (e: Exception) {
-                sendStatusReply(null, sourceNodeId)
-            }
-        }
-    }
-
-    private fun sendStatusReply(controller: MediaController?, targetNodeId: String) {
+    private fun sendStatusReply(targetNodeId: String) {
         try {
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val currentVol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
             val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
 
-            val title = controller?.currentMediaItem?.mediaMetadata?.title?.toString()
-                ?: controller?.currentMediaItem?.mediaId
+            val snapshot = if (::playbackController.isInitialized) {
+                playbackController.state.value
+            } else {
+                null
+            }
+            val currentItem = snapshot?.currentItem
+            val title = currentItem?.title?.takeIf { it.isNotBlank() }
+                ?: currentItem?.mediaId?.takeIf { it.isNotBlank() }
                 ?: "Krypton Player"
-            val isPlaying = controller?.isPlaying ?: false
-            val positionMs = controller?.currentPosition ?: 0L
-            val durationMs = controller?.duration?.takeIf { it > 0 } ?: 0L
+            val isPlaying = snapshot?.isPlaying ?: false
+            val positionMs = snapshot?.currentPositionMs?.coerceAtLeast(0L) ?: 0L
+            val durationMs = snapshot?.durationMs?.takeIf { it > 0L } ?: 0L
 
             val json = JSONObject().apply {
                 put("title", title)

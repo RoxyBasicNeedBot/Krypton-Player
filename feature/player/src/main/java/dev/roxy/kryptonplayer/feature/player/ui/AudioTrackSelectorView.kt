@@ -54,28 +54,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.media3.common.C
-import androidx.media3.common.Player
-import androidx.media3.common.util.UnstableApi
+import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
 import dev.roxy.kryptonplayer.core.ui.R
-import dev.roxy.kryptonplayer.feature.player.extensions.getName
+import dev.roxy.kryptonplayer.feature.player.extensions.displayName
+import dev.roxy.kryptonplayer.feature.player.state.PlayerTrackType
 import dev.roxy.kryptonplayer.feature.player.state.rememberTracksState
 
-@OptIn(UnstableApi::class)
 @Composable
 fun BoxScope.AudioTrackSelectorView(
     modifier: Modifier = Modifier,
     show: Boolean,
-    player: Player,
+    player: PlaybackController,
     playerPreferences: dev.roxy.kryptonplayer.core.model.PlayerPreferences? = null,
     onUpdatePlayerPreferences: ((dev.roxy.kryptonplayer.core.model.PlayerPreferences) -> dev.roxy.kryptonplayer.core.model.PlayerPreferences) -> Unit = {},
     onDismiss: () -> Unit,
 ) {
-    val audioTracksState = rememberTracksState(player, C.TRACK_TYPE_AUDIO)
+    val audioTracksState = rememberTracksState(player, PlayerTrackType.AUDIO)
     val selectedTrackIndex = audioTracksState.tracks.indexOfFirst { it.isSelected }
     val activeTrackName = if (selectedTrackIndex != -1) {
-        audioTracksState.tracks[selectedTrackIndex].mediaTrackGroup.getName(C.TRACK_TYPE_AUDIO, selectedTrackIndex)
-    } else null
+        audioTracksState.tracks[selectedTrackIndex].displayName(selectedTrackIndex)
+    } else {
+        null
+    }
 
     var audioBoostEnabled by remember(playerPreferences?.enableVolumeBoost) {
         mutableStateOf(playerPreferences?.enableVolumeBoost ?: true)
@@ -171,19 +171,18 @@ fun BoxScope.AudioTrackSelectorView(
                 } else {
                     audioTracksState.tracks.forEachIndexed { index, track ->
                         val isSelected = track.isSelected
-                        val trackFormat = (0 until track.mediaTrackGroup.length).map { track.mediaTrackGroup.getFormat(it) }.firstOrNull()
-                        val trackName = track.mediaTrackGroup.getName(C.TRACK_TYPE_AUDIO, index)
+                        val trackName = track.displayName(index)
 
-                        val channelStr = when (trackFormat?.channelCount) {
+                        val channelStr = when (track.channels) {
                             1 -> "Mono"
                             2 -> "Stereo"
                             6 -> "5.1 Surround"
                             8 -> "7.1 Surround"
-                            null -> null
-                            else -> "${trackFormat.channelCount} CH"
+                            0 -> null
+                            else -> "${track.channels} CH"
                         }
-                        val sampleRateStr = if (trackFormat != null && trackFormat.sampleRate > 0) "${trackFormat.sampleRate / 1000} kHz" else null
-                        val codecStr = trackFormat?.sampleMimeType?.substringAfter("/")?.uppercase()
+                        val sampleRateStr = if (track.sampleRate > 0) "${track.sampleRate / 1000} kHz" else null
+                        val codecStr = track.codec?.uppercase()
 
                         Card(
                             onClick = {
