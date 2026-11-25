@@ -102,7 +102,7 @@ License    : GNU Affero General Public License v3.0
   <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 19:46 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 20:51 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`f5d1ec1`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/f5d1ec1d9d6f6ecefe5125dae9301f5c9787e46f) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`49f23d7`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/49f23d74cbc949bd384a7aa79a8877d1cdb19925) | fix: expose API_PLAYLIST constant in PlayerApi companion object | `@RoxyBasicNeedBot` | Nov 25, 2026 |
 | [`0e303a2`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/0e303a2bf6db913f5cb72cc0c9be53497494dd49) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`3f24c2d`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/3f24c2dfa35d8f837e6f2b57d7b516c66cade7e1) | fix: resolve OkHttp 5 deprecations, remove nextlib-mediainfo conflict... | `@RoxyBasicNeedBot` | Nov 25, 2026 |
 | [`9e19355`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/9e193557238ecbe085e995ae7d297d99a7ceb2d2) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
-| [`737fbe2`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/737fbe2e74a3e547f8cab274519e8f6f098d6d08) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
@@ -440,7 +440,7 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
 <div align="center">
 <table>
   <tr>
-    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>16 commits</sub></td>
+    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>17 commits</sub></td>
   </tr>
 </table>
 </div>
