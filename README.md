@@ -96,13 +96,13 @@ License    : GNU Affero General Public License v3.0
 
 | ⭐ Stars | 🍴 Forks | 📥 Total Downloads | 👀 Watchers | 🏷️ Latest Release | 🐛 Open Issues |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| **10** | **7** | **52** | **3** | **[v0.16.4](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
+| **11** | **8** | **52** | **4** | **[v0.16.4](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
 
 <p>
-  <b>🏆 Next Star Milestone:</b> `████████░░░░░░░░░░░░` **40%** (10 / 25 ⭐)
+  <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 18:23 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 18:30 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`9f8592d`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/9f8592dc2c2ef1c3b5f6c83b12c0cb452f12034e) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`bb1a8e6`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/bb1a8e6958e5bdde3b86002da511092fcaf3a841) | feat: migrate playback engine from ExoPlayer/Media3 to libmpv and rel... | `@RoxyBasicNeedBot` | Nov 25, 2026 |
 | [`d815d92`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/d815d928f52c3eb4b957836bf8aa433603b66240) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`55b0d49`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/55b0d4948b4e15191f35c2b2c7d018bd50faead7) | feat: add search tab and enhance onboarding UI | `@RoxyBasicNeedBot` | Nov 25, 2026 |
 | [`f60e449`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/f60e449cf67621a670d6082b1ee3bfba303eda47) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
-| [`601d6aa`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/601d6aa1f1577a892f6698f47c6a127a7d67d4b0) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 24, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
