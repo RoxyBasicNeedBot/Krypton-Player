@@ -102,7 +102,7 @@ License    : GNU General Public License v3.0
   <b>🏆 Next Star Milestone:</b> `████████░░░░░░░░░░░░` **40%** (10 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 06:07 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 16:56 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`55b0d49`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/55b0d4948b4e15191f35c2b2c7d018bd50faead7) | feat: add search tab and enhance onboarding UI | `@RoxyBasicNeedBot` | Nov 25, 2026 |
+| [`f60e449`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/f60e449cf67621a670d6082b1ee3bfba303eda47) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`601d6aa`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/601d6aa1f1577a892f6698f47c6a127a7d67d4b0) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 24, 2026 |
 | [`bbc072c`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/bbc072c721d2930304258ff06452e57e7c1482d2) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 24, 2026 |
 | [`9a753bd`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/9a753bd8bca2ea6ce6ee83201c5527079edacda6) | refactor(videopicker): update profile navigation to Krypton Hub | `@RoxyBasicNeedBot` | Nov 24, 2026 |
-| [`0e08130`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/0e081303fd679403f6f9332a1fad9d626503bb05) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 24, 2026 |
-| [`0350adf`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/0350adf402fd3623631b6e2ca8e75a7da9d7c87c) | Delete .github/dependabot.yml | `@RoxyBasicNeedBot` | Nov 24, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
@@ -440,7 +440,7 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
 <div align="center">
 <table>
   <tr>
-    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>13 commits</sub></td>
+    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>14 commits</sub></td>
   </tr>
 </table>
 </div>
