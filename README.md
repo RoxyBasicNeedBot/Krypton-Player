@@ -96,13 +96,13 @@ License    : GNU Affero General Public License v3.0
 
 | ⭐ Stars | 🍴 Forks | 📥 Total Downloads | 👀 Watchers | 🏷️ Latest Release | 🐛 Open Issues |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| **11** | **8** | **52** | **4** | **[v0.16.4](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
+| **11** | **8** | **53** | **4** | **[v0.16.4](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
 
 <p>
   <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 25, 2026 • 20:51 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 26, 2026 • 05:58 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -126,7 +126,7 @@ License    : GNU Affero General Public License v3.0
 | :--- | :---: | :---: | :---: |
 | **ARM64-v8a** *(Recommended)* | `37.1 MB` | 9 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-arm64-v8a-release.apk) |
 | **ARMv7** *(32-bit)* | `35.0 MB` | 1 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-armeabi-v7a-release.apk) |
-| **Universal** *(All Devices)* | `54.7 MB` | 3 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-universal-release.apk) |
+| **Universal** *(All Devices)* | `54.7 MB` | 4 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-universal-release.apk) |
 <!-- BOT:LATEST_RELEASE:END -->
 
 ### Quick Install Steps
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`96ed823`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/96ed823dfd9872aec71e53e4fa67d8c8f37f9069) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`f5d1ec1`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/f5d1ec1d9d6f6ecefe5125dae9301f5c9787e46f) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`49f23d7`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/49f23d74cbc949bd384a7aa79a8877d1cdb19925) | fix: expose API_PLAYLIST constant in PlayerApi companion object | `@RoxyBasicNeedBot` | Nov 25, 2026 |
 | [`0e303a2`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/0e303a2bf6db913f5cb72cc0c9be53497494dd49) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`3f24c2d`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/3f24c2dfa35d8f837e6f2b57d7b516c66cade7e1) | fix: resolve OkHttp 5 deprecations, remove nextlib-mediainfo conflict... | `@RoxyBasicNeedBot` | Nov 25, 2026 |
-| [`9e19355`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/9e193557238ecbe085e995ae7d297d99a7ceb2d2) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
