@@ -102,7 +102,7 @@ License    : GNU Affero General Public License v3.0
   <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 26, 2026 • 16:32 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 27, 2026 • 01:17 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`cb7e976`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/cb7e9763b70edea715f19c3e2e4007e658531f16) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 26, 2026 |
 | [`60f0241`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/60f02411cda6ee6893169fde9691d1f41a92cfb0) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 26, 2026 |
 | [`96ed823`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/96ed823dfd9872aec71e53e4fa67d8c8f37f9069) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`f5d1ec1`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/f5d1ec1d9d6f6ecefe5125dae9301f5c9787e46f) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 | [`49f23d7`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/49f23d74cbc949bd384a7aa79a8877d1cdb19925) | fix: expose API_PLAYLIST constant in PlayerApi companion object | `@RoxyBasicNeedBot` | Nov 25, 2026 |
-| [`0e303a2`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/0e303a2bf6db913f5cb72cc0c9be53497494dd49) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 25, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
