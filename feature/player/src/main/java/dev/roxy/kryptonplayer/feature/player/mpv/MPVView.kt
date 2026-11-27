@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.LayoutInflater
 import android.view.SurfaceHolder
+import android.view.ViewGroup
 import dev.roxy.kryptonplayer.core.model.Font
 import dev.roxy.kryptonplayer.core.model.PlayerPreferences
 import dev.roxy.kryptonplayer.feature.player.R
@@ -57,37 +58,67 @@ class MPVView(
             postInitOptions = ::postInitOptions,
             observeProperties = ::observeProperties,
         )
-        val surface = holder.surface
-        if (result.isSuccess && surfaceBindingEnabled && surface != null && surface.isValid) {
-            val frame = holder.surfaceFrame
-            PlaybackSession.bindSurface(
-                surface = surface,
-                width = frame.width().takeIf { it > 0 },
-                height = frame.height().takeIf { it > 0 },
-                owner = this,
-            )
-            isSurfaceReady = true
+        if (result.isSuccess) {
+            if (result.getOrNull() == true) {
+                isSurfaceReady = false
+            }
+            holder.removeCallback(this)
+            holder.addCallback(this)
+            if (surfaceBindingEnabled && holder.surface?.isValid == true) {
+                surfaceCreated(holder)
+            }
+        } else {
+            isSurfaceReady = false
         }
         return result
     }
 
     fun releaseSurface() {
+        holder.removeCallback(this)
         isSurfaceReady = false
         PlaybackSession.unbindSurface(this)
     }
 
     fun rebindCurrentSurface(): Boolean {
+        if (!surfaceBindingEnabled || holder.surface?.isValid != true) return false
+        holder.removeCallback(this)
+        holder.addCallback(this)
+        val bound = bindHolderSurface(holder)
+        if (bound) {
+            notifySurfaceReady()
+        }
+        return bound
+    }
+
+    private fun bindHolderSurface(
+        holder: SurfaceHolder,
+        width: Int? = null,
+        height: Int? = null,
+    ): Boolean {
         val surface = holder.surface ?: return false
         if (!surfaceBindingEnabled || !surface.isValid) return false
         val frame = holder.surfaceFrame
-        val bound = PlaybackSession.bindSurface(
+        val resolvedWidth = width?.takeIf { it > 0 }
+            ?: this.width.takeIf { it > 0 }
+            ?: frame.width().takeIf { it > 0 }
+        val resolvedHeight = height?.takeIf { it > 0 }
+            ?: this.height.takeIf { it > 0 }
+            ?: frame.height().takeIf { it > 0 }
+        isSurfaceReady = PlaybackSession.bindSurface(
             surface = surface,
-            width = frame.width().takeIf { it > 0 },
-            height = frame.height().takeIf { it > 0 },
+            width = resolvedWidth,
+            height = resolvedHeight,
             owner = this,
         )
-        isSurfaceReady = bound
-        return bound
+        return isSurfaceReady
+    }
+
+    private fun notifySurfaceReady() {
+        post {
+            if (isSurfaceReady && holder.surface?.isValid == true) {
+                onSurfaceReady?.invoke()
+            }
+        }
     }
 
     fun applyAnime4KMode(mode: Anime4KManager.Mode, quality: Anime4KManager.Quality = Anime4KManager.DEFAULT_QUALITY) {
@@ -141,16 +172,8 @@ class MPVView(
     }
 
     override fun surfaceCreated(holder: SurfaceHolder) {
-        if (!surfaceBindingEnabled) return
-        val frame = holder.surfaceFrame
-        isSurfaceReady = PlaybackSession.bindSurface(
-            surface = holder.surface,
-            width = frame.width().takeIf { it > 0 },
-            height = frame.height().takeIf { it > 0 },
-            owner = this,
-        )
-        if (isSurfaceReady) {
-            onSurfaceReady?.invoke()
+        if (bindHolderSurface(holder)) {
+            notifySurfaceReady()
         }
     }
 
@@ -162,14 +185,8 @@ class MPVView(
     ) {
         if (!surfaceBindingEnabled || width <= 0 || height <= 0) return
         if (!isSurfaceReady) {
-            isSurfaceReady = PlaybackSession.bindSurface(
-                surface = holder.surface,
-                width = width,
-                height = height,
-                owner = this,
-            )
-            if (isSurfaceReady) {
-                onSurfaceReady?.invoke()
+            if (bindHolderSurface(holder, width = width, height = height)) {
+                notifySurfaceReady()
             }
         } else {
             PlaybackSession.resizeSurface(width = width, height = height, owner = this)
@@ -183,7 +200,14 @@ class MPVView(
 
     companion object {
         fun create(context: Context): MPVView =
-            LayoutInflater.from(context).inflate(R.layout.mpv_surface_view, null, false) as MPVView
+            (LayoutInflater.from(context).inflate(R.layout.mpv_surface_view, null, false) as MPVView).apply {
+                if (layoutParams == null) {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                }
+            }
 
         fun computeCoreConfigKey(
             context: Context,

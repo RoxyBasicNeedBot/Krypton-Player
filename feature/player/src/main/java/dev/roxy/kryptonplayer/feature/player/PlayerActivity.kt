@@ -58,6 +58,9 @@ class PlayerActivity : ComponentActivity() {
     private var isPlaybackFinished = false
     private var playInBackground: Boolean = false
     private var isIntentNew: Boolean = true
+    private var isStarted: Boolean = false
+    private var handledNewIntentInBackground: Boolean = false
+    private var playVideoJob: Job? = null
 
     /**
      * Player
@@ -132,6 +135,7 @@ class PlayerActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        isStarted = true
         eventsJob?.cancel()
         eventsJob = lifecycleScope.launch {
             playbackController.events.collect { event ->
@@ -153,10 +157,15 @@ class PlayerActivity : ComponentActivity() {
             }
         }
         updateKeepScreenOnFlag()
-        startPlayback()
+        if (handledNewIntentInBackground) {
+            handledNewIntentInBackground = false
+        } else {
+            startPlayback()
+        }
     }
 
     override fun onStop() {
+        isStarted = false
         val snap = playbackController.state.value
         viewModel.playWhenReady = snap.isPlaying || snap.isLoading
         eventsJob?.cancel()
@@ -195,11 +204,14 @@ class PlayerActivity : ComponentActivity() {
             viewModel.setQualityUrls(qualityUrls)
         }
 
-        val currentItem = playbackController.state.value.currentItem
-        val returningFromBackground = !isIntentNew && currentItem != null
-        val isNewUriTheCurrentMediaItem = currentItem?.uri?.toString() == uri.toString()
+        val snap = playbackController.state.value
+        val currentItem = snap.currentItem
+        val isSessionActive = !snap.isEnded && !snap.isIdle && snap.error == null && snap.playlist.isNotEmpty()
+        val returningFromBackground = !isIntentNew && currentItem != null && isSessionActive
+        val isNewUriTheCurrentMediaItem = currentItem?.uri?.toString() == uri.toString() && isSessionActive
 
         if (returningFromBackground || isNewUriTheCurrentMediaItem) {
+            isIntentNew = false
             if (viewModel.playWhenReady) {
                 playbackController.play()
             } else {
@@ -210,7 +222,8 @@ class PlayerActivity : ComponentActivity() {
 
         isIntentNew = false
 
-        lifecycleScope.launch {
+        playVideoJob?.cancel()
+        playVideoJob = lifecycleScope.launch {
             playVideo(uri)
         }
     }
@@ -223,6 +236,7 @@ class PlayerActivity : ComponentActivity() {
             } else if (streamUrl != null) {
                 intent.data = Uri.parse(streamUrl)
                 intent.putExtra("watch_party_room_id", roomId)
+                isIntentNew = true
                 startPlayback()
             }
         }
@@ -304,6 +318,7 @@ class PlayerActivity : ComponentActivity() {
         if (intent.data != null) {
             setIntent(intent)
             isIntentNew = true
+            handledNewIntentInBackground = !isStarted
             startPlayback()
         }
     }

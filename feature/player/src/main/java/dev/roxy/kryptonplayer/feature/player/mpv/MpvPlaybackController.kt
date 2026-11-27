@@ -23,6 +23,7 @@ import `is`.xyz.mpv.MPVLib
 import `is`.xyz.mpv.MPVNode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,6 +34,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.charset.Charset
 import javax.inject.Inject
@@ -66,10 +68,16 @@ class MpvPlaybackController @Inject constructor(
     private val hdrToysManager: HdrToysManager by lazy { HdrToysManager(context, PlaybackSession) }
 
     private var activeProxyUrl: String? = null
+    private var loadJob: Job? = null
+    @Volatile
     private var currentLoadGeneration: Long = 0L
+    @Volatile
     private var pendingUserSeek: Boolean = false
+    @Volatile
     private var pausedByCore: Boolean = true
+    @Volatile
     private var pausedForCache: Boolean = false
+    @Volatile
     private var lastPositionPersistElapsedMs: Long = 0L
     private var shuffleOrder: List<Int> = emptyList()
     private var externalSubAppliedForGeneration: Long = -1L
@@ -110,7 +118,8 @@ class MpvPlaybackController @Inject constructor(
             )
         }
 
-        scope.launch {
+        loadJob?.cancel()
+        loadJob = scope.launch {
             loadIndex(safeIndex, overrideStartPositionMs = startPositionMs, playWhenReady = playWhenReady)
         }
     }
@@ -167,15 +176,36 @@ class MpvPlaybackController @Inject constructor(
             it.copy(playlist = updatedList, currentIndex = nextIndex)
         }
         if (wasCurrent) {
-            scope.launch { loadIndex(nextIndex, overrideStartPositionMs = 0L, playWhenReady = current.isPlaying) }
+            loadJob?.cancel()
+            loadJob = scope.launch {
+                loadIndex(nextIndex, overrideStartPositionMs = 0L, playWhenReady = current.isPlaying)
+            }
         }
     }
 
     override fun play() {
-        ensureHeadlessCoreInitialized()
-        if (_state.value.isEnded && _state.value.currentItem != null) {
-            seekTo(0L, isUserSeek = false)
+        val current = _state.value
+        if (current.isEnded && current.currentItem != null) {
+            val index = current.currentIndex
+            if (index in current.playlist.indices) {
+                persistCurrentPositionAsync()
+                _state.update {
+                    it.copy(
+                        isEnded = false,
+                        isIdle = false,
+                        isLoading = true,
+                        currentPositionMs = 0L,
+                        error = null,
+                    )
+                }
+                loadJob?.cancel()
+                loadJob = scope.launch {
+                    loadIndex(index, overrideStartPositionMs = 0L, playWhenReady = true)
+                }
+                return
+            }
         }
+        ensureHeadlessCoreInitialized()
         PlaybackSession.setPropertyBoolean("pause", false)
         PlayerService.start(context)
     }
@@ -190,6 +220,8 @@ class MpvPlaybackController @Inject constructor(
     }
 
     override fun stop(clearPlaylist: Boolean) {
+        loadJob?.cancel()
+        loadJob = null
         persistCurrentPositionAsync()
         unregisterActiveProxy()
         currentLoadGeneration = 0L
@@ -237,7 +269,8 @@ class MpvPlaybackController @Inject constructor(
                 currentPositionMs = positionMs.coerceAtLeast(0L),
             )
         }
-        scope.launch {
+        loadJob?.cancel()
+        loadJob = scope.launch {
             loadIndex(index, overrideStartPositionMs = positionMs.coerceAtLeast(0L), playWhenReady = keepPlaying)
         }
     }
@@ -294,7 +327,7 @@ class MpvPlaybackController @Inject constructor(
     }
 
     override fun setRepeatMode(mode: PlaybackLoopMode) {
-        PlaybackSession.setPropertyString("loop-file", if (mode == PlaybackLoopMode.ONE) "inf" else "no")
+        applyLoopFileProperty(mode)
         _state.update { it.copy(repeatMode = mode) }
         scope.launch(Dispatchers.IO) {
             preferencesRepository.updatePlayerPreferences {
@@ -307,6 +340,10 @@ class MpvPlaybackController @Inject constructor(
                 )
             }
         }
+    }
+
+    private fun applyLoopFileProperty(mode: PlaybackLoopMode) {
+        PlaybackSession.setPropertyString("loop-file", if (mode == PlaybackLoopMode.ONE) "inf" else "no")
     }
 
     override fun setShuffleEnabled(enabled: Boolean) {
@@ -495,13 +532,14 @@ class MpvPlaybackController @Inject constructor(
         val targetUriString = proxyUrl ?: resolvedItem.uri.toString()
         val startSeconds = resolvedStartMs.takeIf { it > 0L }?.div(1000.0)
         pausedByCore = !playWhenReady
+        currentLoadGeneration = PlaybackSession.state.value.generation + 1L
         currentLoadGeneration = PlaybackSession.load(
             playableUri = targetUriString,
             initialPositionSeconds = startSeconds,
             startPaused = !playWhenReady,
             title = resolvedItem.title,
         )
-        setRepeatMode(_state.value.repeatMode)
+        applyLoopFileProperty(_state.value.repeatMode)
         if (playWhenReady) {
             PlayerService.start(context)
         }
@@ -526,12 +564,15 @@ class MpvPlaybackController @Inject constructor(
     private suspend fun addExternalSubtitleInternal(uri: Uri, select: Boolean) {
         if (!PlaybackSession.isInitialized) return
         val prefs = preferencesRepository.playerPreferences.value
-        val charset = prefs.subtitleTextEncoding
-            .takeIf { it.isNotBlank() && Charset.isSupported(it) }
-            ?.let { Charset.forName(it) }
-        val convertedUri = context.convertToUTF8(uri, charset)
-        val localPath = copySubtitleToCacheIfNeeded(convertedUri, uri) ?: convertedUri.toString()
-        val title = context.getFilenameFromUri(uri)
+        val (localPath, title) = withContext(Dispatchers.IO) {
+            val charset = prefs.subtitleTextEncoding
+                .takeIf { it.isNotBlank() && Charset.isSupported(it) }
+                ?.let { Charset.forName(it) }
+            val convertedUri = context.convertToUTF8(uri, charset)
+            val path = copySubtitleToCacheIfNeeded(convertedUri, uri) ?: convertedUri.toString()
+            val name = context.getFilenameFromUri(uri)
+            path to name
+        }
         val mode = if (select) "select" else "auto"
         PlaybackSession.command("sub-add", localPath, mode, title)
     }
@@ -572,8 +613,8 @@ class MpvPlaybackController @Inject constructor(
         }
     }
 
-    private fun refreshTracksFromMpv() {
-        val node = PlaybackSession.getPropertyNode("track-list") ?: return
+    private fun refreshTracksFromMpv(trackListNode: MPVNode? = null) {
+        val node = trackListNode ?: PlaybackSession.getPropertyNode("track-list") ?: return
         val parsed = MpvTrackSelector.parseTrackList(node)
         val selectedAudio = parsed.audioTracks.firstOrNull { it.isSelected }
         _state.update {
@@ -589,6 +630,7 @@ class MpvPlaybackController @Inject constructor(
     }
 
     private fun applyPostLoadPreferences(generation: Long) {
+        if (generation <= 0L || generation != currentLoadGeneration) return
         val item = _state.value.currentItem ?: return
         val prefs = preferencesRepository.playerPreferences.value
 
@@ -612,13 +654,16 @@ class MpvPlaybackController @Inject constructor(
         if (externalSubAppliedForGeneration != generation) {
             externalSubAppliedForGeneration = generation
             scope.launch {
+                if (generation != currentLoadGeneration) return@launch
                 item.externalSubtitles.forEachIndexed { idx, subUri ->
+                    if (generation != currentLoadGeneration) return@launch
                     addExternalSubtitleInternal(subUri, select = idx == 0 && item.subtitleTrackIndex == null)
                 }
             }
         }
 
-        val parsed = MpvTrackSelector.parseTrackList(PlaybackSession.getPropertyNode("track-list"))
+        val trackNode = PlaybackSession.getPropertyNode("track-list")
+        val parsed = MpvTrackSelector.parseTrackList(trackNode)
         if (prefs.rememberSelections) {
             item.audioTrackIndex?.let { audioIdx ->
                 if (audioIdx < 0) {
@@ -643,7 +688,9 @@ class MpvPlaybackController @Inject constructor(
         scope.launch(Dispatchers.IO) {
             mediaRepository.updateMediumLastPlayedTime(item.mediaId, System.currentTimeMillis())
         }
-        refreshTracksFromMpv()
+        if (generation == currentLoadGeneration) {
+            refreshTracksFromMpv()
+        }
     }
 
     override fun eventProperty(property: String) = Unit
@@ -730,26 +777,38 @@ class MpvPlaybackController @Inject constructor(
 
     override fun eventProperty(property: String, value: MPVNode) {
         if (property == "track-list") {
-            refreshTracksFromMpv()
+            refreshTracksFromMpv(value)
         }
     }
 
     override fun event(eventId: Int, data: MPVNode) {
         when (eventId) {
             MPVLib.MpvEvent.MPV_EVENT_START_FILE -> {
+                val sessionGen = PlaybackSession.state.value.generation
+                if (currentLoadGeneration <= 0L || sessionGen != currentLoadGeneration) {
+                    return
+                }
                 _state.update { it.copy(isLoading = true, isIdle = false, isEnded = false, error = null) }
             }
             MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED -> {
                 val gen = PlaybackSession.state.value.generation
+                if (currentLoadGeneration <= 0L || gen != currentLoadGeneration) {
+                    return
+                }
+                val prevPlaying = _state.value.isPlaying
+                val nowPlaying = !pausedByCore && !pausedForCache
                 _state.update {
                     it.copy(
                         isInitialized = true,
                         isLoading = false,
                         isIdle = false,
-                        isBuffering = false,
-                        isPlaying = !pausedByCore && !pausedForCache,
+                        isBuffering = pausedForCache,
+                        isPlaying = nowPlaying,
                         error = null,
                     )
+                }
+                if (!prevPlaying && nowPlaying) {
+                    _events.tryEmit(PlaybackEvent.IsPlayingChanged(true))
                 }
                 scope.launch { applyPostLoadPreferences(gen) }
             }
@@ -781,29 +840,36 @@ class MpvPlaybackController @Inject constructor(
                 // Seek initiated; PLAYBACK_RESTART signals seek settle
             }
             MPVLib.MpvEvent.MPV_EVENT_END_FILE -> {
-                val sessionPhase = PlaybackSession.state.value.phase
-                if (sessionPhase == PlaybackPhase.STOPPING || sessionPhase == PlaybackPhase.IDLE && currentLoadGeneration == 0L) {
+                val sessionState = PlaybackSession.state.value
+                if (sessionState.phase == PlaybackPhase.STOPPING ||
+                    currentLoadGeneration <= 0L ||
+                    sessionState.generation != currentLoadGeneration
+                ) {
                     return
                 }
                 when (PlaybackSession.parseEndFileReason(data)) {
                     MpvEndFileReason.EOF -> {
-                        val current = _state.value
-                        current.currentItem?.mediaId?.let { id ->
-                            scope.launch(Dispatchers.IO) { mediaRepository.updateMediumPosition(id, 0L) }
-                        }
-                        when {
-                            current.repeatMode == PlaybackLoopMode.ONE -> seekToItem(current.currentIndex, 0L)
-                            current.hasNext -> seekToNext()
-                            current.repeatMode == PlaybackLoopMode.ALL && current.playlist.isNotEmpty() -> {
-                                val firstIdx = if (current.shuffleEnabled && shuffleOrder.isNotEmpty()) shuffleOrder.first() else 0
-                                seekToItem(firstIdx, 0L)
+                        val handledGen = currentLoadGeneration
+                        scope.launch {
+                            if (handledGen != currentLoadGeneration) return@launch
+                            val current = _state.value
+                            current.currentItem?.mediaId?.let { id ->
+                                scope.launch(Dispatchers.IO) { mediaRepository.updateMediumPosition(id, 0L) }
                             }
-                            else -> {
-                                _state.update {
-                                    it.copy(isEnded = true, isPlaying = false, isLoading = false, isBuffering = false)
+                            when {
+                                current.repeatMode == PlaybackLoopMode.ONE -> seekToItem(current.currentIndex, 0L)
+                                current.hasNext -> seekToNext()
+                                current.repeatMode == PlaybackLoopMode.ALL && current.playlist.isNotEmpty() -> {
+                                    val firstIdx = if (current.shuffleEnabled && shuffleOrder.isNotEmpty()) shuffleOrder.first() else 0
+                                    seekToItem(firstIdx, 0L)
                                 }
-                                _events.tryEmit(PlaybackEvent.IsPlayingChanged(false))
-                                _events.tryEmit(PlaybackEvent.PlaybackEnded)
+                                else -> {
+                                    _state.update {
+                                        it.copy(isEnded = true, isPlaying = false, isLoading = false, isBuffering = false)
+                                    }
+                                    _events.tryEmit(PlaybackEvent.IsPlayingChanged(false))
+                                    _events.tryEmit(PlaybackEvent.PlaybackEnded)
+                                }
                             }
                         }
                     }

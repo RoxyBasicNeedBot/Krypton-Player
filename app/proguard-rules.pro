@@ -20,7 +20,9 @@
 -dontwarn org.drinkless.tdlib.**
 
 ## libmpv JNI Protection Rules
--keep,allowoptimization class is.xyz.mpv.** { public protected *; }
+-keep class is.xyz.mpv.** { *; }
+-keepclassmembers class is.xyz.mpv.** { *; }
+-dontwarn is.xyz.mpv.**
 
 ## Guava Protection Rules
 -keep class com.google.common.** { *; }

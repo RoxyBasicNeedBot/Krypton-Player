@@ -60,6 +60,20 @@ class PlayerService : MediaBrowserServiceCompat() {
     private lateinit var audioManager: AudioManager
     private var audioFocusRequest: AudioFocusRequest? = null
     private var hasAudioFocus = false
+    private var transientAudioFocusLoss = false
+    private var resumeOnAudioFocusGain = false
+
+    private data class NotificationKey(
+        val mediaId: String?,
+        val title: String?,
+        val artist: String?,
+        val isPlaying: Boolean,
+        val isLoading: Boolean,
+        val isBuffering: Boolean,
+        val isIdle: Boolean,
+        val playlistSize: Int,
+        val errorMessage: String?,
+    )
 
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -73,9 +87,17 @@ class PlayerService : MediaBrowserServiceCompat() {
 
     private val audioFocusListener = AudioManager.OnAudioFocusChangeListener { focusChange ->
         when (focusChange) {
-            AudioManager.AUDIOFOCUS_LOSS,
-            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-            -> {
+            AudioManager.AUDIOFOCUS_LOSS -> {
+                transientAudioFocusLoss = false
+                resumeOnAudioFocusGain = false
+                abandonAudioFocus()
+                if (preferencesRepository.playerPreferences.value.requireAudioFocus) {
+                    playbackController.pause()
+                }
+            }
+            AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
+                transientAudioFocusLoss = true
+                resumeOnAudioFocusGain = playbackController.state.value.isPlaying
                 hasAudioFocus = false
                 if (preferencesRepository.playerPreferences.value.requireAudioFocus) {
                     playbackController.pause()
@@ -83,6 +105,12 @@ class PlayerService : MediaBrowserServiceCompat() {
             }
             AudioManager.AUDIOFOCUS_GAIN -> {
                 hasAudioFocus = true
+                val shouldResume = transientAudioFocusLoss && resumeOnAudioFocusGain
+                transientAudioFocusLoss = false
+                resumeOnAudioFocusGain = false
+                if (shouldResume && preferencesRepository.playerPreferences.value.requireAudioFocus) {
+                    playbackController.play()
+                }
             }
         }
     }
@@ -102,10 +130,25 @@ class PlayerService : MediaBrowserServiceCompat() {
         ContextCompat.registerReceiver(this, noisyReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         serviceScope.launch {
+            var lastNotificationKey: NotificationKey? = null
             playbackController.state.collect { snapshot ->
-                updateAudioFocus(snapshot.isPlaying)
+                updateAudioFocus(snapshot)
                 updateMediaSessionState(snapshot)
-                updateNotification(snapshot)
+                val key = NotificationKey(
+                    mediaId = snapshot.currentItem?.mediaId,
+                    title = snapshot.currentItem?.title,
+                    artist = snapshot.currentItem?.artist,
+                    isPlaying = snapshot.isPlaying,
+                    isLoading = snapshot.isLoading,
+                    isBuffering = snapshot.isBuffering,
+                    isIdle = snapshot.isIdle,
+                    playlistSize = snapshot.playlist.size,
+                    errorMessage = snapshot.error?.message,
+                )
+                if (key != lastNotificationKey) {
+                    lastNotificationKey = key
+                    updateNotification(snapshot)
+                }
             }
         }
     }
@@ -117,6 +160,7 @@ class PlayerService : MediaBrowserServiceCompat() {
             ACTION_NEXT -> playbackController.seekToNext()
             ACTION_PREVIOUS -> playbackController.seekToPrevious()
             ACTION_STOP -> {
+                startForegroundWithType(buildNotification(playbackController.state.value))
                 playbackController.stop(clearPlaylist = true)
                 stopForegroundAndSelf()
                 return START_NOT_STICKY
@@ -351,14 +395,20 @@ class PlayerService : MediaBrowserServiceCompat() {
         stopSelf()
     }
 
-    private fun updateAudioFocus(isPlaying: Boolean) {
+    private fun updateAudioFocus(snapshot: PlaybackStateSnapshot) {
         if (!preferencesRepository.playerPreferences.value.requireAudioFocus) {
-            if (hasAudioFocus) abandonAudioFocus()
+            if (hasAudioFocus || transientAudioFocusLoss) abandonAudioFocus()
             return
         }
-        if (isPlaying && !hasAudioFocus) {
+        if (snapshot.isIdle && snapshot.playlist.isEmpty()) {
+            if (hasAudioFocus || transientAudioFocusLoss) abandonAudioFocus()
+            return
+        }
+        if (snapshot.isPlaying && !hasAudioFocus) {
+            transientAudioFocusLoss = false
+            resumeOnAudioFocusGain = false
             requestAudioFocus()
-        } else if (!isPlaying && hasAudioFocus) {
+        } else if (!snapshot.isPlaying && hasAudioFocus && !transientAudioFocusLoss) {
             abandonAudioFocus()
         }
     }
@@ -395,6 +445,8 @@ class PlayerService : MediaBrowserServiceCompat() {
             audioManager.abandonAudioFocus(audioFocusListener)
         }
         hasAudioFocus = false
+        transientAudioFocusLoss = false
+        resumeOnAudioFocusGain = false
     }
 
     private fun browsableItem(id: String, title: String): MediaBrowserCompat.MediaItem {

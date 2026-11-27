@@ -12,10 +12,8 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.unit.dp
 import dagger.hilt.android.AndroidEntryPoint
 import dev.roxy.kryptonplayer.core.common.playback.PlaybackController
@@ -77,44 +75,39 @@ class ReelsActivity : ComponentActivity() {
 
         setContent {
             KryptonPlayerTheme(darkTheme = true) {
-                Surface(
+                BoxWithConstraints(
                     modifier = Modifier.fillMaxSize(),
-                    color = ComposeColor.Black
+                    contentAlignment = Alignment.Center
                 ) {
-                    BoxWithConstraints(
-                        modifier = Modifier.fillMaxSize(),
+                    val reelModifier = if (maxWidth > 600.dp) {
+                        Modifier
+                            .fillMaxHeight()
+                            .aspectRatio(9f / 16f)
+                    } else {
+                        Modifier.fillMaxSize()
+                    }
+                    Box(
+                        modifier = reelModifier,
                         contentAlignment = Alignment.Center
                     ) {
-                        val reelModifier = if (maxWidth > 600.dp) {
-                            Modifier
-                                .fillMaxHeight()
-                                .aspectRatio(9f / 16f)
-                        } else {
-                            Modifier.fillMaxSize()
-                        }
-                        Box(
-                            modifier = reelModifier,
-                            contentAlignment = Alignment.Center
-                        ) {
-                            ReelsScreen(
-                                playlist = playlist,
-                                startIndex = startIndex,
-                                playbackController = playbackController,
-                                tdlibManager = tdlibManager,
-                                tdlibMediaResolver = tdlibMediaResolver,
-                                telegramRepository = telegramRepository,
-                                preferencesRepository = preferencesRepository,
-                                telegramLikedRepository = telegramLikedRepository,
-                                onBackClick = { finish() },
-                                onRotateClick = {
-                                    requestedOrientation = if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) {
-                                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-                                    } else {
-                                        ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                                    }
+                        ReelsScreen(
+                            playlist = playlist,
+                            startIndex = startIndex,
+                            playbackController = playbackController,
+                            tdlibManager = tdlibManager,
+                            tdlibMediaResolver = tdlibMediaResolver,
+                            telegramRepository = telegramRepository,
+                            preferencesRepository = preferencesRepository,
+                            telegramLikedRepository = telegramLikedRepository,
+                            onBackClick = { finish() },
+                            onRotateClick = {
+                                requestedOrientation = if (requestedOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) {
+                                    ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+                                } else {
+                                    ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                                 }
-                            )
-                        }
+                            }
+                        )
                     }
                 }
             }

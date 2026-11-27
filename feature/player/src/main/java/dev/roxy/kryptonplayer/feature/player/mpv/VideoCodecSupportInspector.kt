@@ -27,7 +27,7 @@ object VideoCodecSupportInspector {
     fun resolveHwdecOption(priority: DecoderPriority): String = when (priority) {
         DecoderPriority.PREFER_APP -> "no"
         DecoderPriority.DEVICE_ONLY -> "mediacodec,mediacodec-copy"
-        DecoderPriority.PREFER_DEVICE -> "mediacodec,mediacodec-copy"
+        DecoderPriority.PREFER_DEVICE -> "mediacodec,mediacodec-copy,no"
     }
 
     fun resolveSupportedHwdecCodecs(priority: DecoderPriority): String {

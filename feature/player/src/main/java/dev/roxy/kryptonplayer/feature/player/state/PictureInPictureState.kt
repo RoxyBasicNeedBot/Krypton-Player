@@ -89,7 +89,7 @@ class PictureInPictureState(
 
     private val onPipModeChangedListener = Consumer<androidx.core.app.PictureInPictureModeChangedInfo> { info ->
         isInPipMode = info.isInPictureInPictureMode
-        if (!info.isInPictureInPictureMode && player.state.value.isPlaying) {
+        if (!info.isInPictureInPictureMode) {
             PlaybackSession.setPropertyString("vid", "auto")
         }
     }

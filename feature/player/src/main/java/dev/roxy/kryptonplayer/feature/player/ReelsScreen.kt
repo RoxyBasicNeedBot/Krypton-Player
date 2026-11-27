@@ -174,37 +174,59 @@ fun ReelsScreen(
     }
 
     var isPlaying by remember { mutableStateOf(true) }
+    var resumePlaybackOnResume by remember { mutableStateOf(false) }
 
-    LaunchedEffect(playerState.isPlaying) {
-        isPlaying = playerState.isPlaying
+    LaunchedEffect(playerState.isPlaying, pagerState.currentPage, currentPlaylist) {
+        val active = currentPlaylist.getOrNull(pagerState.currentPage)
+        if (active == null || !active.isImage) {
+            isPlaying = playerState.isPlaying
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage, currentPlaylist) {
+        val active = currentPlaylist.getOrNull(pagerState.currentPage)
+        if (active?.isImage == true) {
+            isPlaying = true
+        }
     }
 
     // Standard Android Lifecycle handling
     LifecycleEventEffect(Lifecycle.Event.ON_PAUSE) {
-        playbackController.pause()
+        val active = currentPlaylist.getOrNull(pagerState.currentPage)
+        if (active != null && !active.isImage) {
+            val snap = playbackController.state.value
+            resumePlaybackOnResume = snap.isPlaying || snap.isLoading
+            playbackController.pause()
+        } else {
+            resumePlaybackOnResume = isPlaying
+            isPlaying = false
+        }
     }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        if (isPlaying && !isDialogActive) {
-            playbackController.play()
+        val active = currentPlaylist.getOrNull(pagerState.currentPage)
+        if (active != null && !active.isImage) {
+            if (resumePlaybackOnResume && !isDialogActive) {
+                resumePlaybackOnResume = false
+                playbackController.play()
+            }
+        } else if (resumePlaybackOnResume && !isDialogActive) {
+            resumePlaybackOnResume = false
+            isPlaying = true
         }
     }
 
     var currentProgress by remember { mutableStateOf(0f) }
     var currentPositionText by remember { mutableStateOf("00:00") }
     var durationText by remember { mutableStateOf("00:00") }
-    var isBuffering by remember { mutableStateOf(false) }
+    val isBuffering = playerState.isBuffering || playerState.isLoading
     var isSeeking by remember { mutableStateOf(false) }
     var seekProgress by remember { mutableStateOf(0f) }
 
-    LaunchedEffect(playerState.isBuffering, playerState.isLoading) {
-        isBuffering = playerState.isBuffering || playerState.isLoading
-    }
-
     // Monitor progress and save history periodically (handling both videos and photos)
-    LaunchedEffect(playbackController, isPlaying, pagerState.currentPage, isDialogActive, isSeeking) {
+    LaunchedEffect(playbackController, isPlaying, pagerState.currentPage, currentPlaylist, isDialogActive, isSeeking) {
         var lastSaveTime = 0L
-        val activeItem = if (playlist.isNotEmpty() && pagerState.currentPage in playlist.indices) playlist[pagerState.currentPage] else null
+        val activeItem = currentPlaylist.getOrNull(pagerState.currentPage)
 
         if (activeItem != null && activeItem.isImage) {
             val totalPhotoDurationMs = 5000L
@@ -218,7 +240,7 @@ fun ReelsScreen(
                 }
                 delay(100)
             }
-            if (isPlaying && !isDialogActive && pagerState.currentPage < playlist.size - 1) {
+            if (isPlaying && !isDialogActive && pagerState.currentPage < currentPlaylist.size - 1) {
                 pagerState.animateScrollToPage(pagerState.currentPage + 1)
             }
         } else {
@@ -246,12 +268,13 @@ fun ReelsScreen(
     }
 
     // Load active video when page changes
-    LaunchedEffect(pagerState.currentPage, isDialogActive) {
+    val activeMediaItem = currentPlaylist.getOrNull(pagerState.currentPage)
+    LaunchedEffect(pagerState.currentPage, activeMediaItem?.uri, activeMediaItem?.isImage, isDialogActive) {
         if (isDialogActive) {
             playbackController.pause()
             return@LaunchedEffect
         }
-        val activeItem = if (currentPlaylist.isNotEmpty() && pagerState.currentPage in currentPlaylist.indices) currentPlaylist[pagerState.currentPage] else null
+        val activeItem = activeMediaItem
         if (activeItem != null && !activeItem.isImage) {
             val rawUri = activeItem.uri
             val resolvedUri = when {
@@ -289,15 +312,18 @@ fun ReelsScreen(
                 TextButton(
                     onClick = {
                         initialPositionToShow = savedPosition
-                        isDialogActive = false
                         if (savedIndex != pagerState.currentPage) {
                             coroutineScope.launch {
                                 try {
                                     pagerState.scrollToPage(savedIndex)
                                 } catch (e: Exception) {
                                     e.printStackTrace()
+                                } finally {
+                                    isDialogActive = false
                                 }
                             }
+                        } else {
+                            isDialogActive = false
                         }
                     }
                 ) {
@@ -325,9 +351,7 @@ fun ReelsScreen(
     var showControlsOverlay by remember { mutableStateOf(true) }
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color.Black)
+        modifier = modifier.fillMaxSize()
     ) {
         VerticalPager(
             state = pagerState,
@@ -389,6 +413,7 @@ fun ReelsScreen(
                         contentDescription = item.title,
                         modifier = Modifier
                             .fillMaxSize()
+                            .background(Color.Black)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -412,9 +437,12 @@ fun ReelsScreen(
                                 view.rebindCurrentSurface()
                             }
                         },
+                        onRelease = { view ->
+                            view.releaseSurface()
+                        },
                     )
 
-                    // Loading indicator when buffering
+                    // Loading indicator when buffering (keep transparent over active MPVView)
                     if (isBuffering) {
                         CircularProgressIndicator(
                             modifier = Modifier
@@ -429,7 +457,9 @@ fun ReelsScreen(
                         AsyncImage(
                             model = item.thumbnailUri,
                             contentDescription = null,
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black),
                             contentScale = ContentScale.Fit
                         )
                     } else {

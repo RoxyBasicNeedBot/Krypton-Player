@@ -393,8 +393,7 @@ fun MediaPlayerScreen(
         Box {
             Box(
                 modifier = modifier
-                    .fillMaxSize()
-                    .background(Color.Black),
+                    .fillMaxSize(),
             ) {
                 PlayerContentFrame(
                     player = player,

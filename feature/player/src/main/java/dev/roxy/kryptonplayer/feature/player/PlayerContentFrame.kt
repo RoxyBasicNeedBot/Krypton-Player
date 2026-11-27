@@ -3,7 +3,6 @@ package dev.roxy.kryptonplayer.feature.player
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -52,7 +51,7 @@ fun PlayerContentFrame(
     var viewWidthPx by remember { mutableStateOf(1) }
     var viewHeightPx by remember { mutableStateOf(1) }
 
-    LaunchedEffect(videoZoomAndContentScaleState.videoContentScale) {
+    LaunchedEffect(snapshot.isInitialized, videoZoomAndContentScaleState.videoContentScale) {
         if (!PlaybackSession.isInitialized) return@LaunchedEffect
         when (videoZoomAndContentScaleState.videoContentScale) {
             VideoContentScale.BEST_FIT -> {
@@ -79,6 +78,7 @@ fun PlayerContentFrame(
     }
 
     LaunchedEffect(
+        snapshot.isInitialized,
         videoZoomAndContentScaleState.zoom,
         videoZoomAndContentScaleState.offset,
         viewWidthPx,
@@ -111,12 +111,6 @@ fun PlayerContentFrame(
         mpvViewRef?.applyHdrMode(screenMode, toysProfile)
     }
 
-    DisposableEffect(mpvViewRef) {
-        onDispose {
-            mpvViewRef?.releaseSurface()
-        }
-    }
-
     Box(
         modifier = modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
@@ -147,6 +141,12 @@ fun PlayerContentFrame(
                 mpvViewRef = view
                 if (!view.isSurfaceReady) {
                     view.rebindCurrentSurface()
+                }
+            },
+            onRelease = { view ->
+                view.releaseSurface()
+                if (mpvViewRef === view) {
+                    mpvViewRef = null
                 }
             },
         )

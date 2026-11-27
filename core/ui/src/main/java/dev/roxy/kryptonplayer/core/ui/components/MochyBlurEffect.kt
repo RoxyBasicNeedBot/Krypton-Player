@@ -6,9 +6,12 @@ import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -19,6 +22,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -142,6 +146,51 @@ fun Modifier.press3D(
                 transformOrigin = origin
             }
         }
+}
+
+/**
+ * Squishes cleanly under the finger and springs back with an elastic overshoot, matching Mochy's
+ * nav-tab touch response (even quick taps that report press + release together play the squish).
+ */
+fun Modifier.pressBounce(
+    interactionSource: InteractionSource,
+    pressedScale: Float = 0.85f,
+): Modifier = composed {
+    val scale = remember { Animatable(1f) }
+    LaunchedEffect(interactionSource, pressedScale) {
+        var pressed = 0
+        interactionSource.interactions.collect { interaction ->
+            when (interaction) {
+                is PressInteraction.Press -> {
+                    pressed++
+                    launch {
+                        scale.animateTo(
+                            pressedScale,
+                            spring(dampingRatio = 1f, stiffness = 1600f),
+                        )
+                    }
+                }
+                is PressInteraction.Release, is PressInteraction.Cancel -> {
+                    pressed = (pressed - 1).coerceAtLeast(0)
+                    if (pressed == 0) {
+                        launch {
+                            if (scale.value > pressedScale + 0.03f) {
+                                scale.animateTo(pressedScale, tween(70))
+                            }
+                            scale.animateTo(
+                                1f,
+                                spring(dampingRatio = 0.38f, stiffness = 520f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    this.graphicsLayer {
+        scaleX = scale.value
+        scaleY = scale.value
+    }
 }
 
 /**

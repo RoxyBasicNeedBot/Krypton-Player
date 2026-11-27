@@ -187,6 +187,49 @@ jobs:
           fi
           echo "✅ Native TDLib libraries validated successfully!"
 
+      - name: Fetch Private Agni Native Libraries (Cloudflare Edge)
+        shell: bash
+        env:
+          AGNI_ARTIFACT_URL: ${{ secrets.AGNI_ARTIFACT_URL }}
+          AGNI_ARTIFACT_TOKEN: ${{ secrets.AGNI_ARTIFACT_TOKEN }}
+          AGNI_VERSION: ${{ secrets.AGNI_VERSION }}
+        run: |
+          if [ -z "${AGNI_ARTIFACT_URL}" ] || [ -z "${AGNI_ARTIFACT_TOKEN}" ]; then
+            echo "ℹ️ AGNI_ARTIFACT_URL / AGNI_ARTIFACT_TOKEN not set; building with Kotlin fallback only."
+            exit 0
+          fi
+
+          BASE_URL="${AGNI_ARTIFACT_URL%/}"
+          VER="${AGNI_VERSION:-v1}"
+          mkdir -p core/agni/src/main/jniLibs/arm64-v8a core/agni/src/main/jniLibs/armeabi-v7a
+
+          MANIFEST_CODE=$(curl -sS -o /tmp/agni_manifest.json -w "%{http_code}" -H "Authorization: Bearer ${AGNI_ARTIFACT_TOKEN}" "${BASE_URL}/artifacts/${VER}/manifest.json")
+          if [ "$MANIFEST_CODE" = "401" ]; then
+            echo "❌ Unauthorized against Cloudflare Edge (${BASE_URL}); check AGNI_ARTIFACT_TOKEN secret!"
+            exit 1
+          elif [ "$MANIFEST_CODE" != "200" ]; then
+            echo "ℹ️ Agni native artifacts not yet available at ${BASE_URL} (HTTP ${MANIFEST_CODE}); continuing with Kotlin fallback."
+            rm -f /tmp/agni_manifest.json
+            if [ "${AGNI_REQUIRE_NATIVE:-false}" = "true" ]; then
+              exit 1
+            fi
+            exit 0
+          fi
+
+          MANIFEST_JSON=$(cat /tmp/agni_manifest.json)
+          rm -f /tmp/agni_manifest.json
+          for abi in arm64-v8a armeabi-v7a; do
+            OUT_SO="core/agni/src/main/jniLibs/${abi}/libkrypton_agni.so"
+            curl -fsSL -H "Authorization: Bearer ${AGNI_ARTIFACT_TOKEN}" "${BASE_URL}/artifacts/${VER}/${abi}/libkrypton_agni.so" -o "$OUT_SO"
+            EXPECTED_SHA=$(python3 -c 'import json,sys; m=json.loads(sys.argv[1]); print(m["abis"][sys.argv[2]]["sha256"])' "$MANIFEST_JSON" "$abi")
+            ACTUAL_SHA=$(sha256sum "$OUT_SO" | awk '{print $1}')
+            if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+              echo "❌ SHA-256 mismatch for ${abi} libkrypton_agni.so!"
+              exit 1
+            fi
+          done
+          echo "✅ Verified private Agni .so binaries from Cloudflare Edge (${VER})"
+
       - name: Generate Dynamic App Version
         id: app_version
         shell: bash

@@ -199,14 +199,12 @@ object PlaybackSession : MPVLib.EventObserver, MpvShaderRuntime {
         if (width != null && width > 0 && height != null && height > 0) {
             MPVLib.setPropertyString("android-surface-size", "${width}x$height")
         }
+        MPVLib.setPropertyString("force-window", "yes")
         MPVLib.setOptionString("force-window", "yes")
         MPVLib.setPropertyString("vo", desiredVideoOutput)
         attachedSurfaceOwner = owner
         updateState { it.copy(surfaceAttached = true) }
-        val vid = runCatching { MPVLib.getPropertyInt("vid") }.getOrNull()
-        if (vid == null || vid <= 0) {
-            runCatching { MPVLib.setPropertyString("vid", "auto") }
-        }
+        ensureVideoTrackSelectedLocked()
         true
     }
 
@@ -229,9 +227,11 @@ object PlaybackSession : MPVLib.EventObserver, MpvShaderRuntime {
     }
 
     fun setVideoOutput(videoOutput: String) {
-        desiredVideoOutput = videoOutput
+        if (videoOutput.isNotBlank() && videoOutput != "null") {
+            desiredVideoOutput = videoOutput
+        }
         withCore(Unit, allowInitializing = true) {
-            MPVLib.setOptionString("vo", if (_state.value.surfaceAttached) videoOutput else "null")
+            MPVLib.setOptionString("vo", if (_state.value.surfaceAttached) desiredVideoOutput else "null")
         }
     }
 
@@ -280,7 +280,7 @@ object PlaybackSession : MPVLib.EventObserver, MpvShaderRuntime {
 
         val loadOptions = buildList {
             add("pause=yes")
-            add(if (_state.value.surfaceAttached) "vid=auto" else "vid=no")
+            add("vid=auto")
             initialPos?.let { add("start=$it") }
         }.joinToString(",")
 
@@ -435,10 +435,15 @@ object PlaybackSession : MPVLib.EventObserver, MpvShaderRuntime {
         property: String,
         value: Boolean,
     ) {
-        if (property == "pause") {
-            updateState { it.copy(paused = value) }
+        val effectiveValue = if (property == "pause" && _state.value.phase == PlaybackPhase.LOADING) {
+            _state.value.paused
+        } else {
+            value
         }
-        observers.forEach { observer -> runCatching { observer.eventProperty(property, value) } }
+        if (property == "pause") {
+            updateState { it.copy(paused = effectiveValue) }
+        }
+        observers.forEach { observer -> runCatching { observer.eventProperty(property, effectiveValue) } }
     }
 
     override fun eventProperty(
@@ -483,10 +488,7 @@ object PlaybackSession : MPVLib.EventObserver, MpvShaderRuntime {
                     loadedGeneration = current.generation
                     MPVLib.setPropertyBoolean("pause", desiredPaused)
                     if (current.surfaceAttached) {
-                        val vid = runCatching { MPVLib.getPropertyInt("vid") }.getOrNull()
-                        if (vid == null || vid <= 0) {
-                            runCatching { MPVLib.setPropertyString("vid", "auto") }
-                        }
+                        ensureVideoTrackSelectedLocked()
                     }
                     updateState {
                         it.copy(
@@ -611,7 +613,6 @@ object PlaybackSession : MPVLib.EventObserver, MpvShaderRuntime {
         attachedSurfaceOwner = null
         runCatching { MPVLib.removeObserver(this) }
         runCatching { MPVLib.destroy() }
-        observers.clear()
         initialized = false
         nativeCoreReady = false
         nativeCoreCreated = false
@@ -626,8 +627,23 @@ object PlaybackSession : MPVLib.EventObserver, MpvShaderRuntime {
         }
     }
 
+    private fun ensureVideoTrackSelectedLocked() {
+        if (!nativeCoreReady) return
+        val vidStr = runCatching { MPVLib.getPropertyString("vid") }.getOrNull()?.trim()
+        val vidInt = runCatching { MPVLib.getPropertyInt("vid") }.getOrNull()
+        val isDisabled = vidStr.isNullOrBlank() ||
+            vidStr.equals("no", ignoreCase = true) ||
+            vidStr.equals("false", ignoreCase = true) ||
+            vidInt == null ||
+            vidInt <= 0
+        if (isDisabled) {
+            runCatching { MPVLib.setPropertyString("vid", "auto") }
+        }
+    }
+
     private fun detachRendererSurfaceLocked() {
         runCatching { MPVLib.setPropertyString("vo", "null") }
+        runCatching { MPVLib.setPropertyString("force-window", "no") }
         runCatching { MPVLib.setOptionString("force-window", "no") }
         runCatching { MPVLib.detachSurface() }
         attachedSurfaceOwner = null

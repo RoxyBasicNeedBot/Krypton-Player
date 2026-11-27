@@ -1,0 +1,1 @@
+-keep class dev.roxy.kryptonplayer.core.agni.AgniNativeBridge { *; }

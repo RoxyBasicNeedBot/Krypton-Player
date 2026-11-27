@@ -1,22 +1,16 @@
 package dev.roxy.kryptonplayer.core.ui.components
 
 import androidx.annotation.DrawableRes
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,32 +19,32 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.ImageShader
+import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -61,11 +55,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
 import com.kyant.backdrop.effects.colorControls
@@ -74,20 +65,57 @@ import dev.roxy.kryptonplayer.core.ui.R
 import dev.roxy.kryptonplayer.core.ui.liquidglass.PlatformBackdrop
 import kotlinx.coroutines.launch
 
-/** Mochy-inspired Floating Navigation Bar Geometry */
+/** Mochy-matched Floating Navigation Bar Geometry */
 internal val MochyNavBarHeight = 64.dp
 internal val MochyNavBarShape = RoundedCornerShape(50)
-private val NavHighlightInset = 6.dp
+private val NavHighlightInset = 8.dp
 private val NavHighlightGap = 4.dp
-private val NavRowPadding = NavHighlightInset
+private val NavRowPadding = NavHighlightInset - NavHighlightGap / 2
 
-/** Asymmetric Spring Highlight Physics (stretches fluidly in travel direction) */
+/** Asymmetric Spring Highlight Physics (stretches toward destination before settling) */
 private val NavHighlightLead = spring<Float>(dampingRatio = 0.82f, stiffness = 700f)
-private val NavHighlightTrail = spring<Float>(dampingRatio = 0.84f, stiffness = 320f)
+private val NavHighlightTrail = spring<Float>(dampingRatio = 0.82f, stiffness = 320f)
 
+/** Mochy Chrome Surface Tokens (#131313 dark frosted glass, 2px hairline, soft pill highlight) */
+private val ChromeBaseColor = Color(0xFF131313)
+private const val FrostTintAlpha = 0.78f
+private const val FallbackTintAlpha = 0.90f
 private const val ChromeOutlineWidthPx = 2f
+private val ChromeOutlineColor = Color.White.copy(alpha = 0.05f)
 private val ChromeOutlineStroke = Stroke(ChromeOutlineWidthPx)
-private const val UnlitIconAlpha = 0.72f
+private val ChromeHighlightColor = Color.White.copy(alpha = 0.10f)
+private val ChromeShadow = Shadow(
+    radius = 6.3.dp,
+    color = Color.Black.copy(alpha = 0.12f),
+    spread = 2.dp,
+)
+private const val UnlitIconAlpha = 0.70f
+
+/** Faint procedural grain to break up banding on dark frosted blurs. */
+private const val FrostGrainAlpha = 0.035f
+private const val FrostGrainTileSize = 64
+private val FrostGrainBrush: ShaderBrush by lazy {
+    val random = java.util.Random(0x6A55)
+    val pixels = IntArray(FrostGrainTileSize * FrostGrainTileSize) {
+        val alpha = random.nextInt(256) shl 24
+        if (random.nextBoolean()) alpha or 0xFFFFFF else alpha
+    }
+    val tile = android.graphics.Bitmap.createBitmap(
+        pixels,
+        FrostGrainTileSize,
+        FrostGrainTileSize,
+        android.graphics.Bitmap.Config.ARGB_8888,
+    )
+    ShaderBrush(ImageShader(tile.asImageBitmap(), TileMode.Repeated, TileMode.Repeated))
+}
+
+/**
+ * Remembers the last active dock index across screen transitions (e.g. MediaPickerScreen <-> Settings)
+ * so the sliding pill glides smoothly even when another destination mounts its own dock instance.
+ */
+private object MochyNavTransitionState {
+    var lastSettledIndex: Int = 0
+}
 
 data class MochyNavTabItem(
     val title: String,
@@ -99,11 +127,10 @@ data class MochyNavTabItem(
 )
 
 /**
- * Refined Floating Obsidian Glass Navigation Bar.
- * - 4 balanced tabs: Home (0), Search (1), Explore (2), Settings (3).
- * - Optional real GPU backdrop blur via [backdrop] so scrolled content softly blurs behind the dock.
- * - Smooth sliding active highlight pill with asymmetric lead/trail springs and icon spring pop.
- * - Responsive width cap (420.dp) with Android 14 edge-to-edge bottom navigation insets.
+ * Floating Obsidian Frosted Chrome Navigation Bar modeled after Mochy:
+ * - 4 balanced icon-only tabs: Home (0), Search (1), Explore (2), Settings (3).
+ * - Fixed `#131313` frosted glass surface with subtle grain anti-banding, 2px hairline border, and soft ambient lift.
+ * - Equal 8.dp inset borderless pill with asymmetric lead/trail springs + elastic tab pressBounce + 3D dock tilt.
  */
 @Composable
 fun MochyNavigationDock(
@@ -123,48 +150,33 @@ fun MochyNavigationDock(
                 title = "Home",
                 unlitIconRes = R.drawable.ic_nav_home_outline,
                 litIconRes = R.drawable.ic_nav_home_filled,
-                iconSize = 21.dp,
+                iconSize = 22.dp,
             ),
             MochyNavTabItem(
                 title = "Search",
                 unlitIconRes = R.drawable.ic_nav_search_outline,
                 litIconRes = R.drawable.ic_nav_search_filled,
-                iconSize = 21.dp,
+                iconSize = 22.dp,
             ),
             MochyNavTabItem(
                 title = "Explore",
                 unlitVector = Icons.Outlined.Explore,
                 litVector = Icons.Rounded.Explore,
-                iconSize = 22.dp,
+                iconSize = 24.dp,
             ),
             MochyNavTabItem(
                 title = "Settings",
                 unlitIconRes = R.drawable.ic_nav_settings_outline,
                 litIconRes = R.drawable.ic_nav_settings_filled,
-                iconSize = 22.dp,
+                iconSize = 24.dp,
             ),
         )
     }
 
     val safeSelectedIndex = selectedTabIndex.coerceIn(0, tabs.lastIndex)
-    val colorScheme = MaterialTheme.colorScheme
-    val isDark = colorScheme.surface.luminance() < 0.5f
-    val dockTopSurface = colorScheme.surfaceContainerHigh.copy(alpha = if (backdrop != null) 0.72f else 0.94f)
-    val dockBottomSurface = colorScheme.surfaceContainerLow.copy(alpha = if (backdrop != null) 0.84f else 0.97f)
-    val dockOutlineTop = colorScheme.onSurface.copy(alpha = if (isDark) 0.24f else 0.16f)
-    val dockOutlineBottom = colorScheme.onSurface.copy(alpha = if (isDark) 0.09f else 0.07f)
-    val pillFillColor = if (isDark) Color.White.copy(alpha = 0.16f) else colorScheme.primary.copy(alpha = 0.18f)
-    val pillStrokeColor = if (isDark) Color.White.copy(alpha = 0.34f) else colorScheme.primary.copy(alpha = 0.32f)
 
     val dockSurfaceModifier = if (backdrop != null) {
         Modifier
-            .shadow(
-                elevation = 16.dp,
-                shape = MochyNavBarShape,
-                clip = false,
-                ambientColor = Color.Black.copy(alpha = 0.55f),
-                spotColor = Color.Black.copy(alpha = 0.55f),
-            )
             .drawBackdrop(
                 backdrop = backdrop,
                 shape = { MochyNavBarShape },
@@ -172,43 +184,35 @@ fun MochyNavigationDock(
                     runCatching {
                         vibrancy()
                         colorControls(
-                            brightness = if (isDark) 0.02f else 0.04f,
+                            brightness = -0.02f,
                             contrast = 1.04f,
-                            saturation = 1.25f,
+                            saturation = 1.15f,
                         )
-                        blur(20.dp.toPx())
+                        blur(24.dp.toPx())
                     }
                 },
                 onDrawSurface = {
-                    drawRect(
-                        Brush.verticalGradient(
-                            colors = listOf(dockTopSurface, dockBottomSurface),
-                        ),
-                    )
+                    drawRect(ChromeBaseColor.copy(alpha = FrostTintAlpha))
                 },
             )
+            .drawWithContent {
+                drawContent()
+                drawRect(brush = FrostGrainBrush, alpha = FrostGrainAlpha)
+            }
     } else {
         Modifier
-            .shadow(
-                elevation = 16.dp,
-                shape = MochyNavBarShape,
-                clip = false,
-                ambientColor = Color.Black.copy(alpha = 0.55f),
-                spotColor = Color.Black.copy(alpha = 0.55f),
-            )
-            .clip(MochyNavBarShape)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(dockTopSurface, dockBottomSurface),
-                ),
-            )
+            .background(ChromeBaseColor.copy(alpha = FallbackTintAlpha))
+            .drawWithContent {
+                drawContent()
+                drawRect(brush = FrostGrainBrush, alpha = FrostGrainAlpha)
+            }
     }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 24.dp, vertical = 8.dp),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Box(
@@ -216,15 +220,15 @@ fun MochyNavigationDock(
                 .fillMaxWidth()
                 .widthIn(max = 420.dp)
                 .height(MochyNavBarHeight)
-                .press3D(maxTilt = 2.5f, pressedScale = 0.99f)
+                .press3D(maxTilt = 4f, pressedScale = 0.985f)
+                .dropShadow(MochyNavBarShape, ChromeShadow)
+                .clip(MochyNavBarShape)
                 .then(dockSurfaceModifier)
                 .drawWithContent {
                     drawContent()
                     val half = ChromeOutlineWidthPx / 2f
                     drawRoundRect(
-                        brush = Brush.verticalGradient(
-                            colors = listOf(dockOutlineTop, dockOutlineBottom),
-                        ),
+                        color = ChromeOutlineColor,
                         topLeft = Offset(half, half),
                         size = Size(
                             width = (size.width - ChromeOutlineWidthPx).coerceAtLeast(0f),
@@ -242,8 +246,7 @@ fun MochyNavigationDock(
                     .mochyNavHighlight(
                         selectedIndex = safeSelectedIndex,
                         tabCount = tabs.size,
-                        fillColor = pillFillColor,
-                        strokeColor = pillStrokeColor,
+                        fillColor = ChromeHighlightColor,
                     ),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -279,42 +282,17 @@ private fun RowScope.MochyTabSlot(
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.88f else if (isSelected) 1.03f else 1f,
-        animationSpec = MochyMotion.SpringSnappy,
-        label = "pressBounce",
-    )
-    val lit by animateFloatAsState(
+    val lit = animateFloatAsState(
         targetValue = if (isSelected) 1f else 0f,
-        animationSpec = tween(durationMillis = 220, easing = MochyMotion.EaseOut),
-        label = "tab_lit",
-    )
-    val isDark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
-    val iconTint by animateColorAsState(
-        targetValue = when {
-            isSelected -> if (isDark) Color.White else MaterialTheme.colorScheme.primary
-            isPressed -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f)
-            else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.85f)
-        },
-        animationSpec = tween(durationMillis = 200, easing = MochyMotion.EaseOut),
-        label = "tab_tint",
-    )
-    val dotWidth by animateDpAsState(
-        targetValue = if (isSelected) 14.dp else 0.dp,
-        animationSpec = spring(stiffness = 520f, dampingRatio = 0.76f),
-        label = "tab_dot",
+        animationSpec = tween(durationMillis = 200),
+        label = "nav_tab_lit",
     )
 
     Box(
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
-            .graphicsLayer {
-                scaleX = pressScale
-                scaleY = pressScale
-            }
-            .clip(RoundedCornerShape(50))
+            .pressBounce(interactionSource = interactionSource, pressedScale = 0.85f)
             .semantics {
                 selected = isSelected
                 contentDescription = tab.title
@@ -328,103 +306,98 @@ private fun RowScope.MochyTabSlot(
             .testTag("mochy_nav_tab_${tab.title.lowercase()}"),
         contentAlignment = Alignment.Center,
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (tab.unlitVector != null && tab.litVector != null) {
-                    Icon(
-                        imageVector = tab.unlitVector,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier
-                            .size(tab.iconSize)
-                            .graphicsLayer {
-                                alpha = UnlitIconAlpha * (1f - lit)
-                            },
-                    )
-                    Icon(
-                        imageVector = tab.litVector,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier
-                            .size(tab.iconSize)
-                            .graphicsLayer {
-                                alpha = lit
-                            },
-                    )
-                } else {
-                    Icon(
-                        painter = painterResource(id = tab.unlitIconRes),
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier
-                            .size(tab.iconSize)
-                            .graphicsLayer {
-                                alpha = UnlitIconAlpha * (1f - lit)
-                            },
-                    )
-                    Icon(
-                        painter = painterResource(id = tab.litIconRes),
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier
-                            .size(tab.iconSize)
-                            .graphicsLayer {
-                                alpha = lit
-                            },
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-                text = tab.title,
-                fontSize = 10.sp,
-                lineHeight = 11.sp,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = iconTint.copy(alpha = if (isSelected) 1f else 0.78f),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        TabIcons(tab = tab) { lit.value }
+    }
+}
+
+/** Smoothly crossfades unlit and lit tab icons with modulated alpha over dark glass. */
+@Composable
+private fun TabIcons(
+    tab: MochyNavTabItem,
+    lit: () -> Float,
+) {
+    Box(contentAlignment = Alignment.Center) {
+        if (tab.unlitVector != null && tab.litVector != null) {
+            Icon(
+                imageVector = tab.unlitVector,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(tab.iconSize)
+                    .graphicsLayer {
+                        alpha = UnlitIconAlpha * (1f - lit())
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    },
             )
-            if (dotWidth > 0.dp) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Box(
-                    modifier = Modifier
-                        .size(width = dotWidth, height = 2.dp)
-                        .clip(CircleShape)
-                        .background(if (isDark) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.primary.copy(alpha = 0.90f)),
-                )
-            }
+            Icon(
+                imageVector = tab.litVector,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(tab.iconSize)
+                    .graphicsLayer {
+                        alpha = lit()
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    },
+            )
+        } else {
+            Icon(
+                painter = painterResource(id = tab.unlitIconRes),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(tab.iconSize)
+                    .graphicsLayer {
+                        alpha = UnlitIconAlpha * (1f - lit())
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    },
+            )
+            Icon(
+                painter = painterResource(id = tab.litIconRes),
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier
+                    .size(tab.iconSize)
+                    .graphicsLayer {
+                        alpha = lit()
+                        compositingStrategy = CompositingStrategy.ModulateAlpha
+                    },
+            )
         }
     }
 }
 
 /**
- * Sliding Nav Highlight Pill: stretches smoothly with asymmetric lead/trail springs.
+ * Sliding Nav Highlight Pill: borderless translucent capsule that stretches asymmetrically
+ * toward the destination tab instead of moving as a rigid block.
  */
 @Composable
 private fun Modifier.mochyNavHighlight(
     selectedIndex: Int,
     tabCount: Int,
     fillColor: Color,
-    strokeColor: Color,
 ): Modifier {
-    val start = remember { Animatable(selectedIndex.coerceAtLeast(0).toFloat()) }
-    val end = remember { Animatable(selectedIndex.coerceAtLeast(0).toFloat()) }
+    val initialIndex = if (selectedIndex >= 0) {
+        MochyNavTransitionState.lastSettledIndex.coerceIn(0, (tabCount - 1).coerceAtLeast(0))
+    } else {
+        0
+    }
+    val start = remember { Animatable(initialIndex.toFloat()) }
+    val end = remember { Animatable(initialIndex.toFloat()) }
     val shown = remember { Animatable(if (selectedIndex >= 0) 1f else 0f) }
 
     LaunchedEffect(selectedIndex) {
         if (selectedIndex < 0) {
-            shown.animateTo(0f, tween(200, easing = MochyMotion.EaseOut))
+            shown.animateTo(0f, tween(200))
             return@LaunchedEffect
         }
         val target = selectedIndex.toFloat()
+        MochyNavTransitionState.lastSettledIndex = selectedIndex
         if (shown.value == 0f) {
             start.snapTo(target)
             end.snapTo(target)
         }
-        launch { shown.animateTo(1f, tween(180, easing = MochyMotion.EaseOut)) }
+        launch { shown.animateTo(1f, tween(200)) }
         val movingRight = target > (start.value + end.value) / 2f
         launch { start.animateTo(target, if (movingRight) NavHighlightTrail else NavHighlightLead) }
         end.animateTo(target, if (movingRight) NavHighlightLead else NavHighlightTrail)
@@ -448,14 +421,6 @@ private fun Modifier.mochyNavHighlight(
             size = Size(pillWidth, pillHeight),
             cornerRadius = radius,
             alpha = alpha,
-        )
-        drawRoundRect(
-            color = strokeColor,
-            topLeft = Offset(left, inset),
-            size = Size(pillWidth, pillHeight),
-            cornerRadius = radius,
-            style = Stroke(width = 1.dp.toPx()),
-            alpha = alpha * 0.72f,
         )
     }
 }

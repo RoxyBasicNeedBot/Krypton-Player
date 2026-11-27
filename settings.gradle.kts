@@ -36,6 +36,7 @@ dependencyResolutionManagement {
 
 rootProject.name = "KryptonPlayer"
 include(":app")
+include(":core:agni")
 include(":core:common")
 include(":core:data")
 include(":core:database")

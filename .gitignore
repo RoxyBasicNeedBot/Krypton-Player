@@ -57,6 +57,7 @@ vendor/
 .kotlin
 
 # Reference repos and temp files
+core/agni/src/main/jniLibs/**/*.so
 animateicons-reference/
 MovieDB-reference/
 test_bot.py

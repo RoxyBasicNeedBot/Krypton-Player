@@ -2629,6 +2629,19 @@ private fun MediaNavigationBar(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter
     ) {
+        val bg = MaterialTheme.colorScheme.background
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        0.0f to androidx.compose.ui.graphics.Color.Transparent,
+                        0.45f to bg.copy(alpha = 0.45f),
+                        0.80f to bg.copy(alpha = 0.82f),
+                        1.0f to bg.copy(alpha = 0.96f),
+                    )
+                )
+        )
         MochyNavigationDock(
             selectedTabIndex = selectedIndex,
             onTabSelected = { index ->

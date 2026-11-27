@@ -206,6 +206,7 @@ kotlin {
 
 dependencies {
 
+    implementation(project(":core:agni"))
     implementation(project(":core:common"))
     implementation(project(":core:data"))
     implementation(project(":core:media"))
