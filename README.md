@@ -102,7 +102,7 @@ License    : GNU Affero General Public License v3.0
   <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 28, 2026 • 09:22 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 28, 2026 • 09:23 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`96dfdd5`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/96dfdd54dd2c6de1b55c7a65bb93f387e4a90fe9) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`a1761cc`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a1761cc471498208543d11fd229c4aad09726ba2) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`5065ebf`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/5065ebf5e53ae59aa9d74f62f5e6658d4817bbcf) | assets: add v0.16.31 release showcase banners (Mochy-style) | `@RoxyBasicNeedBot` | Nov 28, 2026 |
 | [`a8dcf44`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a8dcf4479b469cd5cbcd591feea4a5c0fb7d166d) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`73df46e`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/73df46eb00c2625814e87769644f1f0cf0f7cad7) | feat(settings,stats,reporting): live in-app GitHub contributors, fixe... | `@RoxyBasicNeedBot` | Nov 28, 2026 |
-| [`70ad204`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/70ad204e24e94ed7ac344e3e21bba9d347cb1578) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
