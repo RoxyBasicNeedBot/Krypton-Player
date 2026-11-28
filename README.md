@@ -96,13 +96,13 @@ License    : GNU Affero General Public License v3.0
 
 | ⭐ Stars | 🍴 Forks | 📥 Total Downloads | 👀 Watchers | 🏷️ Latest Release | 🐛 Open Issues |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| **11** | **8** | **61** | **4** | **[v0.16.31](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.31)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
+| **11** | **8** | **72** | **4** | **[v0.16.31](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.31)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
 
 <p>
   <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 28, 2026 • 09:23 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 28, 2026 • 14:46 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -124,9 +124,9 @@ License    : GNU Affero General Public License v3.0
 
 | Architecture / Variant | Size | Downloads | Direct Download |
 | :--- | :---: | :---: | :---: |
-| **ARM64-v8a** *(Recommended)* | `59.2 MB` | 0 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-arm64-v8a-release.apk) |
-| **ARMv7** *(32-bit)* | `55.8 MB` | 0 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-armeabi-v7a-release.apk) |
-| **Universal** *(All Devices)* | `148.5 MB` | 0 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-universal-release.apk) |
+| **ARM64-v8a** *(Recommended)* | `59.2 MB` | 8 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-arm64-v8a-release.apk) |
+| **ARMv7** *(32-bit)* | `55.8 MB` | 2 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-armeabi-v7a-release.apk) |
+| **Universal** *(All Devices)* | `148.5 MB` | 1 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-universal-release.apk) |
 <!-- BOT:LATEST_RELEASE:END -->
 
 ### Quick Install Steps
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`bc08cc9`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/bc08cc9885c82becc71acc8f38b20efca6df8efa) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`96dfdd5`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/96dfdd54dd2c6de1b55c7a65bb93f387e4a90fe9) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`a1761cc`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a1761cc471498208543d11fd229c4aad09726ba2) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`5065ebf`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/5065ebf5e53ae59aa9d74f62f5e6658d4817bbcf) | assets: add v0.16.31 release showcase banners (Mochy-style) | `@RoxyBasicNeedBot` | Nov 28, 2026 |
 | [`a8dcf44`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a8dcf4479b469cd5cbcd591feea4a5c0fb7d166d) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
-| [`73df46e`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/73df46eb00c2625814e87769644f1f0cf0f7cad7) | feat(settings,stats,reporting): live in-app GitHub contributors, fixe... | `@RoxyBasicNeedBot` | Nov 28, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
@@ -440,7 +440,7 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
 <div align="center">
 <table>
   <tr>
-    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>19 commits</sub></td>
+    <td align="center" width="120"><a href="https://github.com/RoxyBasicNeedBot"><img src="https://avatars.githubusercontent.com/u/235558257?v=4&s=96" width="56" height="56" alt="RoxyBasicNeedBot" /><br /><sub><b>@RoxyBasicNeedBot</b></sub></a><br /><sub>20 commits</sub></td>
   </tr>
 </table>
 </div>
