@@ -102,7 +102,7 @@ License    : GNU Affero General Public License v3.0
   <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 28, 2026 • 07:46 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 28, 2026 • 09:21 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`5065ebf`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/5065ebf5e53ae59aa9d74f62f5e6658d4817bbcf) | assets: add v0.16.31 release showcase banners (Mochy-style) | `@RoxyBasicNeedBot` | Nov 28, 2026 |
+| [`a8dcf44`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a8dcf4479b469cd5cbcd591feea4a5c0fb7d166d) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`73df46e`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/73df46eb00c2625814e87769644f1f0cf0f7cad7) | feat(settings,stats,reporting): live in-app GitHub contributors, fixe... | `@RoxyBasicNeedBot` | Nov 28, 2026 |
 | [`70ad204`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/70ad204e24e94ed7ac344e3e21bba9d347cb1578) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`4812c44`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/4812c44579062f0eb0639519e96a0aa374294f90) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 27, 2026 |
-| [`018e43d`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/018e43d6379a3fbec436e4dace74af44ba669d10) | fix(player,ui): fix libmpv surface render, Settings SVG, Mochy navbar... | `@RoxyBasicNeedBot` | Nov 27, 2026 |
-| [`757a276`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/757a27662b674637cc68a821abed47f1849fb327) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 27, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
