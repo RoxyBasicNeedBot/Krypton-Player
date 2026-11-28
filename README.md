@@ -96,13 +96,13 @@ License    : GNU Affero General Public License v3.0
 
 | ⭐ Stars | 🍴 Forks | 📥 Total Downloads | 👀 Watchers | 🏷️ Latest Release | 🐛 Open Issues |
 | :---: | :---: | :---: | :---: | :---: | :---: |
-| **11** | **8** | **61** | **4** | **[v0.16.4](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
+| **11** | **8** | **61** | **4** | **[v0.16.31](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.31)** | **[0](https://github.com/RoxyBasicNeedBot/Krypton-Player/issues)** |
 
 <p>
   <b>🏆 Next Star Milestone:</b> `█████████░░░░░░░░░░░` **44%** (11 / 25 ⭐)
 </p>
 
-<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 28, 2026 • 09:21 UTC</i></sub>
+<sub>🤖 <i>Auto-synced by <b>Krypton README Bot</b> &bull; Last updated: Nov 28, 2026 • 09:22 UTC</i></sub>
 
 </div>
 <!-- BOT:STATS:END -->
@@ -120,13 +120,13 @@ License    : GNU Affero General Public License v3.0
 ## 📥 Download & Installation
 
 <!-- BOT:LATEST_RELEASE:START -->
-### 🚀 Latest Release: [KryptonPlayer v0.16.4 (Official Native TDLib MTProto 2.0)](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.4) — `Nov 21, 2026`
+### 🚀 Latest Release: [KryptonPlayer v0.16.31](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/tag/v0.16.31) — `Nov 28, 2026`
 
 | Architecture / Variant | Size | Downloads | Direct Download |
 | :--- | :---: | :---: | :---: |
-| **ARM64-v8a** *(Recommended)* | `37.1 MB` | 16 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-arm64-v8a-release.apk) |
-| **ARMv7** *(32-bit)* | `35.0 MB` | 1 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-armeabi-v7a-release.apk) |
-| **Universal** *(All Devices)* | `54.7 MB` | 4 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.4/app-universal-release.apk) |
+| **ARM64-v8a** *(Recommended)* | `59.2 MB` | 0 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-arm64-v8a-release.apk) |
+| **ARMv7** *(32-bit)* | `55.8 MB` | 0 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-armeabi-v7a-release.apk) |
+| **Universal** *(All Devices)* | `148.5 MB` | 0 | [**⬇ Download APK**](https://github.com/RoxyBasicNeedBot/Krypton-Player/releases/download/v0.16.31/app-universal-release.apk) |
 <!-- BOT:LATEST_RELEASE:END -->
 
 ### Quick Install Steps
@@ -411,11 +411,11 @@ Krypton Player features a custom synchronized lyrics engine supporting standard 
   <!-- BOT:ACTIVITY:START -->
 | Commit | Message | Author | Date |
 | :---: | :--- | :--- | :---: |
+| [`a1761cc`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a1761cc471498208543d11fd229c4aad09726ba2) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`5065ebf`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/5065ebf5e53ae59aa9d74f62f5e6658d4817bbcf) | assets: add v0.16.31 release showcase banners (Mochy-style) | `@RoxyBasicNeedBot` | Nov 28, 2026 |
 | [`a8dcf44`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/a8dcf4479b469cd5cbcd591feea4a5c0fb7d166d) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
 | [`73df46e`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/73df46eb00c2625814e87769644f1f0cf0f7cad7) | feat(settings,stats,reporting): live in-app GitHub contributors, fixe... | `@RoxyBasicNeedBot` | Nov 28, 2026 |
 | [`70ad204`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/70ad204e24e94ed7ac344e3e21bba9d347cb1578) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 28, 2026 |
-| [`4812c44`](https://github.com/RoxyBasicNeedBot/Krypton-Player/commit/4812c44579062f0eb0639519e96a0aa374294f90) | docs(readme): auto-update live stats, releases & contributors [skip ci] | `@github-actions[bot]` | Nov 27, 2026 |
 <!-- BOT:ACTIVITY:END -->
 </details>
 
