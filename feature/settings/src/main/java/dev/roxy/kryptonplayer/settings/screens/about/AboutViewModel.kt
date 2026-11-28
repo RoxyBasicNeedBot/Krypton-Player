@@ -9,6 +9,9 @@ import dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo
 import dev.roxy.kryptonplayer.core.data.update.AppUpdateManager
 import dev.roxy.kryptonplayer.core.data.update.GitHubCommitInfo
 import dev.roxy.kryptonplayer.core.data.update.UpdateState
+import dev.roxy.kryptonplayer.settings.contributors.ContributorUiModel
+import dev.roxy.kryptonplayer.settings.contributors.GitHubContributorsRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,9 +32,16 @@ open class AboutViewModel @Inject constructor(
     private val _isLoadingCommits = MutableStateFlow(false)
     val isLoadingCommits: StateFlow<Boolean> = _isLoadingCommits.asStateFlow()
 
+    private val _contributors = MutableStateFlow(GitHubContributorsRepository.getCachedContributors())
+    val contributors: StateFlow<List<ContributorUiModel>> = _contributors.asStateFlow()
+
+    private val _isLoadingContributors = MutableStateFlow(false)
+    val isLoadingContributors: StateFlow<Boolean> = _isLoadingContributors.asStateFlow()
+
     init {
         loadChangelog(forceRefresh = false)
         loadCommits(forceRefresh = false)
+        loadContributors(forceRefresh = false)
     }
 
     fun loadChangelog(forceRefresh: Boolean = false) {
@@ -54,6 +64,23 @@ open class AboutViewModel @Inject constructor(
             } catch (_: Exception) {
             } finally {
                 _isLoadingCommits.value = false
+            }
+        }
+    }
+
+    fun loadContributors(forceRefresh: Boolean = false) {
+        viewModelScope.launch {
+            _isLoadingContributors.value = true
+            try {
+                _contributors.value = GitHubContributorsRepository.fetchContributors(forceRefresh)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                if (_contributors.value.isEmpty()) {
+                    _contributors.value = GitHubContributorsRepository.fallbackContributors()
+                }
+            } finally {
+                _isLoadingContributors.value = false
             }
         }
     }

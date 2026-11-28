@@ -17,12 +17,16 @@ import dev.roxy.kryptonplayer.core.model.Video
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class LocalMediaRepository @Inject constructor(
     private val mediumDao: MediumDao,
     private val mediumStateDao: MediumStateDao,
     private val directoryDao: DirectoryDao,
 ) : MediaRepository {
+
+    private val stateMutex = Mutex()
 
     override fun getVideosFlow(): Flow<List<Video>> {
         return mediumDao.getAllWithInfo().map { it.map(MediumWithInfo::toVideo) }
@@ -51,103 +55,135 @@ class LocalMediaRepository @Inject constructor(
     }
 
     override suspend fun updateMediumLastPlayedTime(uri: String, lastPlayedTime: Long) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
 
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                lastPlayedTime = lastPlayedTime,
-            ),
-        )
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    lastPlayedTime = lastPlayedTime,
+                ),
+            )
+        }
     }
 
     override suspend fun updateMediumPosition(uri: String, position: Long) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                playbackPosition = position,
-                lastPlayedTime = System.currentTimeMillis(),
-            ),
-        )
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    playbackPosition = position,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
+
+    override suspend fun addWatchDuration(uri: String, deltaMs: Long) {
+        val safeDelta = deltaMs.coerceAtLeast(0L)
+        if (safeDelta <= 0L) return
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    watchDurationMs = stateEntity.watchDurationMs.coerceAtLeast(0L) + safeDelta,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun updateMediumPlaybackSpeed(uri: String, playbackSpeed: Float) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
 
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                playbackSpeed = playbackSpeed,
-                lastPlayedTime = System.currentTimeMillis(),
-            ),
-        )
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    playbackSpeed = playbackSpeed,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun updateMediumAudioTrack(uri: String, audioTrackIndex: Int) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
 
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                audioTrackIndex = audioTrackIndex,
-                lastPlayedTime = System.currentTimeMillis(),
-            ),
-        )
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    audioTrackIndex = audioTrackIndex,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun updateMediumSubtitleTrack(uri: String, subtitleTrackIndex: Int) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
 
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                subtitleTrackIndex = subtitleTrackIndex,
-                lastPlayedTime = System.currentTimeMillis(),
-            ),
-        )
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    subtitleTrackIndex = subtitleTrackIndex,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun updateMediumZoom(uri: String, zoom: Float) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
 
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                videoScale = zoom,
-                lastPlayedTime = System.currentTimeMillis(),
-            ),
-        )
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    videoScale = zoom,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun addExternalSubtitleToMedium(uri: String, subtitleUri: Uri) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
-        val currentExternalSubs = UriListConverter.fromStringToList(stateEntity.externalSubs)
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+            val currentExternalSubs = UriListConverter.fromStringToList(stateEntity.externalSubs)
 
-        if (currentExternalSubs.contains(subtitleUri)) return
-        val newExternalSubs = UriListConverter.fromListToString(urlList = currentExternalSubs + subtitleUri)
+            if (currentExternalSubs.contains(subtitleUri)) return@withLock
+            val newExternalSubs = UriListConverter.fromListToString(urlList = currentExternalSubs + subtitleUri)
 
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                externalSubs = newExternalSubs,
-                lastPlayedTime = System.currentTimeMillis(),
-            ),
-        )
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    externalSubs = newExternalSubs,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun updateSubtitleDelay(uri: String, delay: Long) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
 
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                subtitleDelayMilliseconds = delay,
-                lastPlayedTime = System.currentTimeMillis(),
-            ),
-        )
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    subtitleDelayMilliseconds = delay,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 
     override suspend fun updateSubtitleSpeed(uri: String, speed: Float) {
-        val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
+        stateMutex.withLock {
+            val stateEntity = mediumStateDao.get(uri) ?: MediumStateEntity(uriString = uri)
 
-        mediumStateDao.upsert(
-            mediumState = stateEntity.copy(
-                subtitleSpeed = speed,
-                lastPlayedTime = System.currentTimeMillis(),
-            ),
-        )
+            mediumStateDao.upsert(
+                mediumState = stateEntity.copy(
+                    subtitleSpeed = speed,
+                    lastPlayedTime = System.currentTimeMillis(),
+                ),
+            )
+        }
     }
 }

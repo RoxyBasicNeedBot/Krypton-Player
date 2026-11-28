@@ -38,8 +38,10 @@ class SettingsViewModel @Inject constructor(
         mediumDao.getAll(),
         mediumStateDao.getAll(),
     ) { mediaList, stateList ->
-        val totalWatchTimeMs = stateList.sumOf { it.playbackPosition.coerceAtLeast(0L) }
-        val watchedCount = stateList.count { it.playbackPosition > 0L || it.lastPlayedTime != null }
+        val totalWatchTimeMs = stateList.sumOf { it.effectiveWatchDurationMs() }
+        val watchedCount = stateList.count {
+            it.lastPlayedTime != null || it.watchDurationMs > 0L || it.playbackPosition > 0L
+        }
         val totalVideos = mediaList.size
         val foldersCount = mediaList.map { it.parentPath }.distinct().size
         HubUserStatsSummary(

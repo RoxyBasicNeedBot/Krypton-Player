@@ -3,10 +3,12 @@ package dev.roxy.kryptonplayer.settings.composables
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -14,6 +16,10 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +32,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +44,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -47,14 +55,19 @@ import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.OpenInBrowser
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -69,6 +82,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,6 +99,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -112,6 +128,8 @@ import dev.roxy.kryptonplayer.core.ui.liquidglass.layerBackdrop
 import dev.roxy.kryptonplayer.core.ui.liquidglass.rememberBackdrop
 import dev.roxy.kryptonplayer.settings.HubUserStatsSummary
 import dev.roxy.kryptonplayer.settings.Setting
+import dev.roxy.kryptonplayer.settings.contributors.ContributorUiModel
+import dev.roxy.kryptonplayer.settings.contributors.GitHubContributorsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -178,6 +196,16 @@ fun MochyHubContent(
 
     var showEditProfileDialog by rememberSaveable { mutableStateOf(false) }
     var showContributorsSheet by rememberSaveable { mutableStateOf(false) }
+    var contributors by remember { mutableStateOf(GitHubContributorsRepository.getCachedContributors()) }
+    var isLoadingContributors by remember { mutableStateOf(contributors.isEmpty()) }
+
+    LaunchedEffect(Unit) {
+        if (contributors.isEmpty()) {
+            isLoadingContributors = true
+        }
+        contributors = GitHubContributorsRepository.fetchContributors(forceRefresh = false)
+        isLoadingContributors = false
+    }
 
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
@@ -235,7 +263,15 @@ fun MochyHubContent(
         ) {
             HubContributorsBottomSheetContent(
                 developerName = developerName,
-                onOpenGitHub = onOpenGitHub,
+                contributors = contributors,
+                isLoadingContributors = isLoadingContributors,
+                onRefreshContributors = {
+                    scope.launch {
+                        isLoadingContributors = true
+                        contributors = GitHubContributorsRepository.fetchContributors(forceRefresh = true)
+                        isLoadingContributors = false
+                    }
+                },
                 onOpenAbout = {
                     showContributorsSheet = false
                     onSettingClick(Setting.ABOUT)
@@ -408,12 +444,28 @@ fun MochyHubContent(
                             onOpenTelegram = onOpenTelegram,
                             onOpenGitHub = onOpenGitHub,
                             onOpenContributors = { showContributorsSheet = true },
-                            onOpenAbout = { onSettingClick(Setting.ABOUT) },
                         )
                     }
                 }
 
-                // 6. Minimal Signature Footer
+                // 6. Live GitHub Contributors Spotlight Section
+                item(key = "hub_our_contributors_header") {
+                    MochyStaggeredReveal(index = 8) {
+                        HubSectionLabel(title = "Our Contributors")
+                    }
+                }
+
+                item(key = "hub_our_contributors_card") {
+                    MochyStaggeredReveal(index = 9) {
+                        HubOurContributorsCard(
+                            contributors = contributors,
+                            isLoading = isLoadingContributors,
+                            onOpenContributorsSheet = { showContributorsSheet = true },
+                        )
+                    }
+                }
+
+                // 7. Minimal Signature Footer
                 item(key = "hub_footer") {
                     Column(
                         modifier = Modifier
@@ -823,14 +875,14 @@ private fun HubHeroStatItem(
 
 private fun formatWatchTimeShort(ms: Long): String {
     if (ms <= 0L) return "0m"
+    if (ms < 60_000L) {
+        val seconds = (ms / 1000L).coerceAtLeast(1L)
+        return "${seconds}s"
+    }
     val totalMinutes = ms / 60_000L
     val hours = totalMinutes / 60L
     val mins = totalMinutes % 60L
-    return when {
-        hours > 0L -> "${hours}h ${mins}m"
-        totalMinutes > 0L -> "${totalMinutes}m"
-        else -> "<1m"
-    }
+    return if (hours > 0L) "${hours}h ${mins}m" else "${totalMinutes}m"
 }
 
 @Composable
@@ -915,146 +967,277 @@ private fun HubEditProfileDialog(
 @Composable
 private fun HubContributorsBottomSheetContent(
     developerName: String,
-    onOpenGitHub: () -> Unit,
+    contributors: List<ContributorUiModel>,
+    isLoadingContributors: Boolean,
+    onRefreshContributors: () -> Unit,
     onOpenAbout: () -> Unit,
     onClose: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    var selectedLogin by rememberSaveable { mutableStateOf<String?>(null) }
+    val leadContributor = remember(contributors) {
+        contributors.firstOrNull { it.isLeadDev }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .fillMaxHeight(0.86f)
             .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color.White.copy(alpha = 0.12f),
-                border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.22f)),
-                modifier = Modifier.size(42.dp),
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Rounded.Groups,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp),
-                    )
-                }
-            }
-            Column {
-                Text(
-                    text = "Contributors & Credits",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
-                Text(
-                    text = "People and open-source craft behind Krypton Player",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.70f),
-                )
-            }
-        }
-
-        // Lead Architect Card
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF171922),
-            border = BorderStroke(0.9.dp, Color.White.copy(alpha = 0.18f)),
             modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
-                modifier = Modifier.padding(16.dp),
+                modifier = Modifier.weight(1f),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                AsyncImage(
-                    model = R.drawable.dev_profile,
-                    contentDescription = developerName,
-                    modifier = Modifier
-                        .size(54.dp)
-                        .clip(CircleShape)
-                        .border(1.2.dp, Color.White.copy(alpha = 0.35f), CircleShape),
-                    contentScale = ContentScale.Crop,
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            text = developerName,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White.copy(alpha = 0.12f),
+                    border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.22f)),
+                    modifier = Modifier.size(42.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Groups,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp),
                         )
-                        HubMetaPill(text = "CREATOR & LEAD")
                     }
-                    Spacer(modifier = Modifier.height(3.dp))
+                }
+                Column {
                     Text(
-                        text = "@RoxyBasicNeedBot • Core Engine, AMOLED UI, Telegram Cloud & libmpv Architecture",
+                        text = "Lead Dev & Contributors",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                    )
+                    Text(
+                        text = "Live GitHub contributors & open-source craft",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.White.copy(alpha = 0.76f),
+                        color = Color.White.copy(alpha = 0.70f),
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = onRefreshContributors,
+                enabled = !isLoadingContributors,
+                modifier = Modifier.testTag("hub_sheet_refresh_contributors"),
+            ) {
+                if (isLoadingContributors) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White,
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = "Refresh Contributors",
+                        tint = Color.White.copy(alpha = 0.85f),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
         }
 
-        // Core Acknowledgements & Ecosystem
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = Color(0xFF15171F),
-            border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.14f)),
-            modifier = Modifier.fillMaxWidth(),
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 4.dp),
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+            // a) Lead Architect Spotlight Card
+            item(key = "sheet_lead_spotlight") {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFF171922),
+                    border = BorderStroke(0.9.dp, Color.White.copy(alpha = 0.18f)),
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Code,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp),
-                    )
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        AsyncImage(
+                            model = leadContributor?.avatarUrl
+                                ?: "https://github.com/RoxyBasicNeedBot.png?size=160",
+                            placeholder = painterResource(id = R.drawable.dev_profile),
+                            error = painterResource(id = R.drawable.dev_profile),
+                            contentDescription = developerName,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .border(1.2.dp, Color.White.copy(alpha = 0.35f), CircleShape),
+                            contentScale = ContentScale.Crop,
+                        )
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(
+                                    text = developerName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                )
+                                HubMetaPill(text = "CREATOR & LEAD")
+                            }
+                            Text(
+                                text = "@RoxyBasicNeedBot • Core Engine, AMOLED UI, Telegram Cloud & libmpv Architecture",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.76f),
+                            )
+                            if (leadContributor != null) {
+                                val count = leadContributor.contributions
+                                HubMetaPill(
+                                    text = if (count == 1) "1 commit" else "$count commits",
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // b) Live "Our Contributors" Section Header
+            item(key = "sheet_contributors_header") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 2.dp, vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
                     Text(
-                        text = "Open-Source Foundations",
+                        text = "Our Contributors",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
                     )
+                    if (contributors.isNotEmpty()) {
+                        HubMetaPill(text = "${contributors.size} ranked")
+                    }
                 }
-                ContributorCreditRow(
-                    name = "libmpv & mpvRx Engine",
-                    role = "Hardware/Vulkan 4K HDR pipeline, GLSL shaders & libass subtitles",
-                )
-                ContributorCreditRow(
-                    name = "FFmpeg & Next Player UI",
-                    role = "Multi-format software/hardware decoding & Compose player shell",
-                )
-                ContributorCreditRow(
-                    name = "TDLib (Telegram Database Library)",
-                    role = "Zero-lag Telegram Cloud streaming & Watch Party sync",
-                )
-                ContributorCreditRow(
-                    name = "Jetpack Compose & Liquid Glass",
-                    role = "Pure AMOLED obsidian UI & real-time GPU backdrop blur",
-                )
+            }
+
+            if (isLoadingContributors && contributors.isEmpty()) {
+                item(key = "sheet_contributors_loading") {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = Color(0xFF161619),
+                        border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.14f)),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Color.White,
+                            )
+                            Text(
+                                text = "Loading contributors from GitHub…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.75f),
+                            )
+                        }
+                    }
+                }
+            } else {
+                itemsIndexed(
+                    items = contributors,
+                    key = { _, contributor -> contributor.login },
+                ) { index, contributor ->
+                    val rank = index + 1
+                    val isSelected = selectedLogin == contributor.login
+                    HubExpandableContributorCard(
+                        rank = rank,
+                        contributor = contributor,
+                        isExpanded = isSelected,
+                        onToggleExpand = {
+                            selectedLogin = if (isSelected) null else contributor.login
+                        },
+                        onOpenProfileExplicit = {
+                            openHubUrlSafely(uriHandler, contributor.profileUrl, context)
+                        },
+                    )
+                }
+            }
+
+            // c) Core Acknowledgements & Ecosystem
+            item(key = "sheet_open_source_foundations") {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFF15171F),
+                    border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.14f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Code,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                text = "Open-Source Foundations",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            )
+                        }
+                        ContributorCreditRow(
+                            name = "libmpv & mpvRx Engine",
+                            role = "Hardware/Vulkan 4K HDR pipeline, GLSL shaders & libass subtitles",
+                        )
+                        ContributorCreditRow(
+                            name = "FFmpeg & Next Player UI",
+                            role = "Multi-format software/hardware decoding & Compose player shell",
+                        )
+                        ContributorCreditRow(
+                            name = "TDLib (Telegram Database Library)",
+                            role = "Zero-lag Telegram Cloud streaming & Watch Party sync",
+                        )
+                        ContributorCreditRow(
+                            name = "Jetpack Compose & Liquid Glass",
+                            role = "Pure AMOLED obsidian UI & real-time GPU backdrop blur",
+                        )
+                    }
+                }
             }
         }
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 4.dp, bottom = 8.dp),
+                .padding(top = 2.dp, bottom = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             OutlinedButton(
@@ -1066,7 +1249,12 @@ private fun HubContributorsBottomSheetContent(
                     .weight(1f)
                     .height(44.dp),
             ) {
-                Text("Open Licenses", fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = "About & Licenses",
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             Button(
                 onClick = onClose,
@@ -1082,6 +1270,397 @@ private fun HubContributorsBottomSheetContent(
                 Text("Done", fontWeight = FontWeight.Bold)
             }
         }
+    }
+}
+
+@Composable
+private fun HubExpandableContributorCard(
+    rank: Int,
+    contributor: ContributorUiModel,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onOpenProfileExplicit: () -> Unit,
+) {
+    val commitText = if (contributor.contributions == 1) {
+        "1 commit"
+    } else {
+        "${contributor.contributions} commits"
+    }
+
+    Surface(
+        onClick = onToggleExpand,
+        shape = RoundedCornerShape(18.dp),
+        color = if (isExpanded) Color(0xFF1C1E26) else Color(0xFF161619),
+        border = BorderStroke(
+            width = 0.85.dp,
+            color = Color.White.copy(alpha = if (isExpanded) 0.30f else 0.14f),
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("hub_sheet_contributor_${contributor.login}"),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                HubContributorAvatar(
+                    contributor = contributor,
+                    sizeDp = 42,
+                )
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = "@${contributor.login}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (contributor.isLeadDev) {
+                            HubMetaPill(text = "Lead")
+                        }
+                    }
+                    HubMetaPill(text = "#$rank · $commitText")
+                }
+
+                Icon(
+                    imageVector = if (isExpanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Collapse details" else "Expand details",
+                    tint = Color.White.copy(alpha = 0.72f),
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+
+            AnimatedVisibility(
+                visible = isExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    HorizontalDivider(
+                        thickness = 0.6.dp,
+                        color = Color.White.copy(alpha = 0.12f),
+                    )
+                    Text(
+                        text = if (contributor.isLeadDev) {
+                            "Lead Developer & Core Architect — Ranked #$rank on RoxyBasicNeedBot/Krypton-Player with $commitText."
+                        } else {
+                            "Open-Source Community Contributor — Ranked #$rank on RoxyBasicNeedBot/Krypton-Player with $commitText."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.78f),
+                    )
+                    OutlinedButton(
+                        onClick = onOpenProfileExplicit,
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(0.9.dp, Color.White.copy(alpha = 0.26f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(40.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.OpenInBrowser,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Open GitHub Profile",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HubOurContributorsCard(
+    contributors: List<ContributorUiModel>,
+    isLoading: Boolean,
+    onOpenContributorsSheet: () -> Unit,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val topContributors = remember(contributors) { contributors.take(5) }
+
+    MochyGlassCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("hub_our_contributors_card"),
+        texture = MochyCardTexture.DIAGONAL_GRAIN,
+        cornerRadius = 24.dp,
+        enable3DTilt = false,
+        onClick = onOpenContributorsSheet,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF161619).copy(alpha = 0.55f))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(Color.White.copy(alpha = 0.12f))
+                            .border(0.8.dp, Color.White.copy(alpha = 0.22f), RoundedCornerShape(11.dp)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Groups,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                        Text(
+                            text = "Our Contributors",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "RoxyBasicNeedBot/Krypton-Player",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            color = colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+
+                if (isLoading && topContributors.isEmpty()) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White,
+                    )
+                } else if (contributors.isNotEmpty()) {
+                    HubMetaPill(text = "${contributors.size} total")
+                }
+            }
+
+            if (isLoading && topContributors.isEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    repeat(3) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White.copy(alpha = 0.05f))
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.10f)),
+                            )
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(5.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.48f)
+                                        .height(11.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color.White.copy(alpha = 0.10f)),
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(0.32f)
+                                        .height(9.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(Color.White.copy(alpha = 0.07f)),
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    topContributors.forEachIndexed { index, contributor ->
+                        val rank = index + 1
+                        val contribLabel = if (contributor.contributions == 1) {
+                            "1 contribution"
+                        } else {
+                            "${contributor.contributions} contributions"
+                        }
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White.copy(alpha = 0.05f))
+                                .border(0.7.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+                                .clickable(onClick = onOpenContributorsSheet)
+                                .padding(horizontal = 12.dp, vertical = 9.dp)
+                                .testTag("hub_contributor_row_${contributor.login}"),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            HubContributorAvatar(
+                                contributor = contributor,
+                                sizeDp = 36,
+                            )
+
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(3.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Text(
+                                        text = "@${contributor.login}",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    if (contributor.isLeadDev) {
+                                        HubMetaPill(text = "Lead")
+                                    }
+                                }
+                                HubMetaPill(text = "#$rank · $contribLabel")
+                            }
+
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.65f),
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(
+                thickness = 0.6.dp,
+                color = Color.White.copy(alpha = 0.12f),
+            )
+
+            Surface(
+                onClick = onOpenContributorsSheet,
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White.copy(alpha = 0.10f),
+                border = BorderStroke(0.8.dp, Color.White.copy(alpha = 0.20f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("hub_see_all_contributors_pill"),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Groups,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "See All Contributors & Credits",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.80f),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HubContributorAvatar(
+    contributor: ContributorUiModel,
+    sizeDp: Int,
+) {
+    val initial = contributor.login.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    Box(
+        modifier = Modifier
+            .size(sizeDp.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF222530))
+            .border(0.9.dp, Color.White.copy(alpha = 0.26f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = initial,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = Color.White.copy(alpha = 0.80f),
+        )
+        AsyncImage(
+            model = contributor.avatarUrl,
+            placeholder = if (contributor.isLeadDev) painterResource(id = R.drawable.dev_profile) else null,
+            error = if (contributor.isLeadDev) painterResource(id = R.drawable.dev_profile) else null,
+            contentDescription = "@${contributor.login}",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    }
+}
+
+private fun openHubUrlSafely(
+    uriHandler: UriHandler,
+    uri: String,
+    context: Context,
+) {
+    try {
+        uriHandler.openUri(uri)
+    } catch (_: Exception) {
+        Toast.makeText(context, context.getString(R.string.error_opening_link), Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -1416,7 +1995,6 @@ private fun HubLeadDeveloperCard(
     onOpenTelegram: () -> Unit,
     onOpenGitHub: () -> Unit,
     onOpenContributors: () -> Unit,
-    onOpenAbout: () -> Unit,
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val infiniteTransition = rememberInfiniteTransition(label = "dev_ring_glow")
@@ -1438,7 +2016,7 @@ private fun HubLeadDeveloperCard(
         cornerRadius = 24.dp,
         enable3DTilt = true,
         maxTilt = 3.5f,
-        onClick = onOpenAbout,
+        onClick = onOpenContributors,
     ) {
         Column(
             modifier = Modifier
@@ -1475,7 +2053,9 @@ private fun HubLeadDeveloperCard(
                             ),
                     )
                     AsyncImage(
-                        model = R.drawable.dev_profile,
+                        model = "https://github.com/RoxyBasicNeedBot.png?size=160",
+                        placeholder = painterResource(id = R.drawable.dev_profile),
+                        error = painterResource(id = R.drawable.dev_profile),
                         contentDescription = "Lead Developer",
                         modifier = Modifier
                             .size(54.dp)

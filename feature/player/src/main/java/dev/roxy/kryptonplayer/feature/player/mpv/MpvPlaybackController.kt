@@ -79,6 +79,10 @@ class MpvPlaybackController @Inject constructor(
     private var pausedForCache: Boolean = false
     @Volatile
     private var lastPositionPersistElapsedMs: Long = 0L
+    private val watchLock = Any()
+    private var activeWatchUri: String? = null
+    private var lastActiveWatchTimestampMs: Long? = null
+    private var pendingWatchMs: Long = 0L
     private var shuffleOrder: List<Int> = emptyList()
     private var externalSubAppliedForGeneration: Long = -1L
 
@@ -96,7 +100,7 @@ class MpvPlaybackController @Inject constructor(
             stop(clearPlaylist = true)
             return
         }
-        persistCurrentPositionAsync()
+        flushWatchAndPositionAsync(clearActiveUri = true)
         val safeIndex = startIndex.coerceIn(0, items.lastIndex)
         val prefs = preferencesRepository.playerPreferences.value
         val loopMode = prefs.loopMode.toPlaybackLoopMode()
@@ -166,6 +170,13 @@ class MpvPlaybackController @Inject constructor(
             return
         }
         val wasCurrent = index == current.currentIndex
+        if (wasCurrent) {
+            flushWatchAndPositionAsync(
+                mediaId = current.currentItem?.mediaId,
+                positionMs = current.currentPositionMs,
+                clearActiveUri = true,
+            )
+        }
         val updatedList = current.playlist.toMutableList().apply { removeAt(index) }
         val nextIndex = when {
             index < current.currentIndex -> current.currentIndex - 1
@@ -188,7 +199,7 @@ class MpvPlaybackController @Inject constructor(
         if (current.isEnded && current.currentItem != null) {
             val index = current.currentIndex
             if (index in current.playlist.indices) {
-                persistCurrentPositionAsync()
+                flushWatchAndPositionAsync(clearActiveUri = true)
                 _state.update {
                     it.copy(
                         isEnded = false,
@@ -212,7 +223,7 @@ class MpvPlaybackController @Inject constructor(
 
     override fun pause() {
         PlaybackSession.setPropertyBoolean("pause", true)
-        persistCurrentPositionAsync()
+        flushWatchAndPositionAsync(clearActiveUri = false)
     }
 
     override fun togglePlayPause() {
@@ -222,7 +233,7 @@ class MpvPlaybackController @Inject constructor(
     override fun stop(clearPlaylist: Boolean) {
         loadJob?.cancel()
         loadJob = null
-        persistCurrentPositionAsync()
+        flushWatchAndPositionAsync(clearActiveUri = true)
         unregisterActiveProxy()
         currentLoadGeneration = 0L
         pausedByCore = true
@@ -259,7 +270,7 @@ class MpvPlaybackController @Inject constructor(
     override fun seekToItem(index: Int, positionMs: Long) {
         val current = _state.value
         if (index !in current.playlist.indices) return
-        persistCurrentPositionAsync()
+        flushWatchAndPositionAsync(clearActiveUri = true)
         val keepPlaying = current.isPlaying || !pausedByCore
         _state.update {
             it.copy(
@@ -613,6 +624,130 @@ class MpvPlaybackController @Inject constructor(
         }
     }
 
+    private fun isActivelyWatchingSnapshot(snapshot: PlaybackStateSnapshot = _state.value): Boolean =
+        snapshot.isPlaying &&
+            !snapshot.isBuffering &&
+            !pausedByCore &&
+            !snapshot.isLoading &&
+            !snapshot.isEnded &&
+            snapshot.currentItem != null
+
+    private fun startOrResumeWatchTracking(mediaId: String) {
+        if (mediaId.isBlank()) return
+        val now = SystemClock.elapsedRealtime()
+        var previousFlush: Pair<String, Long>? = null
+        synchronized(watchLock) {
+            if (activeWatchUri != null && activeWatchUri != mediaId) {
+                accumulateWatchElapsedLocked(now)
+                if (pendingWatchMs > 0L) {
+                    previousFlush = activeWatchUri!! to pendingWatchMs
+                }
+                pendingWatchMs = 0L
+            }
+            activeWatchUri = mediaId
+            if (lastActiveWatchTimestampMs == null) {
+                lastActiveWatchTimestampMs = now
+            }
+        }
+        previousFlush?.let { (uri, deltaMs) ->
+            scope.launch(Dispatchers.IO) { mediaRepository.addWatchDuration(uri, deltaMs) }
+        }
+    }
+
+    private fun recordWatchTick(mediaId: String) {
+        if (mediaId.isBlank()) return
+        val now = SystemClock.elapsedRealtime()
+        var previousFlush: Pair<String, Long>? = null
+        var periodicFlush: Pair<String, Long>? = null
+        synchronized(watchLock) {
+            if (activeWatchUri != mediaId) {
+                if (activeWatchUri != null) {
+                    accumulateWatchElapsedLocked(now)
+                    if (pendingWatchMs > 0L) {
+                        previousFlush = activeWatchUri!! to pendingWatchMs
+                    }
+                    pendingWatchMs = 0L
+                }
+                activeWatchUri = mediaId
+                lastActiveWatchTimestampMs = now
+            } else {
+                accumulateWatchElapsedLocked(now)
+                if (lastActiveWatchTimestampMs == null) {
+                    lastActiveWatchTimestampMs = now
+                }
+                if (pendingWatchMs >= WATCH_FLUSH_THRESHOLD_MS) {
+                    periodicFlush = mediaId to pendingWatchMs
+                    pendingWatchMs = 0L
+                }
+            }
+        }
+        previousFlush?.let { (uri, deltaMs) ->
+            scope.launch(Dispatchers.IO) { mediaRepository.addWatchDuration(uri, deltaMs) }
+        }
+        periodicFlush?.let { (uri, deltaMs) ->
+            scope.launch(Dispatchers.IO) { mediaRepository.addWatchDuration(uri, deltaMs) }
+        }
+    }
+
+    private fun pauseWatchTimerOnly() {
+        val now = SystemClock.elapsedRealtime()
+        synchronized(watchLock) {
+            accumulateWatchElapsedLocked(now)
+            lastActiveWatchTimestampMs = null
+        }
+    }
+
+    private fun drainPendingWatchDuration(clearActiveUri: Boolean): Pair<String, Long>? {
+        val now = SystemClock.elapsedRealtime()
+        return synchronized(watchLock) {
+            accumulateWatchElapsedLocked(now)
+            lastActiveWatchTimestampMs = null
+            val uri = activeWatchUri
+            val delta = pendingWatchMs
+            pendingWatchMs = 0L
+            if (clearActiveUri) {
+                activeWatchUri = null
+            }
+            if (uri != null && delta > 0L) uri to delta else null
+        }
+    }
+
+    private fun flushWatchDurationAsync(clearActiveUri: Boolean = false) {
+        val flush = drainPendingWatchDuration(clearActiveUri = clearActiveUri) ?: return
+        scope.launch(Dispatchers.IO) {
+            mediaRepository.addWatchDuration(flush.first, flush.second)
+        }
+    }
+
+    private fun flushWatchAndPositionAsync(
+        mediaId: String? = _state.value.currentItem?.mediaId,
+        positionMs: Long = _state.value.currentPositionMs,
+        clearActiveUri: Boolean = false,
+    ) {
+        val watchFlush = drainPendingWatchDuration(clearActiveUri = clearActiveUri)
+        val persistMediaId = mediaId?.takeIf { it.isNotBlank() && positionMs > 0L }
+        if (watchFlush == null && persistMediaId == null) return
+        scope.launch(Dispatchers.IO) {
+            if (watchFlush != null) {
+                mediaRepository.addWatchDuration(watchFlush.first, watchFlush.second)
+            }
+            if (persistMediaId != null) {
+                mediaRepository.updateMediumPosition(persistMediaId, positionMs)
+            }
+        }
+    }
+
+    private fun accumulateWatchElapsedLocked(nowElapsedMs: Long) {
+        val last = lastActiveWatchTimestampMs ?: return
+        if (activeWatchUri == null) {
+            lastActiveWatchTimestampMs = null
+            return
+        }
+        val delta = (nowElapsedMs - last).coerceIn(0L, MAX_WATCH_TICK_DELTA_MS)
+        pendingWatchMs += delta
+        lastActiveWatchTimestampMs = nowElapsedMs
+    }
+
     private fun refreshTracksFromMpv(trackListNode: MPVNode? = null) {
         val node = trackListNode ?: PlaybackSession.getPropertyNode("track-list") ?: return
         val parsed = MpvTrackSelector.parseTrackList(node)
@@ -719,9 +854,18 @@ class MpvPlaybackController @Inject constructor(
                 pausedByCore = value
                 val nowPlaying = !value && !pausedForCache && !_state.value.isLoading && !_state.value.isEnded
                 _state.update { it.copy(isPlaying = nowPlaying) }
-                if (prevPlaying != nowPlaying) {
-                    _events.tryEmit(PlaybackEvent.IsPlayingChanged(nowPlaying))
-                    if (!nowPlaying) persistCurrentPositionAsync()
+                if (nowPlaying && !pausedByCore && !pausedForCache) {
+                    _state.value.currentItem?.mediaId?.let(::startOrResumeWatchTracking)
+                    if (prevPlaying != nowPlaying) {
+                        _events.tryEmit(PlaybackEvent.IsPlayingChanged(true))
+                    }
+                } else {
+                    if (prevPlaying != nowPlaying) {
+                        _events.tryEmit(PlaybackEvent.IsPlayingChanged(false))
+                        flushWatchAndPositionAsync(clearActiveUri = false)
+                    } else {
+                        flushWatchDurationAsync(clearActiveUri = false)
+                    }
                 }
             }
             "paused-for-cache" -> {
@@ -729,6 +873,11 @@ class MpvPlaybackController @Inject constructor(
                 pausedForCache = value
                 val nowPlaying = !pausedByCore && !value && !_state.value.isLoading && !_state.value.isEnded
                 _state.update { it.copy(isBuffering = value, isPlaying = nowPlaying) }
+                if (nowPlaying && !pausedByCore && !pausedForCache) {
+                    _state.value.currentItem?.mediaId?.let(::startOrResumeWatchTracking)
+                } else {
+                    flushWatchDurationAsync(clearActiveUri = false)
+                }
                 if (prevPlaying != nowPlaying) {
                     _events.tryEmit(PlaybackEvent.IsPlayingChanged(nowPlaying))
                 }
@@ -751,6 +900,12 @@ class MpvPlaybackController @Inject constructor(
             "time-pos" -> {
                 val posMs = (value * 1000.0).toLong().coerceAtLeast(0L)
                 _state.update { it.copy(currentPositionMs = posMs) }
+                val snap = _state.value
+                if (isActivelyWatchingSnapshot(snap)) {
+                    snap.currentItem?.mediaId?.let(::recordWatchTick)
+                } else {
+                    pauseWatchTimerOnly()
+                }
                 val now = SystemClock.elapsedRealtime()
                 if (now - lastPositionPersistElapsedMs >= 3000L) {
                     lastPositionPersistElapsedMs = now
@@ -788,6 +943,7 @@ class MpvPlaybackController @Inject constructor(
                 if (currentLoadGeneration <= 0L || sessionGen != currentLoadGeneration) {
                     return
                 }
+                pauseWatchTimerOnly()
                 _state.update { it.copy(isLoading = true, isIdle = false, isEnded = false, error = null) }
             }
             MPVLib.MpvEvent.MPV_EVENT_FILE_LOADED -> {
@@ -806,6 +962,11 @@ class MpvPlaybackController @Inject constructor(
                         isPlaying = nowPlaying,
                         error = null,
                     )
+                }
+                if (nowPlaying) {
+                    _state.value.currentItem?.mediaId?.let(::startOrResumeWatchTracking)
+                } else {
+                    pauseWatchTimerOnly()
                 }
                 if (!prevPlaying && nowPlaying) {
                     _events.tryEmit(PlaybackEvent.IsPlayingChanged(true))
@@ -853,9 +1014,19 @@ class MpvPlaybackController @Inject constructor(
                         scope.launch {
                             if (handledGen != currentLoadGeneration) return@launch
                             val current = _state.value
-                            current.currentItem?.mediaId?.let { id ->
-                                scope.launch(Dispatchers.IO) { mediaRepository.updateMediumPosition(id, 0L) }
+                            val completedId = current.currentItem?.mediaId
+                            val watchFlush = drainPendingWatchDuration(clearActiveUri = true)
+                            if (watchFlush != null || completedId != null) {
+                                scope.launch(Dispatchers.IO) {
+                                    if (watchFlush != null) {
+                                        mediaRepository.addWatchDuration(watchFlush.first, watchFlush.second)
+                                    }
+                                    if (completedId != null) {
+                                        mediaRepository.updateMediumPosition(completedId, 0L)
+                                    }
+                                }
                             }
+                            _state.update { it.copy(currentPositionMs = 0L) }
                             when {
                                 current.repeatMode == PlaybackLoopMode.ONE -> seekToItem(current.currentIndex, 0L)
                                 current.hasNext -> seekToNext()
@@ -874,6 +1045,7 @@ class MpvPlaybackController @Inject constructor(
                         }
                     }
                     MpvEndFileReason.ERROR -> {
+                        flushWatchAndPositionAsync(clearActiveUri = true)
                         val msg = PlaybackSession.parseEndFileError(data) ?: "Playback error occurred"
                         val failure = PlaybackFailure(
                             message = msg,
@@ -887,6 +1059,9 @@ class MpvPlaybackController @Inject constructor(
                     }
                     else -> Unit
                 }
+            }
+            MPVLib.MpvEvent.MPV_EVENT_SHUTDOWN -> {
+                flushWatchAndPositionAsync(clearActiveUri = true)
             }
         }
     }
@@ -905,5 +1080,7 @@ class MpvPlaybackController @Inject constructor(
 
     private companion object {
         const val TAG = "MpvPlaybackController"
+        const val WATCH_FLUSH_THRESHOLD_MS = 5_000L
+        const val MAX_WATCH_TICK_DELTA_MS = 15_000L
     }
 }

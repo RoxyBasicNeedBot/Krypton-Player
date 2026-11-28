@@ -1,22 +1,14 @@
 package dev.roxy.kryptonplayer.settings.screens.stats
 
-import android.text.format.DateUtils
-import androidx.compose.animation.AnimatedContent
+import android.net.Uri
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,40 +24,32 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Movie
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import dev.roxy.kryptonplayer.core.ui.theme.PremiumMeshBackground
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -73,9 +57,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -88,6 +74,7 @@ import dev.roxy.kryptonplayer.core.ui.components.NextTopAppBar
 import dev.roxy.kryptonplayer.core.ui.designsystem.NextIcons
 import dev.roxy.kryptonplayer.core.ui.preview.DayNightPreview
 import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
+import dev.roxy.kryptonplayer.core.ui.theme.PremiumMeshBackground
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -95,26 +82,33 @@ import kotlinx.coroutines.flow.stateIn
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import kotlin.math.log10
+import kotlin.math.pow
+import kotlin.math.roundToInt
+
+private const val CLOUD_STREAMS_FOLDER_PATH = "__cloud_streams__"
+private const val CLOUD_STREAMS_FOLDER_NAME = "Cloud & Network Streams"
+private const val OTHER_FOLDERS_PATH = "__other_folders__"
 
 enum class StatsFilter {
     ALL_TIME,
     LAST_7_DAYS,
     LAST_30_DAYS,
-    LAST_YEAR
+    LAST_YEAR,
 }
 
 data class FolderWatchStat(
     val folderPath: String,
     val folderName: String,
     val watchTimeMs: Long,
-    val videoCount: Int
+    val videoCount: Int,
 )
 
 data class VideoWatchStat(
     val video: MediumEntity,
     val state: MediumStateEntity,
     val watchTimeMs: Long,
-    val percentWatched: Float
+    val percentWatched: Float,
 )
 
 data class StatsSummary(
@@ -122,13 +116,20 @@ data class StatsSummary(
     val watchedVideosCount: Int,
     val totalVideosInLibrary: Int,
     val uniqueFoldersCount: Int,
-    val totalLibrarySize: Long
+    val totalLibrarySize: Long,
+)
+
+private data class FolderArcSegment(
+    val stat: FolderWatchStat,
+    val startAngle: Float,
+    val sweepAngle: Float,
+    val fraction: Float,
 )
 
 @HiltViewModel
 class StatsViewModel @Inject constructor(
-    private val mediumDao: MediumDao,
-    private val mediumStateDao: MediumStateDao,
+    mediumDao: MediumDao,
+    mediumStateDao: MediumStateDao,
 ) : ViewModel() {
 
     val selectedFilter = MutableStateFlow(StatsFilter.ALL_TIME)
@@ -139,9 +140,9 @@ class StatsViewModel @Inject constructor(
     val statsState = combine(
         allMediaFlow,
         allMediaStateFlow,
-        selectedFilter
+        selectedFilter,
     ) { mediaList, stateList, filter ->
-        val stateMap = stateList.associateBy { it.uriString }
+        val mediaMap = mediaList.associateBy { it.uriString }
         val now = System.currentTimeMillis()
         val filterTimeLimit = when (filter) {
             StatsFilter.ALL_TIME -> 0L
@@ -150,15 +151,20 @@ class StatsViewModel @Inject constructor(
             StatsFilter.LAST_YEAR -> now - TimeUnit.DAYS.toMillis(365)
         }
 
-        // Filter watched items by date
         val filteredStates = stateList.filter { state ->
-            val playedTime = state.lastPlayedTime ?: 0L
-            playedTime >= filterTimeLimit
+            val effectiveWatchMs = state.effectiveWatchDurationMs()
+            when (filter) {
+                StatsFilter.ALL_TIME -> state.lastPlayedTime != null || effectiveWatchMs > 0L
+                StatsFilter.LAST_7_DAYS,
+                StatsFilter.LAST_30_DAYS,
+                StatsFilter.LAST_YEAR,
+                -> (state.lastPlayedTime ?: 0L) >= filterTimeLimit
+            }
         }
         val filteredStateMap = filteredStates.associateBy { it.uriString }
 
-        // Summary Calculations
-        val totalWatchTime = filteredStates.sumOf { it.playbackPosition }
+        // Summary calculations using cumulative effective watch duration
+        val totalWatchTime = filteredStates.sumOf { it.effectiveWatchDurationMs() }
         val watchedVideosCount = filteredStates.size
         val totalVideosInLibrary = mediaList.size
         val uniqueFoldersCount = mediaList.map { it.parentPath }.distinct().size
@@ -169,25 +175,56 @@ class StatsViewModel @Inject constructor(
             watchedVideosCount = watchedVideosCount,
             totalVideosInLibrary = totalVideosInLibrary,
             uniqueFoldersCount = uniqueFoldersCount,
-            totalLibrarySize = totalSize
+            totalLibrarySize = totalSize,
         )
 
-        // Top Played Videos
-        val topVideos = mediaList.mapNotNull { video ->
-            val state = filteredStateMap[video.uriString] ?: return@mapNotNull null
-            val watchTime = state.playbackPosition
-            val percent = if (video.duration > 0) watchTime.toFloat() / video.duration else 0f
-            VideoWatchStat(video, state, watchTime, percent.coerceIn(0f, 1f))
+        // Top Played Videos (includes indexed library videos + cloud/network streams)
+        val topVideos = filteredStates.mapNotNull { state ->
+            val watchTime = state.effectiveWatchDurationMs()
+            if (watchTime <= 0L) return@mapNotNull null
+            val video = mediaMap[state.uriString] ?: createStreamFallbackMedium(state)
+            val percent = if (video.duration > 0L) {
+                (watchTime.toFloat() / video.duration).coerceIn(0f, 1f)
+            } else {
+                0f
+            }
+            VideoWatchStat(video, state, watchTime, percent)
         }.sortedByDescending { it.watchTimeMs }
 
-        // Folder Distribution
-        val folderStats = mediaList.groupBy { it.parentPath }.map { (path, videos) ->
-            val folderName = path.substringAfterLast('/')
+        // Folder Distribution (library folders + Cloud & Network Streams bucket)
+        val indexedFolderStats = mediaList.groupBy { it.parentPath }.mapNotNull { (path, videos) ->
             val watchTime = videos.sumOf { video ->
-                filteredStateMap[video.uriString]?.playbackPosition ?: 0L
+                filteredStateMap[video.uriString]?.effectiveWatchDurationMs() ?: 0L
             }
-            FolderWatchStat(path, folderName, watchTime, videos.size)
-        }.filter { it.watchTimeMs > 0 }.sortedByDescending { it.watchTimeMs }
+            if (watchTime <= 0L) return@mapNotNull null
+            val watchedInFolder = videos.count { video ->
+                val state = filteredStateMap[video.uriString]
+                state != null && state.effectiveWatchDurationMs() > 0L
+            }
+            FolderWatchStat(
+                folderPath = path,
+                folderName = folderDisplayName(path),
+                watchTimeMs = watchTime,
+                videoCount = watchedInFolder.coerceAtLeast(1),
+            )
+        }
+        val unindexedWatchedStates = filteredStates.filter { state ->
+            state.uriString !in mediaMap && state.effectiveWatchDurationMs() > 0L
+        }
+        val unindexedWatchTime = unindexedWatchedStates.sumOf { it.effectiveWatchDurationMs() }
+        val folderStats = buildList {
+            addAll(indexedFolderStats)
+            if (unindexedWatchTime > 0L) {
+                add(
+                    FolderWatchStat(
+                        folderPath = CLOUD_STREAMS_FOLDER_PATH,
+                        folderName = CLOUD_STREAMS_FOLDER_NAME,
+                        watchTimeMs = unindexedWatchTime,
+                        videoCount = unindexedWatchedStates.size,
+                    ),
+                )
+            }
+        }.sortedByDescending { it.watchTimeMs }
 
         // Hourly Watch Pattern (0-23 hours)
         val hourlySlots = IntArray(24)
@@ -204,15 +241,10 @@ class StatsViewModel @Inject constructor(
         filteredStates.forEach { state ->
             val time = state.lastPlayedTime ?: return@forEach
             val cal = Calendar.getInstance().apply { timeInMillis = time }
-            val day = cal.get(Calendar.DAY_OF_WEEK) - 1 // Calendar.SUNDAY is 1, convert to 0-indexed
+            val day = cal.get(Calendar.DAY_OF_WEEK) - 1
             dailySlots[day] += 1
         }
         val dailyTrend = dailySlots.mapIndexed { day, count -> day to count }
-
-        // Favorite Folder
-        val favoriteFolder = folderStats.firstOrNull()
-        // Favorite Video
-        val favoriteVideo = topVideos.firstOrNull()
 
         StatsUiState(
             summary = summary,
@@ -220,13 +252,13 @@ class StatsViewModel @Inject constructor(
             folderStats = folderStats,
             hourlyTrend = hourlyTrend,
             dailyTrend = dailyTrend,
-            favoriteFolder = favoriteFolder,
-            favoriteVideo = favoriteVideo
+            favoriteFolder = folderStats.firstOrNull(),
+            favoriteVideo = topVideos.firstOrNull(),
         )
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = StatsUiState()
+        initialValue = StatsUiState(),
     )
 
     fun setFilter(filter: StatsFilter) {
@@ -241,7 +273,7 @@ data class StatsUiState(
     val hourlyTrend: List<Pair<Int, Int>> = emptyList(),
     val dailyTrend: List<Pair<Int, Int>> = emptyList(),
     val favoriteFolder: FolderWatchStat? = null,
-    val favoriteVideo: VideoWatchStat? = null
+    val favoriteVideo: VideoWatchStat? = null,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -253,6 +285,9 @@ fun StatsScreen(
     val uiState by viewModel.statsState.collectAsState()
     val filter by viewModel.selectedFilter.collectAsState()
     val lazyListState = rememberLazyListState()
+    val hasWatchActivity = uiState.summary.watchedVideosCount > 0 ||
+        uiState.topVideos.isNotEmpty() ||
+        uiState.folderStats.isNotEmpty()
 
     PremiumMeshBackground {
         Scaffold(
@@ -267,7 +302,7 @@ fun StatsScreen(
                                 contentDescription = "Back",
                             )
                         }
-                    }
+                    },
                 )
             },
         ) { innerPadding ->
@@ -278,101 +313,73 @@ fun StatsScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                // Filter Row
                 item {
                     FilterRow(
                         selectedFilter = filter,
-                        onFilterSelected = viewModel::setFilter
+                        onFilterSelected = viewModel::setFilter,
                     )
                 }
 
-                // Cards Summary Grid
                 item {
                     StatsSummarySection(summary = uiState.summary)
                 }
 
-                // Highlights Section
-                item {
-                    HighlightsSection(
-                        favoriteFolder = uiState.favoriteFolder,
-                        favoriteVideo = uiState.favoriteVideo
-                    )
-                }
-
-                // Folder Donut Chart
-                item {
-                    if (uiState.folderStats.isNotEmpty()) {
-                        FolderDistributionChart(folderStats = uiState.folderStats)
+                if (!hasWatchActivity) {
+                    item {
+                        EmptyStatsStateCard(filter = filter)
                     }
                 }
 
-                // Daily Patterns Graph
-                item {
-                    if (uiState.dailyTrend.any { it.second > 0 }) {
-                        DailyWatchChart(dailyTrend = uiState.dailyTrend)
-                    }
-                }
-
-                // Hourly Patterns Graph
-                item {
-                    if (uiState.hourlyTrend.any { it.second > 0 }) {
-                        HourlyWatchChart(hourlyTrend = uiState.hourlyTrend)
-                    }
-                }
-
-                // Ranked Videos List Header
-                item {
-                    if (uiState.topVideos.isNotEmpty()) {
-                        Text(
-                            text = "Top Played Videos",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(top = 8.dp)
+                if (uiState.favoriteFolder != null || uiState.favoriteVideo != null) {
+                    item {
+                        HighlightsSection(
+                            favoriteFolder = uiState.favoriteFolder,
+                            favoriteVideo = uiState.favoriteVideo,
                         )
                     }
                 }
 
-                // Ranked Videos
-                val maxWatchTime = uiState.topVideos.firstOrNull()?.watchTimeMs ?: 1L
-                itemsIndexed(uiState.topVideos.take(10)) { index, stat ->
-                    val playFraction = stat.watchTimeMs.toFloat() / maxWatchTime
-                    val progressColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                if (uiState.folderStats.isNotEmpty()) {
+                    item {
+                        FolderDistributionChart(folderStats = uiState.folderStats)
+                    }
+                }
 
-                    ListItem(
-                        headlineContent = {
-                            Text(
-                                text = "${index + 1}. ${stat.video.name}",
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        },
-                        supportingContent = {
-                            Text(
-                                text = "Watched ${formatMillisToTime(stat.watchTimeMs)} • ${stat.video.parentPath.substringAfterLast('/')}"
-                            )
-                        },
-                        leadingContent = {
-                            Icon(
-                                imageVector = Icons.Default.Movie,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-                            .drawBehind {
-                                drawRect(
-                                    color = progressColor,
-                                    size = Size(size.width * playFraction, size.height),
-                                )
-                            }
-                    )
+                if (uiState.dailyTrend.any { it.second > 0 }) {
+                    item {
+                        DailyWatchChart(dailyTrend = uiState.dailyTrend)
+                    }
+                }
+
+                if (uiState.hourlyTrend.any { it.second > 0 }) {
+                    item {
+                        HourlyWatchChart(hourlyTrend = uiState.hourlyTrend)
+                    }
+                }
+
+                if (uiState.topVideos.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "TOP PLAYED VIDEOS",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.9.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 6.dp, start = 4.dp),
+                        )
+                    }
+
+                    val maxWatchTime = (uiState.topVideos.firstOrNull()?.watchTimeMs ?: 0L).coerceAtLeast(1L)
+                    itemsIndexed(uiState.topVideos.take(10)) { index, stat ->
+                        val playFraction = (stat.watchTimeMs.toFloat() / maxWatchTime).coerceIn(0f, 1f)
+                        TopPlayedVideoRow(
+                            rank = index + 1,
+                            stat = stat,
+                            playFraction = playFraction,
+                        )
+                    }
                 }
             }
         }
@@ -380,41 +387,185 @@ fun StatsScreen(
 }
 
 @Composable
+private fun StatsMochiCard(
+    modifier: Modifier = Modifier,
+    cornerRadius: Dp = 22.dp,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
+    borderColor: Color = MaterialTheme.colorScheme.outlineVariant,
+    content: @Composable () -> Unit,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(cornerRadius),
+        color = containerColor,
+        border = BorderStroke(0.9.dp, borderColor),
+        content = content,
+    )
+}
+
+@Composable
+private fun TopPlayedVideoRow(
+    rank: Int,
+    stat: VideoWatchStat,
+    playFraction: Float,
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val progressColor = colorScheme.primary.copy(alpha = 0.10f)
+    val folderName = folderDisplayName(stat.video.parentPath)
+
+    StatsMochiCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 18.dp,
+    ) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            headlineContent = {
+                Text(
+                    text = "$rank. ${stat.video.name}",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            supportingContent = {
+                Text(
+                    text = "Watched ${formatMillisToTime(stat.watchTimeMs)} • $folderName",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            },
+            leadingContent = {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = colorScheme.surfaceContainer,
+                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Movie,
+                            contentDescription = null,
+                            tint = colorScheme.primary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    drawRect(
+                        color = progressColor,
+                        size = Size(size.width * playFraction, size.height),
+                    )
+                },
+        )
+    }
+}
+
+@Composable
+private fun EmptyStatsStateCard(filter: StatsFilter) {
+    val colorScheme = MaterialTheme.colorScheme
+    val title = if (filter == StatsFilter.ALL_TIME) {
+        "No Watch History Yet"
+    } else {
+        "No Activity in ${filterLabel(filter)}"
+    }
+    val subtitle = if (filter == StatsFilter.ALL_TIME) {
+        "Play a local video or stream to start tracking real watch time, folder breakdowns, and viewing habits."
+    } else {
+        "No playback activity matched this time range. Try selecting All Time or play a video."
+    }
+
+    StatsMochiCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 22.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = colorScheme.surfaceContainer,
+                border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
+                modifier = Modifier.size(56.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.BarChart,
+                        contentDescription = null,
+                        tint = colorScheme.primary,
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
+            }
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = colorScheme.onSurface,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
 private fun FilterRow(
     selectedFilter: StatsFilter,
-    onFilterSelected: (StatsFilter) -> Unit
+    onFilterSelected: (StatsFilter) -> Unit,
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
             .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         StatsFilter.entries.forEach { f ->
-            val label = when (f) {
-                StatsFilter.ALL_TIME -> "All Time"
-                StatsFilter.LAST_7_DAYS -> "Last 7 Days"
-                StatsFilter.LAST_30_DAYS -> "Last 30 Days"
-                StatsFilter.LAST_YEAR -> "Last Year"
-            }
+            val label = filterLabel(f)
             val isSelected = f == selectedFilter
-            val container = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh
-            val content = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            val container by animateColorAsState(
+                targetValue = if (isSelected) colorScheme.primary else colorScheme.surfaceContainerLow,
+                animationSpec = tween(180),
+                label = "filter_bg_$f",
+            )
+            val content by animateColorAsState(
+                targetValue = if (isSelected) colorScheme.onPrimary else colorScheme.onSurfaceVariant,
+                animationSpec = tween(180),
+                label = "filter_fg_$f",
+            )
+            val borderColor = if (isSelected) Color.Transparent else colorScheme.outlineVariant
 
             Surface(
                 shape = RoundedCornerShape(999.dp),
                 color = container,
                 contentColor = content,
-                shadowElevation = if (isSelected) 4.dp else 0.dp,
+                border = BorderStroke(0.9.dp, borderColor),
                 modifier = Modifier
                     .clip(RoundedCornerShape(999.dp))
-                    .clickable { onFilterSelected(f) }
+                    .clickable { onFilterSelected(f) },
             ) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
                 )
             }
         }
@@ -423,48 +574,86 @@ private fun FilterRow(
 
 @Composable
 private fun StatsSummarySection(summary: StatsSummary) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ElevatedCard(
+    val colorScheme = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        StatsMochiCard(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.elevatedCardColors()
+            cornerRadius = 22.dp,
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.White.copy(alpha = 0.04f),
+                                Color.Transparent,
+                            ),
+                        ),
+                    )
+                    .padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(
-                    text = "Total Watch Time",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
-                Text(
-                    text = formatMillisToTime(summary.totalWatchTimeMs),
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = "TOTAL WATCH TIME",
+                        style = MaterialTheme.typography.labelSmall,
+                        letterSpacing = 0.9.sp,
+                        color = colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = formatMillisToTime(summary.totalWatchTimeMs),
+                        style = MaterialTheme.typography.displaySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.primary,
+                    )
+                    Text(
+                        text = "${summary.watchedVideosCount} watched • ${summary.totalVideosInLibrary} in library",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = colorScheme.surfaceContainer,
+                    border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
+                    modifier = Modifier.size(48.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = null,
+                            tint = colorScheme.primary,
+                            modifier = Modifier.size(26.dp),
+                        )
+                    }
+                }
             }
         }
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             StatCard(
-                label = "Videos Watched",
+                label = "Watched",
                 value = summary.watchedVideosCount.toString(),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             StatCard(
-                label = "Unique Folders",
+                label = "Folders",
                 value = summary.uniqueFoldersCount.toString(),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             StatCard(
                 label = "Library Size",
                 value = formatBytes(summary.totalLibrarySize),
-                modifier = Modifier.weight(1.2f)
+                modifier = Modifier.weight(1.25f),
             )
         }
     }
@@ -474,29 +663,31 @@ private fun StatsSummarySection(summary: StatsSummary) {
 private fun StatCard(
     label: String,
     value: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(
+    val colorScheme = MaterialTheme.colorScheme
+    StatsMochiCard(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.elevatedCardColors()
+        cornerRadius = 22.dp,
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 15.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = colorScheme.primary,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -505,52 +696,57 @@ private fun StatCard(
 @Composable
 private fun HighlightsSection(
     favoriteFolder: FolderWatchStat?,
-    favoriteVideo: VideoWatchStat?
+    favoriteVideo: VideoWatchStat?,
 ) {
     if (favoriteFolder == null && favoriteVideo == null) return
+    val colorScheme = MaterialTheme.colorScheme
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (favoriteFolder != null) {
-            ElevatedCard(
+            val videoWord = if (favoriteFolder.videoCount == 1) "video" else "videos"
+            StatsMochiCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+                cornerRadius = 22.dp,
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        modifier = Modifier.size(54.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        color = colorScheme.surfaceContainer,
+                        border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
+                        modifier = Modifier.size(50.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Folder,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.size(28.dp)
+                                tint = colorScheme.primary,
+                                modifier = Modifier.size(25.dp),
                             )
                         }
                     }
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
                             text = "FAVORITE WATCHING FOLDER",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
+                            letterSpacing = 0.7.sp,
+                            color = colorScheme.onSurfaceVariant,
                         )
                         Text(
                             text = favoriteFolder.folderName,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            color = colorScheme.onSurface,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "Watched ${formatMillisToTime(favoriteFolder.watchTimeMs)} across ${favoriteFolder.videoCount} videos",
+                            text = "Watched ${formatMillisToTime(favoriteFolder.watchTimeMs)} across ${favoriteFolder.videoCount} $videoWord",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -558,46 +754,54 @@ private fun HighlightsSection(
         }
 
         if (favoriteVideo != null) {
-            ElevatedCard(
+            val completionSuffix = if (favoriteVideo.video.duration > 0L) {
+                " • ${(favoriteVideo.percentWatched * 100).toInt()}% completed"
+            } else {
+                ""
+            }
+            StatsMochiCard(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
+                cornerRadius = 22.dp,
             ) {
                 Row(
                     modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                        modifier = Modifier.size(54.dp)
+                        shape = RoundedCornerShape(14.dp),
+                        color = colorScheme.surfaceContainer,
+                        border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
+                        modifier = Modifier.size(50.dp),
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Movie,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(28.dp)
+                                tint = colorScheme.tertiary,
+                                modifier = Modifier.size(25.dp),
                             )
                         }
                     }
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
                             text = "MOST WATCHED VIDEO",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.tertiary
+                            letterSpacing = 0.7.sp,
+                            color = colorScheme.tertiary,
                         )
                         Text(
                             text = favoriteVideo.video.name,
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
+                            color = colorScheme.onSurface,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = "Watched ${formatMillisToTime(favoriteVideo.watchTimeMs)} • ${(favoriteVideo.percentWatched * 100).toInt()}% completed",
+                            text = "Watched ${formatMillisToTime(favoriteVideo.watchTimeMs)}$completionSuffix",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -608,60 +812,92 @@ private fun HighlightsSection(
 
 @Composable
 private fun FolderDistributionChart(folderStats: List<FolderWatchStat>) {
-    val totalWatchTime = remember(folderStats) { folderStats.sumOf { it.watchTimeMs } }
-    if (totalWatchTime == 0L) return
+    val displayFolders = remember(folderStats) {
+        val topFolders = folderStats.take(4)
+        val remaining = folderStats.drop(4)
+        val otherWatchMs = remaining.sumOf { it.watchTimeMs }
+        if (remaining.isNotEmpty() && otherWatchMs > 0L) {
+            topFolders + FolderWatchStat(
+                folderPath = OTHER_FOLDERS_PATH,
+                folderName = "Other",
+                watchTimeMs = otherWatchMs,
+                videoCount = remaining.sumOf { it.videoCount },
+            )
+        } else {
+            topFolders
+        }
+    }
+    val totalWatchTime = remember(displayFolders) { displayFolders.sumOf { it.watchTimeMs } }
+    if (totalWatchTime <= 0L) return
 
+    val colorScheme = MaterialTheme.colorScheme
     val segmentColors = listOf(
-        Color(0xFF6750A4), Color(0xFF4A8FA8), Color(0xFF4CAF50),
-        Color(0xFFFF9800), Color(0xFFE91E63),
+        Color(0xFF9B87F5),
+        Color(0xFF4CC9F0),
+        Color(0xFF4ADE80),
+        Color(0xFFFFB703),
+        Color(0xFFF472B6),
     )
 
-    val segmentData = remember(folderStats, totalWatchTime) {
+    val segmentData = remember(displayFolders, totalWatchTime) {
         var startAngle = -90f
-        folderStats.take(5).mapNotNull { stat ->
-            val sweep = (stat.watchTimeMs.toFloat() / totalWatchTime) * 360f
-            if (sweep < 1f) return@mapNotNull null
-            val entry = Triple(stat, startAngle, sweep)
+        displayFolders.map { stat ->
+            val fraction = (stat.watchTimeMs.toFloat() / totalWatchTime).coerceIn(0f, 1f)
+            val sweep = fraction * 360f
+            val entry = FolderArcSegment(
+                stat = stat,
+                startAngle = startAngle,
+                sweepAngle = sweep,
+                fraction = fraction,
+            )
             startAngle += sweep
             entry
         }
     }
 
-    ElevatedCard(
+    StatsMochiCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp)
+        cornerRadius = 22.dp,
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "Folder Distributions",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(bottom = 12.dp)
+                color = colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 14.dp),
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(20.dp)
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
             ) {
                 Box(
+                    contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(120.dp)
                         .drawWithCache {
                             val strokeWidth = size.width * 0.16f
                             val inset = strokeWidth / 2f
                             val arcRect = Rect(
-                                left = inset, top = inset,
-                                right = size.width - inset, bottom = size.height - inset,
+                                left = inset,
+                                top = inset,
+                                right = size.width - inset,
+                                bottom = size.height - inset,
                             )
                             onDrawBehind {
-                                segmentData.forEachIndexed { i, (_, startAngle, sweep) ->
-                                    val gapDeg = if (segmentData.size > 1) 2.5f else 0f
+                                segmentData.forEachIndexed { i, segment ->
+                                    val gapDeg = if (segmentData.size > 1) {
+                                        minOf(2.5f, segment.sweepAngle * 0.4f)
+                                    } else {
+                                        0f
+                                    }
+                                    val drawSweep = (segment.sweepAngle - gapDeg).coerceAtLeast(0.4f)
                                     drawArc(
                                         color = segmentColors[i % segmentColors.size],
-                                        startAngle = startAngle + gapDeg / 2f,
-                                        sweepAngle = sweep - gapDeg,
+                                        startAngle = segment.startAngle + gapDeg / 2f,
+                                        sweepAngle = drawSweep,
                                         useCenter = false,
                                         topLeft = arcRect.topLeft,
                                         size = Size(arcRect.width, arcRect.height),
@@ -669,36 +905,55 @@ private fun FolderDistributionChart(folderStats: List<FolderWatchStat>) {
                                     )
                                 }
                             }
-                        }
-                )
+                        },
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = formatMillisToTime(totalWatchTime),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.onSurface,
+                            maxLines = 1,
+                        )
+                        Text(
+                            text = "${folderStats.size} folders",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                }
 
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.weight(1f)
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f),
                 ) {
-                    segmentData.forEachIndexed { i, (stat, _, sweep) ->
-                        val percentage = (sweep / 360f * 100).toInt()
+                    segmentData.forEachIndexed { i, segment ->
+                        val pct = (segment.fraction * 100f).roundToInt()
+                        val pctText = if (pct == 0 && segment.stat.watchTimeMs > 0L) "<1%" else "$pct%"
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(10.dp)
+                                    .size(9.dp)
                                     .clip(CircleShape)
-                                    .background(segmentColors[i % segmentColors.size])
+                                    .background(segmentColors[i % segmentColors.size]),
                             )
                             Text(
-                                text = stat.folderName,
+                                text = segment.stat.folderName,
                                 style = MaterialTheme.typography.labelMedium,
+                                color = colorScheme.onSurface,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
                             Text(
-                                text = "$percentage%",
+                                text = "${formatMillisToTime(segment.stat.watchTimeMs)} • $pctText",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = 1,
                             )
                         }
                     }
@@ -710,69 +965,74 @@ private fun FolderDistributionChart(folderStats: List<FolderWatchStat>) {
 
 @Composable
 private fun DailyWatchChart(dailyTrend: List<Pair<Int, Int>>) {
+    val colorScheme = MaterialTheme.colorScheme
     val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-    val maxCount = remember(dailyTrend) { dailyTrend.maxOfOrNull { it.second } ?: 1 }
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val barBgColor = MaterialTheme.colorScheme.secondaryContainer
+    val maxCount = remember(dailyTrend) { (dailyTrend.maxOfOrNull { it.second } ?: 0).coerceAtLeast(1) }
+    val primaryColor = colorScheme.primary
+    val activeBarColor = colorScheme.primary.copy(alpha = 0.45f)
+    val emptyBarColor = colorScheme.surfaceContainerHighest.copy(alpha = 0.6f)
 
-    ElevatedCard(
+    StatsMochiCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp)
+        cornerRadius = 22.dp,
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "Watching Days Trend",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(bottom = 12.dp)
+                color = colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 14.dp),
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.Bottom,
             ) {
                 dailyTrend.forEach { (day, count) ->
-                    val fraction = count.toFloat() / maxCount
+                    val fraction = (count.toFloat() / maxCount).coerceIn(0f, 1f)
                     val animatedFraction by animateFloatAsState(
                         targetValue = fraction,
                         animationSpec = tween(450),
-                        label = "day_bar_$day"
+                        label = "day_bar_$day",
                     )
+                    val barColor = when {
+                        count <= 0 -> emptyBarColor
+                        count == maxCount -> primaryColor
+                        else -> activeBarColor
+                    }
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
                     ) {
                         Box(
                             modifier = Modifier
                                 .width(22.dp)
                                 .height(80.dp),
-                            contentAlignment = Alignment.BottomCenter
+                            contentAlignment = Alignment.BottomCenter,
                         ) {
-                            // Track
                             Box(
                                 modifier = Modifier
                                     .width(22.dp)
                                     .fillMaxSize()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f))
+                                    .background(colorScheme.surfaceContainer),
                             )
-                            // Filled Bar
                             Box(
                                 modifier = Modifier
                                     .width(22.dp)
                                     .height((80 * animatedFraction).dp.coerceAtLeast(3.dp))
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (count == maxCount && count > 0) primaryColor else barBgColor)
+                                    .background(barColor),
                             )
                         }
                         Text(
-                            text = days[day],
+                            text = days.getOrElse(day) { "" },
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (count == maxCount && count > 0) primaryColor else colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -783,48 +1043,55 @@ private fun DailyWatchChart(dailyTrend: List<Pair<Int, Int>>) {
 
 @Composable
 private fun HourlyWatchChart(hourlyTrend: List<Pair<Int, Int>>) {
-    val maxCount = remember(hourlyTrend) { hourlyTrend.maxOfOrNull { it.second } ?: 1 }
-    val primaryColor = MaterialTheme.colorScheme.primary
-    val areaColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+    val colorScheme = MaterialTheme.colorScheme
+    val maxCount = remember(hourlyTrend) { (hourlyTrend.maxOfOrNull { it.second } ?: 0).coerceAtLeast(1) }
+    val primaryColor = colorScheme.primary
+    val activeBarColor = colorScheme.primary.copy(alpha = 0.42f)
+    val emptyBarColor = colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
 
-    ElevatedCard(
+    StatsMochiCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp)
+        cornerRadius = 22.dp,
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "Hourly Watch Patterns",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.padding(bottom = 12.dp)
+                color = colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 14.dp),
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(3.dp),
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.Bottom,
             ) {
                 hourlyTrend.forEach { (hour, count) ->
-                    val fraction = count.toFloat() / maxCount
+                    val fraction = (count.toFloat() / maxCount).coerceIn(0f, 1f)
                     val animatedFraction by animateFloatAsState(
                         targetValue = fraction,
                         animationSpec = tween(400),
-                        label = "hour_bar_$hour"
+                        label = "hour_bar_$hour",
                     )
+                    val barColor = when {
+                        count <= 0 -> emptyBarColor
+                        count == maxCount -> primaryColor
+                        else -> activeBarColor
+                    }
 
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(60.dp),
-                        contentAlignment = Alignment.BottomCenter
+                        contentAlignment = Alignment.BottomCenter,
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height((60 * animatedFraction).dp.coerceAtLeast(2.dp))
-                                .clip(RoundedCornerShape(topStart = 2.dp, topEnd = 2.dp))
-                                .background(if (count == maxCount && count > 0) primaryColor else areaColor)
+                                .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                                .background(barColor),
                         )
                     }
                 }
@@ -834,24 +1101,73 @@ private fun HourlyWatchChart(hourlyTrend: List<Pair<Int, Int>>) {
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(text = "12 AM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(text = "6 AM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(text = "12 PM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(text = "6 PM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(text = "11 PM", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(text = "12 AM", style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
+                Text(text = "6 AM", style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
+                Text(text = "12 PM", style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
+                Text(text = "6 PM", style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
+                Text(text = "11 PM", style = MaterialTheme.typography.labelSmall, color = colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
-// Helpers
+private fun createStreamFallbackMedium(state: MediumStateEntity): MediumEntity {
+    return MediumEntity(
+        uriString = state.uriString,
+        path = state.uriString,
+        name = resolveStreamFallbackTitle(state.uriString),
+        parentPath = CLOUD_STREAMS_FOLDER_PATH,
+        modified = state.lastPlayedTime ?: 0L,
+        size = 0L,
+        width = 0,
+        height = 0,
+        duration = 0L,
+        mediaStoreId = 0L,
+    )
+}
+
+private fun resolveStreamFallbackTitle(uriString: String): String {
+    val parsed = runCatching { Uri.parse(uriString) }.getOrNull()
+    val queryTitle = parsed?.let { uri ->
+        listOf("name", "title", "filename")
+            .firstNotNullOfOrNull { key ->
+                runCatching { uri.getQueryParameter(key) }.getOrNull()?.takeIf { it.isNotBlank() }
+            }
+    }?.let { raw -> runCatching { Uri.decode(raw) }.getOrDefault(raw).trim() }
+    if (!queryTitle.isNullOrBlank()) return queryTitle
+
+    val lastSegment = parsed?.lastPathSegment
+        ?.let { raw -> runCatching { Uri.decode(raw) }.getOrDefault(raw).trim() }
+        ?.takeIf { it.isNotBlank() && !it.equals("stream", ignoreCase = true) }
+    if (!lastSegment.isNullOrBlank()) return lastSegment
+
+    return "Streamed Video"
+}
+
+private fun folderDisplayName(parentPath: String): String = when {
+    parentPath == CLOUD_STREAMS_FOLDER_PATH -> CLOUD_STREAMS_FOLDER_NAME
+    else -> parentPath.substringAfterLast('/').ifBlank { parentPath }
+}
+
+private fun filterLabel(filter: StatsFilter): String = when (filter) {
+    StatsFilter.ALL_TIME -> "All Time"
+    StatsFilter.LAST_7_DAYS -> "Last 7 Days"
+    StatsFilter.LAST_30_DAYS -> "Last 30 Days"
+    StatsFilter.LAST_YEAR -> "Last Year"
+}
+
 private fun formatMillisToTime(ms: Long): String {
-    val totalSecs = ms / 1000
-    val hours = totalSecs / 3600
-    val minutes = (totalSecs % 3600) / 60
-    return if (hours > 0) {
+    if (ms <= 0L) return "0m"
+    if (ms < 60_000L) {
+        val totalSecs = (ms / 1000L).coerceAtLeast(1L)
+        return "${totalSecs}s"
+    }
+    val totalMinutes = ms / 60_000L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    return if (hours > 0L) {
         "${hours}h ${minutes}m"
     } else {
         "${minutes}m"
@@ -859,10 +1175,10 @@ private fun formatMillisToTime(ms: Long): String {
 }
 
 private fun formatBytes(bytes: Long): String {
-    if (bytes <= 0) return "0 B"
+    if (bytes <= 0L) return "0 B"
     val units = listOf("B", "KB", "MB", "GB", "TB")
-    val digitGroups = (Math.log10(bytes.toDouble()) / Math.log10(1024.0)).toInt()
-    return String.format("%.1f %s", bytes / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+    val digitGroups = (log10(bytes.toDouble()) / log10(1024.0)).toInt().coerceIn(0, units.lastIndex)
+    return String.format("%.1f %s", bytes / 1024.0.pow(digitGroups.toDouble()), units[digitGroups])
 }
 
 @DayNightPreview

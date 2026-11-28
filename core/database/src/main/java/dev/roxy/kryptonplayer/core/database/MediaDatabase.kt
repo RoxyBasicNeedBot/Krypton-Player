@@ -30,7 +30,7 @@ import dev.roxy.kryptonplayer.core.database.dao.WatchLaterDao
         WatchLaterEntity::class,
         dev.roxy.kryptonplayer.core.database.entities.BookmarkEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class MediaDatabase : RoomDatabase() {
@@ -260,6 +260,13 @@ abstract class MediaDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `media_state` ADD COLUMN `watch_duration_ms` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("UPDATE `media_state` SET `watch_duration_ms` = `playback_position` WHERE `playback_position` > 0")
             }
         }
     }

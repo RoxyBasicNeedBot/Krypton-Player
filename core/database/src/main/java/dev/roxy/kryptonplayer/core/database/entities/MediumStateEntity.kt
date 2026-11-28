@@ -33,4 +33,13 @@ data class MediumStateEntity(
     val subtitleDelayMilliseconds: Long = 0,
     @ColumnInfo(name = "subtitle_speed")
     val subtitleSpeed: Float = 1f,
-)
+    @ColumnInfo(name = "watch_duration_ms", defaultValue = "0")
+    val watchDurationMs: Long = 0L,
+) {
+    /**
+     * Returns cumulative watch duration when recorded, falling back to non-negative
+     * legacy playback position for pre-migration or unaccumulated rows.
+     */
+    fun effectiveWatchDurationMs(): Long =
+        if (watchDurationMs > 0L) watchDurationMs else playbackPosition.coerceAtLeast(0L)
+}

@@ -1,15 +1,22 @@
 package dev.roxy.kryptonplayer.settings.screens.about
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.widget.Toast
 import androidx.annotation.DrawableRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -37,30 +44,43 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.BugReport
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Code
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.OpenInBrowser
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.SyncProblem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -73,6 +93,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -98,6 +119,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
+import dev.roxy.kryptonplayer.core.data.reporting.DumpLogBundle
+import dev.roxy.kryptonplayer.core.data.reporting.DumpLogIssueReporter
+import dev.roxy.kryptonplayer.core.data.reporting.DumpLogSubmitResult
 import dev.roxy.kryptonplayer.core.data.update.AppUpdateInfo
 import dev.roxy.kryptonplayer.core.data.update.GitHubCommitInfo
 import dev.roxy.kryptonplayer.core.data.update.UpdateState
@@ -114,16 +138,14 @@ import dev.roxy.kryptonplayer.core.ui.liquidglass.layerBackdrop
 import dev.roxy.kryptonplayer.core.ui.liquidglass.rememberBackdrop
 import dev.roxy.kryptonplayer.core.ui.preview.DayNightPreview
 import dev.roxy.kryptonplayer.core.ui.theme.KryptonPlayerTheme
+import dev.roxy.kryptonplayer.settings.contributors.ContributorUiModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 private const val GITHUB_REPO_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player"
-private const val GITHUB_CONTRIBUTORS_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player/graphs/contributors"
-private const val GITHUB_ISSUES_URL = "https://github.com/RoxyBasicNeedBot/Krypton-Player/issues"
 private const val TELEGRAM_URL = "https://t.me/KryptonPlayer"
-private const val TELEGRAM_BOOST_URL = "https://t.me/boost/KryptonPlayer"
-private const val TELEGRAM_LEARN_URL = "https://t.me/KryptonPlayer"
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -164,10 +186,14 @@ fun AboutScreen(
     val isLoadingChangelog by viewModel.isLoadingChangelog.collectAsStateWithLifecycle()
     val gitHubCommits by viewModel.gitHubCommits.collectAsStateWithLifecycle()
     val isLoadingCommits by viewModel.isLoadingCommits.collectAsStateWithLifecycle()
+    val contributors by viewModel.contributors.collectAsStateWithLifecycle()
+    val isLoadingContributors by viewModel.isLoadingContributors.collectAsStateWithLifecycle()
 
     var showUpdateDialog by remember { mutableStateOf(false) }
     var pendingUpdateInfo by remember { mutableStateOf<AppUpdateInfo?>(null) }
     var showChangelogSheet by remember { mutableStateOf(false) }
+    var showContributorsSheet by rememberSaveable { mutableStateOf(false) }
+    var showDumpLogSheet by rememberSaveable { mutableStateOf(false) }
     var showUpToDateDialog by remember { mutableStateOf(false) }
     var showUpdateErrorDialog by remember { mutableStateOf(false) }
     var updateErrorMessage by remember { mutableStateOf("") }
@@ -397,6 +423,47 @@ fun AboutScreen(
         }
     }
 
+    // Community Contributors Modal Bottom Sheet
+    if (showContributorsSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showContributorsSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            AboutContributorsSheetContent(
+                contributors = contributors,
+                isLoading = isLoadingContributors,
+                onRefresh = { viewModel.loadContributors(forceRefresh = true) },
+                onClose = {
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        showContributorsSheet = false
+                    }
+                },
+            )
+        }
+    }
+
+    // Dump Log & GitHub Issue Reporter Modal Bottom Sheet
+    if (showDumpLogSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showDumpLogSheet = false },
+            sheetState = sheetState,
+            containerColor = MaterialTheme.colorScheme.background,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        ) {
+            DumpLogIssueSheetContent(
+                onClose = {
+                    scope.launch { sheetState.hide() }.invokeOnCompletion {
+                        showDumpLogSheet = false
+                    }
+                },
+            )
+        }
+    }
+
     val colorScheme = MaterialTheme.colorScheme
     val listState = rememberLazyListState()
     val backdrop = rememberBackdrop(colorScheme.background)
@@ -489,7 +556,6 @@ fun AboutScreen(
                             abi = primaryAbi,
                             onOpenGitHub = { uriHandler.openUriOrToast(GITHUB_REPO_URL, context) },
                             onOpenTelegram = { uriHandler.openUriOrToast(TELEGRAM_URL, context) },
-                            onOpenBoost = { uriHandler.openUriOrToast(TELEGRAM_BOOST_URL, context) },
                             onOpenChangelog = {
                                 viewModel.loadChangelog(forceRefresh = false)
                                 viewModel.loadCommits(forceRefresh = false)
@@ -519,8 +585,12 @@ fun AboutScreen(
                                     title = "Community Contributors",
                                     subtitle = "Open-source PRs, localizations & bug fixes on GitHub",
                                     iconVector = Icons.Rounded.Groups,
+                                    badge = if (contributors.isNotEmpty()) "${contributors.size}" else null,
                                     testTag = "about_contributors_github",
-                                    onClick = { uriHandler.openUriOrToast(GITHUB_CONTRIBUTORS_URL, context) },
+                                    onClick = {
+                                        viewModel.loadContributors(forceRefresh = false)
+                                        showContributorsSheet = true
+                                    },
                                 ),
                                 AboutRowItem(
                                     title = "Open-Source Ecosystem",
@@ -608,25 +678,11 @@ fun AboutScreen(
                                     onClick = { uriHandler.openUriOrToast(TELEGRAM_URL, context) },
                                 ),
                                 AboutRowItem(
-                                    title = "Telegram Boost (/boost)",
-                                    subtitle = "Support channel to unlock high-speed cloud limits",
-                                    iconRes = R.drawable.bolt,
-                                    testTag = "about_boost",
-                                    onClick = { uriHandler.openUriOrToast(TELEGRAM_BOOST_URL, context) },
-                                ),
-                                AboutRowItem(
-                                    title = "Guides & Bot (/learn)",
-                                    subtitle = "Cloud streaming tutorial, bot commands & setup guide",
-                                    iconRes = R.drawable.ic_telegram,
-                                    testTag = "about_guides",
-                                    onClick = { uriHandler.openUriOrToast(TELEGRAM_LEARN_URL, context) },
-                                ),
-                                AboutRowItem(
-                                    title = "GitHub Repository & Issues",
-                                    subtitle = "Source code, releases & bug reports",
-                                    iconRes = R.drawable.ic_github,
-                                    testTag = "about_github",
-                                    onClick = { uriHandler.openUriOrToast(GITHUB_ISSUES_URL, context) },
+                                    title = "Dump Log",
+                                    subtitle = "Collect sanitized device & player logs and create a GitHub issue automatically",
+                                    iconVector = Icons.Rounded.BugReport,
+                                    testTag = "about_dump_log",
+                                    onClick = { showDumpLogSheet = true },
                                 ),
                             ),
                         )
@@ -712,7 +768,6 @@ private fun AboutIdentityCard(
     abi: String,
     onOpenGitHub: () -> Unit,
     onOpenTelegram: () -> Unit,
-    onOpenBoost: () -> Unit,
     onOpenChangelog: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -770,7 +825,6 @@ private fun AboutIdentityCard(
             ) {
                 MochyAboutChip(label = "GitHub", iconRes = R.drawable.ic_github, onClick = onOpenGitHub)
                 MochyAboutChip(label = "Telegram", iconRes = R.drawable.ic_telegram, onClick = onOpenTelegram)
-                MochyAboutChip(label = "Boost", iconRes = R.drawable.bolt, onClick = onOpenBoost)
                 MochyAboutChip(label = "What's New", iconRes = R.drawable.history, onClick = onOpenChangelog)
             }
         }
@@ -802,7 +856,9 @@ private fun LeadDeveloperCard(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 AsyncImage(
-                    model = R.drawable.dev_profile,
+                    model = "https://github.com/RoxyBasicNeedBot.png?size=160",
+                    placeholder = painterResource(id = R.drawable.dev_profile),
+                    error = painterResource(id = R.drawable.dev_profile),
                     contentDescription = "Lead Developer Profile",
                     modifier = Modifier
                         .size(64.dp)
@@ -1627,6 +1683,885 @@ private fun ChangelogSheetContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AboutContributorsSheetContent(
+    contributors: List<ContributorUiModel>,
+    isLoading: Boolean,
+    onRefresh: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val colorScheme = MaterialTheme.colorScheme
+    var selectedLogin by rememberSaveable { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(0.85f)
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = colorScheme.surfaceContainerHigh,
+                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Groups,
+                            contentDescription = null,
+                            tint = colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "Community Contributors",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false),
+                        )
+                        if (contributors.isNotEmpty()) {
+                            AboutMetadataBadge(text = "${contributors.size}")
+                        }
+                    }
+                    Text(
+                        text = "RoxyBasicNeedBot/Krypton-Player",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = onRefresh,
+                    enabled = !isLoading,
+                    modifier = Modifier.testTag("about_contributors_refresh"),
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = "Refresh contributors",
+                            tint = colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                IconButton(onClick = onClose) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_close),
+                        contentDescription = "Close",
+                        tint = colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(
+            thickness = 0.6.dp,
+            color = colorScheme.outlineVariant.copy(alpha = 0.65f),
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (isLoading && contributors.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                CircularProgressIndicator()
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Fetching contributors from GitHub…",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colorScheme.onSurfaceVariant,
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
+                itemsIndexed(
+                    items = contributors,
+                    key = { _, contributor -> contributor.login },
+                ) { index, contributor ->
+                    val rank = index + 1
+                    val isSelected = selectedLogin == contributor.login
+                    val commitLabel = if (contributor.contributions == 1) {
+                        "1 commit"
+                    } else {
+                        "${contributor.contributions} commits"
+                    }
+
+                    Surface(
+                        onClick = {
+                            selectedLogin = if (isSelected) null else contributor.login
+                        },
+                        shape = RoundedCornerShape(18.dp),
+                        color = if (isSelected) colorScheme.surfaceContainerHigh else colorScheme.surfaceContainerLow,
+                        border = BorderStroke(
+                            width = 0.9.dp,
+                            color = if (isSelected) colorScheme.primary.copy(alpha = 0.55f) else colorScheme.outlineVariant,
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("about_contributor_${contributor.login}"),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            ) {
+                                AboutContributorAvatar(contributor = contributor)
+
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    ) {
+                                        Text(
+                                            text = "@${contributor.login}",
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f, fill = false),
+                                        )
+                                        if (contributor.isLeadDev) {
+                                            AboutMetadataBadge(text = "Lead")
+                                        }
+                                    }
+                                    AboutMetadataBadge(text = "#$rank · $commitLabel")
+                                }
+
+                                Icon(
+                                    imageVector = if (isSelected) {
+                                        Icons.Rounded.KeyboardArrowUp
+                                    } else {
+                                        Icons.Rounded.KeyboardArrowDown
+                                    },
+                                    contentDescription = if (isSelected) "Collapse details" else "Expand details",
+                                    tint = colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+
+                            AnimatedVisibility(
+                                visible = isSelected,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    HorizontalDivider(
+                                        thickness = 0.6.dp,
+                                        color = colorScheme.outlineVariant.copy(alpha = 0.65f),
+                                    )
+                                    Text(
+                                        text = if (contributor.isLeadDev) {
+                                            "Lead Developer & Maintainer — Ranked #$rank on RoxyBasicNeedBot/Krypton-Player with $commitLabel."
+                                        } else {
+                                            "Community Contributor — Ranked #$rank on RoxyBasicNeedBot/Krypton-Player with $commitLabel."
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = colorScheme.onSurfaceVariant,
+                                    )
+                                    OutlinedButton(
+                                        onClick = {
+                                            uriHandler.openUriOrToast(contributor.profileUrl, context)
+                                        },
+                                        shape = RoundedCornerShape(12.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.OpenInBrowser,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Open GitHub Profile")
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AboutContributorAvatar(contributor: ContributorUiModel) {
+    val colorScheme = MaterialTheme.colorScheme
+    val initial = contributor.login.firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(colorScheme.surfaceContainerHigh)
+            .border(1.dp, colorScheme.outlineVariant, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = initial,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold,
+            color = colorScheme.onSurfaceVariant,
+        )
+        AsyncImage(
+            model = contributor.avatarUrl,
+            placeholder = if (contributor.isLeadDev) painterResource(id = R.drawable.dev_profile) else null,
+            error = if (contributor.isLeadDev) painterResource(id = R.drawable.dev_profile) else null,
+            contentDescription = "@${contributor.login}",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+        )
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DumpLogIssueSheetContent(
+    onClose: () -> Unit,
+) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val scope = rememberCoroutineScope()
+    val colorScheme = MaterialTheme.colorScheme
+
+    val categories = remember {
+        listOf(
+            "Playback Error",
+            "Crash",
+            "UI / Controls",
+            "Network / Stream",
+            "Audio / Subtitles",
+            "Other",
+        )
+    }
+    var selectedCategory by rememberSaveable { mutableStateOf(categories.first()) }
+    var issueTitle by rememberSaveable { mutableStateOf("[Bug] Playback / App Log Report") }
+    var notes by rememberSaveable { mutableStateOf("") }
+    var previewBundle by remember { mutableStateOf<DumpLogBundle?>(null) }
+    var isCollectingPreview by remember { mutableStateOf(true) }
+    var showLogPreview by rememberSaveable { mutableStateOf(false) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var submitResult by remember { mutableStateOf<DumpLogSubmitResult?>(null) }
+
+    LaunchedEffect(Unit) {
+        isCollectingPreview = true
+        try {
+            previewBundle = DumpLogIssueReporter.collectPreview(
+                context = context,
+                category = selectedCategory,
+                description = notes,
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            previewBundle = null
+        } finally {
+            isCollectingPreview = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .fillMaxHeight(0.90f)
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = colorScheme.surfaceContainerHigh,
+                    border = BorderStroke(0.8.dp, colorScheme.outlineVariant),
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.BugReport,
+                            contentDescription = null,
+                            tint = colorScheme.onSurface,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Column {
+                    Text(
+                        text = "Dump Log",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Sanitized diagnostics & GitHub issue report",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            IconButton(onClick = onClose) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_close),
+                    contentDescription = "Close",
+                    tint = colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        HorizontalDivider(
+            thickness = 0.6.dp,
+            color = colorScheme.outlineVariant.copy(alpha = 0.65f),
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            // Diagnostics & Logcat Capture Summary Card
+            Surface(
+                shape = RoundedCornerShape(18.dp),
+                color = colorScheme.surfaceContainerLow,
+                border = BorderStroke(0.9.dp, colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    if (isCollectingPreview) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Text(
+                                text = "Collecting sanitized device specs & logcat…",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    } else {
+                        val bundle = previewBundle
+                        if (bundle != null) {
+                            val specs = bundle.specs
+                            Text(
+                                text = "Captured Diagnostics",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = colorScheme.onSurface,
+                            )
+                            Text(
+                                text = "${specs.manufacturer} ${specs.model} · Android ${specs.androidVersion} (API ${specs.sdkInt})",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                            )
+                            FlowRow(
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                AboutMetadataBadge(text = "v${specs.versionName} (${specs.versionCode})")
+                                AboutMetadataBadge(text = "${bundle.logLineCount} logcat lines")
+                                specs.supportedAbis.firstOrNull()?.takeIf { it.isNotBlank() }?.let { abi ->
+                                    AboutMetadataBadge(text = abi.uppercase())
+                                }
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { showLogPreview = !showLogPreview }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = if (showLogPreview) "Hide Sanitized Log Preview" else "View Sanitized Log Preview",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = colorScheme.primary,
+                                )
+                                Icon(
+                                    imageVector = if (showLogPreview) {
+                                        Icons.Rounded.KeyboardArrowUp
+                                    } else {
+                                        Icons.Rounded.KeyboardArrowDown
+                                    },
+                                    contentDescription = null,
+                                    tint = colorScheme.primary,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+
+                            AnimatedVisibility(
+                                visible = showLogPreview,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut(),
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = colorScheme.surfaceContainerLowest,
+                                    border = BorderStroke(0.7.dp, colorScheme.outlineVariant),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 100.dp, max = 210.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(10.dp),
+                                    ) {
+                                        Text(
+                                            text = bundle.sanitizedLogcat.ifBlank {
+                                                "No sanitized logcat lines captured."
+                                            },
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 11.sp,
+                                                lineHeight = 15.sp,
+                                            ),
+                                            color = colorScheme.onSurface.copy(alpha = 0.88f),
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "Unable to preview logcat automatically; you can still submit or generate a diagnostics report.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Submission Outcome Banner
+            when (val result = submitResult) {
+                is DumpLogSubmitResult.IssueCreated -> {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = colorScheme.primaryContainer.copy(alpha = 0.45f),
+                        border = BorderStroke(1.dp, colorScheme.primary.copy(alpha = 0.6f)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dump_log_issue_created"),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Text(
+                                    text = "Issue #${result.issueNumber} created on GitHub!",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorScheme.onSurface,
+                                )
+                            }
+                            Text(
+                                text = result.issueUrl,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        copyToClipboard(
+                                            context = context,
+                                            label = "GitHub Issue URL",
+                                            text = result.issueUrl,
+                                            toastMessage = "Issue link copied",
+                                        )
+                                    },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ContentCopy,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Copy Link", maxLines = 1)
+                                }
+                                Button(
+                                    onClick = { uriHandler.openUriOrToast(result.issueUrl, context) },
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.weight(1.25f),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.OpenInBrowser,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Open Issue #${result.issueNumber}", maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                is DumpLogSubmitResult.FallbackReady -> {
+                    Surface(
+                        shape = RoundedCornerShape(18.dp),
+                        color = colorScheme.surfaceContainerHigh,
+                        border = BorderStroke(1.dp, colorScheme.outline),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("dump_log_fallback_ready"),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Info,
+                                    contentDescription = null,
+                                    tint = colorScheme.primary,
+                                    modifier = Modifier.size(20.dp),
+                                )
+                                Text(
+                                    text = "Manual GitHub Issue Ready",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colorScheme.onSurface,
+                                )
+                            }
+                            Text(
+                                text = result.reason,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = colorScheme.onSurfaceVariant,
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    copyToClipboard(
+                                        context = context,
+                                        label = "Krypton Player Sanitized Report",
+                                        text = result.markdownReport,
+                                        toastMessage = "Sanitized report copied to clipboard",
+                                    )
+                                },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.ContentCopy,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Copy Sanitized Report")
+                            }
+                            Button(
+                                onClick = { uriHandler.openUriOrToast(result.prefilledIssueUrl, context) },
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.OpenInBrowser,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Open Pre-filled GitHub Issue")
+                            }
+                        }
+                    }
+                }
+
+                null -> Unit
+            }
+
+            // Issue Title Input
+            OutlinedTextField(
+                value = issueTitle,
+                onValueChange = { issueTitle = it },
+                label = { Text("Issue Title") },
+                singleLine = true,
+                enabled = !isSubmitting,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("dump_log_title_input"),
+            )
+
+            // Category Selector Chips
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Category",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = colorScheme.onSurface,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    categories.forEach { category ->
+                        val selected = selectedCategory == category
+                        FilterChip(
+                            selected = selected,
+                            onClick = { selectedCategory = category },
+                            enabled = !isSubmitting,
+                            label = {
+                                Text(
+                                    text = category,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = colorScheme.primary,
+                                selectedLabelColor = colorScheme.onPrimary,
+                            ),
+                        )
+                    }
+                }
+            }
+
+            // Optional Notes / Steps Input
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                label = { Text("Notes / Steps to Reproduce (Optional)") },
+                placeholder = { Text("Describe what happened, file format, or steps to reproduce…") },
+                minLines = 3,
+                maxLines = 5,
+                enabled = !isSubmitting,
+                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("dump_log_notes_input"),
+            )
+        }
+
+        HorizontalDivider(
+            thickness = 0.6.dp,
+            color = colorScheme.outlineVariant.copy(alpha = 0.65f),
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            OutlinedButton(
+                onClick = {
+                    scope.launch {
+                        val bundle = runCatching {
+                            DumpLogIssueReporter.collectPreview(
+                                context = context,
+                                category = selectedCategory,
+                                description = notes,
+                            )
+                        }.onFailure { if (it is CancellationException) throw it }.getOrNull() ?: previewBundle
+
+                        if (bundle != null) {
+                            previewBundle = bundle
+                            copyToClipboard(
+                                context = context,
+                                label = "Krypton Player Dump Log",
+                                text = bundle.fullPlainTextDump,
+                                toastMessage = "Sanitized dump log copied to clipboard",
+                            )
+                        } else {
+                            Toast.makeText(context, "Unable to collect dump log", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                },
+                enabled = !isCollectingPreview && !isSubmitting,
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                modifier = Modifier
+                    .weight(0.85f)
+                    .height(46.dp)
+                    .testTag("dump_log_copy_button"),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.ContentCopy,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Copy Dump",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+
+            Button(
+                onClick = {
+                    scope.launch {
+                        isSubmitting = true
+                        try {
+                            submitResult = DumpLogIssueReporter.submitDumpLogIssue(
+                                context = context,
+                                title = issueTitle,
+                                category = selectedCategory,
+                                description = notes,
+                            )
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Toast.makeText(
+                                context,
+                                "Unable to submit issue: ${e.message ?: "Unknown error"}",
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        } finally {
+                            isSubmitting = false
+                        }
+                    }
+                },
+                enabled = !isSubmitting && issueTitle.isNotBlank(),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorScheme.primary,
+                    contentColor = colorScheme.onPrimary,
+                ),
+                modifier = Modifier
+                    .weight(1.35f)
+                    .height(46.dp)
+                    .testTag("dump_log_submit_button"),
+            ) {
+                if (isSubmitting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = colorScheme.onPrimary,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Submitting…", fontWeight = FontWeight.Bold, maxLines = 1)
+                } else {
+                    Icon(
+                        imageVector = Icons.Rounded.BugReport,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Submit GitHub Issue",
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun copyToClipboard(
+    context: Context,
+    label: String,
+    text: String,
+    toastMessage: String,
+) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+    if (clipboard != null) {
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+        Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
     }
 }
 

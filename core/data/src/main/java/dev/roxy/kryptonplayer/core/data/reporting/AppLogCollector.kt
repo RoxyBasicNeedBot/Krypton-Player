@@ -35,6 +35,12 @@ data class DeviceSpecs(
  */
 object AppLogCollector {
 
+    private const val MAX_GITHUB_MARKDOWN_CHARS = 55_000
+    private const val MAX_DESCRIPTION_CHARS = 8_000
+    private const val MAX_DIAGNOSTICS_CHARS = 10_000
+    private const val MAX_BREADCRUMBS_CHARS = 10_000
+    private const val LOGCAT_TRUNCATION_BANNER = "... [older log lines truncated to stay within GitHub issue body limit] ..."
+
     fun collectDeviceSpecs(context: Context): DeviceSpecs {
         val pm = context.packageManager
         val pkgName = context.packageName
@@ -117,7 +123,6 @@ object AppLogCollector {
      * Generates a fully formatted GitHub Issue Markdown body compliant with project specs.
      *
      * @param context Android context
-     * @param issueTitle Summary / headline of the issue
      * @param issueCategory Classification (Playback Error, Crash, UI/Controls, Network, Audio/Subtitle, Other)
      * @param userDescription User-provided description or steps to reproduce
      * @param fullLogcatText Sanitized logcat content to place in the collapsible section
@@ -129,33 +134,39 @@ object AppLogCollector {
         fullLogcatText: String = "",
     ): String {
         val specs = collectDeviceSpecs(context)
-        val mediaDiagnostics = MediaDiagnosticsTracker.formatDiagnosticsMarkdown()
-        val breadcrumbs = CrashBreadcrumbs.dump().trim()
+        val sanitizedCategory = LogSanitizer.sanitize(issueCategory).trim().ifBlank { "Bug Report" }
+        val sanitizedDescription = LogSanitizer.sanitizeAll(userDescription).trim()
+            .let { if (it.length > MAX_DESCRIPTION_CHARS) it.take(MAX_DESCRIPTION_CHARS) + "\n...(description truncated)" else it }
+        val sanitizedDiagnostics = LogSanitizer.sanitizeAll(MediaDiagnosticsTracker.formatDiagnosticsMarkdown()).trim()
+            .let { if (it.length > MAX_DIAGNOSTICS_CHARS) truncateTrailingLines(it, MAX_DIAGNOSTICS_CHARS) else it }
+        val sanitizedBreadcrumbs = LogSanitizer.sanitizeAll(CrashBreadcrumbs.dump()).trim()
+            .let { if (it.length > MAX_BREADCRUMBS_CHARS) truncateTrailingLines(it, MAX_BREADCRUMBS_CHARS) else it }
+        val sanitizedLogcat = LogSanitizer.sanitizeAll(fullLogcatText).trim()
 
-        return buildString {
+        val prefix = buildString {
             appendLine("### Device & App Specs")
             appendLine(formatDeviceSpecsMarkdown(specs))
             appendLine()
 
             appendLine("### Failure Reason / Issue Summary")
-            appendLine("- **Category**: $issueCategory")
-            if (userDescription.isNotBlank()) {
-                appendLine("- **Description**: $userDescription")
+            appendLine("- **Category**: $sanitizedCategory")
+            if (sanitizedDescription.isNotBlank()) {
+                appendLine("- **Description**: $sanitizedDescription")
             } else {
                 appendLine("- **Description**: Please describe what happened and steps to reproduce.")
             }
             appendLine()
 
             appendLine("### Media Engine Diagnostics")
-            appendLine(mediaDiagnostics)
+            appendLine(sanitizedDiagnostics)
             appendLine()
 
-            if (breadcrumbs.isNotBlank() && breadcrumbs != "No recent actions recorded.") {
+            if (sanitizedBreadcrumbs.isNotBlank() && sanitizedBreadcrumbs != "No recent actions recorded.") {
                 appendLine("### Recent User Breadcrumbs")
                 appendLine("<details><summary>Click to view Breadcrumbs</summary>")
                 appendLine()
                 appendLine("```text")
-                appendLine(breadcrumbs)
+                appendLine(sanitizedBreadcrumbs)
                 appendLine("```")
                 appendLine("</details>")
                 appendLine()
@@ -165,14 +176,54 @@ object AppLogCollector {
             appendLine("<details><summary>Click to view Dump Log</summary>")
             appendLine()
             appendLine("```text")
-            if (fullLogcatText.isNotBlank()) {
-                appendLine(fullLogcatText.trim())
-            } else {
-                appendLine("<!-- Full dump log copied to your clipboard. Paste here if needed. -->")
-            }
-            appendLine("```")
-            appendLine("</details>")
         }
+
+        val suffix = "\n```\n</details>\n"
+        val logBudget = (MAX_GITHUB_MARKDOWN_CHARS - prefix.length - suffix.length).coerceAtLeast(0)
+
+        val logContent = if (sanitizedLogcat.isNotBlank()) {
+            truncateTrailingLines(sanitizedLogcat, logBudget)
+        } else {
+            "<!-- Full dump log copied to your clipboard. Paste here if needed. -->"
+        }
+
+        val result = prefix + logContent + suffix
+        return if (result.length <= MAX_GITHUB_MARKDOWN_CHARS) {
+            result
+        } else {
+            val safeBodyLimit = (MAX_GITHUB_MARKDOWN_CHARS - suffix.length).coerceAtLeast(0)
+            prefix.take(safeBodyLimit) + suffix
+        }
+    }
+
+    private fun truncateTrailingLines(text: String, maxChars: Int): String {
+        if (text.length <= maxChars) return text
+        if (maxChars <= 0) return ""
+        val bannerWithNewline = "$LOGCAT_TRUNCATION_BANNER\n"
+        if (maxChars <= bannerWithNewline.length) {
+            return text.takeLast(maxChars)
+        }
+
+        val budget = maxChars - bannerWithNewline.length
+        val lines = text.lines()
+        val selected = ArrayList<String>()
+        var usedChars = 0
+
+        for (i in lines.lastIndex downTo 0) {
+            val line = lines[i]
+            val addition = if (selected.isEmpty()) line.length else line.length + 1
+            if (usedChars + addition > budget) {
+                break
+            }
+            selected.add(line)
+            usedChars += addition
+        }
+
+        if (selected.isEmpty() && lines.isNotEmpty()) {
+            return bannerWithNewline + lines.last().takeLast(budget)
+        }
+
+        return bannerWithNewline + selected.asReversed().joinToString("\n")
     }
 
     /**
@@ -185,16 +236,48 @@ object AppLogCollector {
     ): String {
         val specs = collectDeviceSpecs(context)
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-        val breadcrumbs = CrashBreadcrumbs.dump()
+        val sanitizedSummary = LogSanitizer.sanitizeAll(issueSummary).trim()
+        val sanitizedBreadcrumbs = LogSanitizer.sanitizeAll(CrashBreadcrumbs.dump()).trim()
         val mediaDiag = MediaDiagnosticsTracker.getDiagnostics()
+
+        val sanitizedMediaSection = LogSanitizer.sanitizeAll(
+            buildString {
+                appendLine("Active Media: ${mediaDiag.title}")
+                appendLine("URI: ${mediaDiag.uriString}")
+                appendLine("URI Scheme: ${mediaDiag.uriScheme}")
+                appendLine("Is Local Source: ${mediaDiag.isLocalSource}")
+                appendLine("Local File Size: ${mediaDiag.localFileSizeFormatted}")
+                appendLine("MIME Type: ${mediaDiag.mimeType}")
+                appendLine("Playback State: ${mediaDiag.playbackState} (isPlaying=${mediaDiag.isPlaying})")
+                appendLine("Position / Duration: ${mediaDiag.positionMs / 1000}s / ${mediaDiag.durationMs / 1000}s")
+                appendLine("Video Decoder: ${mediaDiag.videoCodec} (${mediaDiag.videoResolution} @ ${mediaDiag.frameRate}fps)")
+                appendLine("Audio Output: ${mediaDiag.audioCodec} (${mediaDiag.audioChannels} channels, ${mediaDiag.audioSampleRate}Hz)")
+                if (mediaDiag.lastErrorCodeName.isNotBlank() || mediaDiag.lastErrorMessage.isNotBlank()) {
+                    appendLine("Last Error Code: ${mediaDiag.lastErrorCodeName} (${mediaDiag.lastErrorCode})")
+                    appendLine("Last Error Message: ${mediaDiag.lastErrorMessage}")
+                    appendLine("HTTP Response Code: ${mediaDiag.httpResponseCode}")
+                    appendLine("Root Cause: ${mediaDiag.lastErrorCause}")
+                }
+                if (mediaDiag.recentEvents.isNotEmpty()) {
+                    appendLine("Media Events Timeline:")
+                    mediaDiag.recentEvents.forEach { appendLine("  $it") }
+                }
+            }.trimEnd()
+        )
+
+        val sanitizedLogcatBlock = if (logcatLines.isNotEmpty()) {
+            LogSanitizer.sanitizeAll(logcatLines.joinToString("\n") { it.raw })
+        } else {
+            "(Logcat empty or not requested)"
+        }
 
         return buildString {
             appendLine("=================================================================")
             appendLine("             KRYPTON PLAYER COMPREHENSIVE DUMP LOG               ")
             appendLine("=================================================================")
             appendLine("Generated At: $timestamp")
-            if (issueSummary.isNotBlank()) {
-                appendLine("Issue Summary: $issueSummary")
+            if (sanitizedSummary.isNotBlank()) {
+                appendLine("Issue Summary: $sanitizedSummary")
             }
             appendLine()
 
@@ -210,40 +293,15 @@ object AppLogCollector {
             appendLine()
 
             appendLine("------------------- MEDIA ENGINE DIAGNOSTICS --------------------")
-            appendLine("Active Media: ${mediaDiag.title}")
-            appendLine("URI: ${mediaDiag.uriString}")
-            appendLine("URI Scheme: ${mediaDiag.uriScheme}")
-            appendLine("Is Local Source: ${mediaDiag.isLocalSource}")
-            appendLine("Local File Size: ${mediaDiag.localFileSizeFormatted}")
-            appendLine("MIME Type: ${mediaDiag.mimeType}")
-            appendLine("Playback State: ${mediaDiag.playbackState} (isPlaying=${mediaDiag.isPlaying})")
-            appendLine("Position / Duration: ${mediaDiag.positionMs / 1000}s / ${mediaDiag.durationMs / 1000}s")
-            appendLine("Video Decoder: ${mediaDiag.videoCodec} (${mediaDiag.videoResolution} @ ${mediaDiag.frameRate}fps)")
-            appendLine("Audio Output: ${mediaDiag.audioCodec} (${mediaDiag.audioChannels} channels, ${mediaDiag.audioSampleRate}Hz)")
-            if (mediaDiag.lastErrorCodeName.isNotBlank() || mediaDiag.lastErrorMessage.isNotBlank()) {
-                appendLine("Last Error Code: ${mediaDiag.lastErrorCodeName} (${mediaDiag.lastErrorCode})")
-                appendLine("Last Error Message: ${mediaDiag.lastErrorMessage}")
-                appendLine("HTTP Response Code: ${mediaDiag.httpResponseCode}")
-                appendLine("Root Cause: ${mediaDiag.lastErrorCause}")
-            }
-            if (mediaDiag.recentEvents.isNotEmpty()) {
-                appendLine("Media Events Timeline:")
-                mediaDiag.recentEvents.forEach { appendLine("  $it") }
-            }
+            appendLine(sanitizedMediaSection)
             appendLine()
 
             appendLine("------------------- RECENT USER BREADCRUMBS --------------------")
-            appendLine(breadcrumbs.trim())
+            appendLine(sanitizedBreadcrumbs)
             appendLine()
 
             appendLine("------------------- SANITIZED SYSTEM LOGCAT ---------------------")
-            if (logcatLines.isNotEmpty()) {
-                for (entry in logcatLines) {
-                    appendLine(entry.raw)
-                }
-            } else {
-                appendLine("(Logcat empty or not requested)")
-            }
+            appendLine(sanitizedLogcatBlock)
             appendLine("====================== END OF DUMP LOG ==========================")
         }
     }
